@@ -15,6 +15,7 @@ const CacheService = require('./src/services/CacheService');
 const StreamService = require('./src/services/StreamService');
 const ChatService = require('./src/services/ChatService');
 const AuthMiddleWare = require('./src/middleware/middleware.auth');
+const { specs, swaggerUi } = require('./swagger');
 
 //metrics - later
 
@@ -39,7 +40,7 @@ const app = express();
 const server = http.createServer(app);
 const io = socketIo(server, {
     cors: {
-        origin: process.env.CLIENT_URL || "http://localhost:3000",
+        origin: true,
         methods: ['GET', 'POST']
     },
     transports: ['websocket', 'polling'],
@@ -48,28 +49,15 @@ const io = socketIo(server, {
 })
 
 
-app.use(helmet({
-    contentSecurityPolicy: {
-        directives: {
-            defaultSrc: ["'self'"],
-            scriptSrc: ["'self'", "'unsafe-inline'"],
-            styleSrc: ["'self'", "'unsafe-inline'"],
-            imgSrc: ["'self'", "data:", "https:"],
-            connectSrc: ["'self'", "wss:", "ws:"],
-            fontSrc: ["'self'"],
-            objectSrc: ["'none'"],
-            mediaSrc: ["'self'"],
-            frameSrc: ["'none'"]
-        }
-    }
-}));
-
-app.use(cors({
-    origin: process.env.CLIENT_URL || "http://localhost:3000",
-    credentials: true
-}))
+if (process.env.NODE_ENV !== 'test') {
+    app.use(helmet());
+}
+app.use(cors());
 
 app.use(express.json({ limit: "10mb" }));
+
+// Serve test frontend
+app.use('/test', express.static('test-frontend'));
 
 // Rate Limiter
 const generateLimiter = rateLimit({
@@ -78,15 +66,47 @@ const generateLimiter = rateLimit({
     message: "Too many requests from this ip"
 })
 
-const authLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000,
-    max: 5,
-    message: "Too much authentication requests"
-})
+// Temporarily disable rate limiting for testing
+// const authLimiter = rateLimit({
+//     windowMs: 15 * 60 * 1000,
+//     max: 5,
+//     message: "Too much authentication requests"
+// })
 
-app.use('/api', generateLimiter);
-app.use('/api/auth', authLimiter);
+// app.use('/api', generateLimiter);
+// app.use('/api/auth', authLimiter);
 
+// Swagger Documentation
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs, {
+    explorer: true,
+    customCss: '.swagger-ui .topbar { display: none }',
+    customSiteTitle: 'ILS API Documentation'
+}));
+
+/**
+ * @swagger
+ * /health:
+ *   get:
+ *     summary: Health check endpoint
+ *     tags: [Health]
+ *     responses:
+ *       200:
+ *         description: Server is healthy
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: ok
+ *                 timestamp:
+ *                   type: string
+ *                   format: date-time
+ *                 uptime:
+ *                   type: number
+ *                   example: 3600
+ */
 app.get('/health', (req, res) => {
     res.json({
         status: 'ok',
@@ -113,15 +133,22 @@ async function initializeServices() {
         mediaService = new MediaService(logger);
         await mediaService.initialize();
 
+        // Temporarily disabled for streaming testing
         messageQueue = new MessageQueue(logger);
-        await messageQueue.connect();
+        // await messageQueue.connect();
 
         cacheService = new CacheService(logger);
-        await cacheService.connect();
+        // await cacheService.connect();
 
         // metricsService = new MetricsService();
         streamService = new StreamService(mediaService, messageQueue, cacheService, logger);
         chatService = new ChatService(messageQueue, cacheService, logger);
+        
+        // Register routes after services are initialized
+        app.use('/api/auth', require('./src/routes/routes.auth')(logger));
+        app.use('/api/streams', AuthMiddleWare.authenticate, require('./src/routes/routes.stream')(streamService, logger));
+        app.use('/api/chat', AuthMiddleWare.authenticate, require('./src/routes/routes.chat')(chatService, logger));
+        
         logger.info('All services initialized successfully');
 
     } catch (error) {
@@ -130,10 +157,7 @@ async function initializeServices() {
     }
 }
 
-// Routes
-app.use('/api/auth', require('./src/routes/routes.auth')(logger));
-app.use('/api/streams', AuthMiddleWare.authenticate, require('./src/routes/routes.stream')(streamService, logger));
-app.use('/api/chat', AuthMiddleWare.authenticate, require('./src/routes/routes.chat')(chatService, logger));
+// Routes will be registered after services are initialized
 
 // Socket.io handling
 io.use(AuthMiddleWare.socketAuth);
@@ -180,6 +204,31 @@ io.on('connection', (socket) => {
 
             const streamData = await streamService.joinStream(socket.userId, data.streamId);
             socket.join(`room:${data.streamId}`);
+
+            // Get existing producers in the room and notify the new viewer
+            const existingProducers = [];
+            const room = mediaService.rooms.get(data.streamId);
+            if (room) {
+                for (const [participantId, participant] of room.participants) {
+                    if (participantId !== socket.userId) {
+                        for (const [producerId, producer] of participant.producers) {
+                            existingProducers.push({
+                                id: producer.id,
+                                kind: producer.kind,
+                                userId: participantId
+                            });
+                            logger.info(`Found existing producer ${producer.id} (${producer.kind}) from ${participantId}`);
+                        }
+                    }
+                }
+            }
+            
+            if (existingProducers.length > 0) {
+                socket.emit('existing-producers', existingProducers);
+                logger.info(`Sent ${existingProducers.length} existing producers to ${socket.userId}`);
+            } else {
+                logger.info(`No existing producers found for room ${data.streamId}`);
+            }
 
             socket.to(`room:${data.streamId}`).emit('viewer-joined', {
                 userId: socket.userId,
@@ -300,10 +349,35 @@ io.on('connection', (socket) => {
     socket.on('resume-consumer', async (data, callback) => {
         try {
             await streamService.resumeConsumer(data.roomId, socket.userId, data.consumerId);
-            callback({ success: true })
+            if (callback) callback({ success: true })
         } catch (error) {
             logger.error('Resume consumer error', error)
-            callback({ error: error.message })
+            if (callback) callback({ error: error.message })
+        }
+    })
+
+    socket.on('get-producers', async (data, callback) => {
+        try {
+            const producers = [];
+            const room = mediaService.rooms.get(data.roomId);
+            if (room) {
+                for (const [participantId, participant] of room.participants) {
+                    if (participantId !== socket.userId) {
+                        for (const [producerId, producer] of participant.producers) {
+                            producers.push({
+                                id: producer.id,
+                                kind: producer.kind,
+                                userId: participantId
+                            });
+                        }
+                    }
+                }
+            }
+            logger.info(`Found ${producers.length} existing producers for room ${data.roomId}`);
+            callback(producers);
+        } catch (error) {
+            logger.error('Get producers error', error);
+            callback([]);
         }
     })
 
@@ -371,8 +445,8 @@ process.on('SIGINT', async () => {
 
     // Close services
     await mediaService?.cleanup();
-    await messageQueue?.close();
-    await cacheService?.disconnect();
+    // await messageQueue?.close();
+    // await cacheService?.disconnect();
     await mongoose.disconnect();
 
     server.close(() => {

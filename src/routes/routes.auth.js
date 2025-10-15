@@ -35,7 +35,64 @@ module.exports = (logger) => {
     ];
 
 
-    router.post('/register', authLimiter, registerValidation, async (req, res) => {
+    /**
+     * @swagger
+     * /api/auth/register:
+     *   post:
+     *     summary: Register a new user
+     *     tags: [Authentication]
+     *     security: []
+     *     requestBody:
+     *       required: true
+     *       content:
+     *         application/json:
+     *           schema:
+     *             type: object
+     *             required:
+     *               - username
+     *               - email
+     *               - password
+     *             properties:
+     *               username:
+     *                 type: string
+     *                 minLength: 3
+     *                 maxLength: 30
+     *                 example: johndoe
+     *               email:
+     *                 type: string
+     *                 format: email
+     *                 example: john@example.com
+     *               password:
+     *                 type: string
+     *                 minLength: 6
+     *                 example: password123
+     *               displayName:
+     *                 type: string
+     *                 example: John Doe
+     *     responses:
+     *       201:
+     *         description: User registered successfully
+     *         content:
+     *           application/json:
+     *             schema:
+     *               type: object
+     *               properties:
+     *                 success:
+     *                   type: boolean
+     *                 message:
+     *                   type: string
+     *                 user:
+     *                   $ref: '#/components/schemas/User'
+     *                 token:
+     *                   type: string
+     *       400:
+     *         description: Validation error or user already exists
+     *         content:
+     *           application/json:
+     *             schema:
+     *               $ref: '#/components/schemas/Error'
+     */
+    router.post('/register', registerValidation, async (req, res) => {
         try {
             const errors = validationResult(req);
             if (!errors.isEmpty()) {
@@ -82,7 +139,54 @@ module.exports = (logger) => {
         }
     })
 
-    router.post('/login', authLimiter, loginValidation, async (req, res) => {
+    /**
+     * @swagger
+     * /api/auth/login:
+     *   post:
+     *     summary: Login user
+     *     tags: [Authentication]
+     *     security: []
+     *     requestBody:
+     *       required: true
+     *       content:
+     *         application/json:
+     *           schema:
+     *             type: object
+     *             required:
+     *               - email
+     *               - password
+     *             properties:
+     *               email:
+     *                 type: string
+     *                 format: email
+     *                 example: john@example.com
+     *               password:
+     *                 type: string
+     *                 example: password123
+     *     responses:
+     *       200:
+     *         description: Login successful
+     *         content:
+     *           application/json:
+     *             schema:
+     *               type: object
+     *               properties:
+     *                 success:
+     *                   type: boolean
+     *                 message:
+     *                   type: string
+     *                 user:
+     *                   $ref: '#/components/schemas/User'
+     *                 token:
+     *                   type: string
+     *       401:
+     *         description: Invalid credentials
+     *         content:
+     *           application/json:
+     *             schema:
+     *               $ref: '#/components/schemas/Error'
+     */
+    router.post('/login', loginValidation, async (req, res) => {
         try {
             const errors = validationResult(req);
             if (!errors.isEmpty()) {
