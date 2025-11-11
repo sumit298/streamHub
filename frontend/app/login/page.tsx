@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import Link from "next/link";
 import { useState } from "react";
-import z from "zod";
+import {z} from "zod";
 
 const loginSchema = z.object({
     email: z

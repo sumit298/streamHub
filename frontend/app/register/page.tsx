@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import Link from "next/link";
 import { useState } from "react";
-import z from "zod";
+import {z} from "zod";
 
 const registerSchema = z
     .object({
@@ -189,6 +189,7 @@ const Register = () => {
                             value={registerData.confirmPassword}
                         />
                         <button className="absolute right-3 top-3 -mt-1 text-muted-foreground hover:text-foreground transition-colors"
+                        type="button"
                             onClick={() => setShowConfirmPassword(!showConfirmPassword)}>
                             {showConfirmPassword ? (
                                 <EyeOff className="h-5 w-5" />
