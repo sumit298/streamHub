@@ -39,8 +39,8 @@ export const CreateStreamDialog = ({ open, onOpenChange }: CreateStreamDialogPro
     //   const { toast } = useToast();
 
     // call authcontext
-    const { user } = useAuth();
-    console.log(user)
+    // const { user } = useAuth();
+    // console.log(user)
 
     const handleCreateStream = async () => {
         if (!title.trim()) {
@@ -77,26 +77,26 @@ export const CreateStreamDialog = ({ open, onOpenChange }: CreateStreamDialogPro
             const result = await response.json();
             console.log(result);
             if(response.ok){
+                setTitle("");
+                setCategory("")
+                setDescription("")
+                setThumbnail("")
+                setTags("")
+                onOpenChange(false);
                 router.push(`/stream/${result.stream.id}`);
+            }
+            else {
+                toast.error(result.error || "Failed to create stream");
             }
         
 
             
         } catch (error) {
-            
+            console.error("Create stream error:", error);
+            toast.error("Failed to create stream");
         }
 
-        console.log("Stream data:", streamData);
-
         toast.success(`Stream "${title}" created successfully!`);
-
-        // Reset form and close dialog
-        setTitle("");
-        setCategory("");
-        setDescription("");
-        setThumbnail("");
-        setTags("");
-        onOpenChange(false);
     };
 
 

@@ -227,20 +227,20 @@ class StreamService {
             let stream = null;
             let finalStats = { maxViewers: 0, views: 0, chatMessages: 0 };
 
-            // Get stream from cache or database
-            if (this.cacheService) {
-                stream = await this.cacheService.getStream(streamId);
-                finalStats = await this.cacheService.getStreamStats(streamId);
-            }
+            // // Get stream from cache or database
+            // if (this.cacheService) {
+            //     stream = await this.cacheService.getStream(streamId);
+            //     finalStats = await this.cacheService.getStreamStats(streamId);
+            // }
 
-            if (!stream) {
+            // if (!stream) {
                 const streamDoc = await Stream.findOne({ id: streamId });
                 if (streamDoc) {
                     stream = streamDoc.toObject();
                 } else {
                     throw new Error('Stream not found');
                 }
-            }
+            // }
 
             await this.mediaService.closeParticipant(streamId, userId);
 
@@ -253,9 +253,9 @@ class StreamService {
                 totalChatMessages: finalStats.chatMessages || 0
             }
 
-            if (this.cacheService) {
-                await this.cacheService.updateStream(streamId, streamUpdate);
-            }
+            // if (this.cacheService) {
+            //     await this.cacheService.updateStream(streamId, streamUpdate);
+            // }
 
             // update database
             try {
@@ -425,7 +425,7 @@ class StreamService {
 
     async updateStream(streamId, updateData) {
         try {
-            await this.cacheService.updateStream(streamId, updateData);
+            // await this.cacheService.updateStream(streamId, updateData);
             await Stream.updateOne({ id: streamId }, updateData);
             return await this.getStreamInfo(streamId);
         } catch (error) {

@@ -8,6 +8,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { z } from "zod";
 import { useRouter } from "next/navigation";
+import toast from "react-hot-toast";
 
 const loginSchema = z.object({
   email: z
@@ -68,6 +69,7 @@ const Login = () => {
       } else {
         if (result.errors) {
           setErrors(result.errors);
+          toast.error(result.error)
         }
       }
 

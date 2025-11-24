@@ -54,7 +54,10 @@ class AuthMiddleWare {
 
     static socketAuth(socket, next) {
         try {
-            const token = socket.handshake.auth.token;
+            const token = socket.request.headers.cookie
+            ?.split(';')
+            .find(c => c.trim().startsWith('token='))
+            ?.split('=')[1];
 
             if (!token) {
                 return next(new Error('Authentication error: No token provided.'));
