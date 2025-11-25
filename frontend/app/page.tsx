@@ -31,7 +31,7 @@ export default function Home() {
                 className="text-lg px-6 py-5"
                 asChild
               >
-                <Link href="/register">
+                <Link href="/signup">
                   Get Started Free
                   <Play className="ml-2 h-5 w-5" />
                 </Link>

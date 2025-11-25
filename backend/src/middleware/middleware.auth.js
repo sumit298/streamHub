@@ -5,10 +5,12 @@ class AuthMiddleWare {
     static async authenticate(req, res, next) {
         try {
             const authHeader = req.headers.authorization;
-            const cookieToken = req.cookies.token;
 
-            // Try cookie first (more secure), then header (fallback)
-            const token = cookieToken || (authHeader && authHeader.replace('Bearer ', ''));
+            if (!authHeader) {
+                return res.status(401).json({ message: 'Access denied, No token provided.' });
+            }
+
+            const token = authHeader.replace('Bearer ', '');
 
             if (!token) {
                 return res.status(401).json({ message: 'Access denied, Invalid token format.' });
@@ -54,34 +56,21 @@ class AuthMiddleWare {
 
     static socketAuth(socket, next) {
         try {
-            const token = socket.request.headers.cookie
-            ?.split(';')
-            .find(c => c.trim().startsWith('token='))
-            ?.split('=')[1];
+            const token = socket.handshake.auth.token;
 
-            // Allow anonymous viewers (no token)
             if (!token) {
-                socket.userId = null; // Anonymous viewer
-                socket.user = { id: null, role: 'viewer' };
-                return next();
+                return next(new Error('Authentication error: No token provided.'));
             }
 
-            // If token exists, verify it
             jwt.verify(token, process.env.JWT_SECRET || 'fallback-secret', async (err, decoded) => {
                 if (err) {
-                    // Invalid token, treat as anonymous
-                    socket.userId = null;
-                    socket.user = { id: null, role: 'viewer' };
-                    return next();
+                    return next(new Error('Authentication error: Invalid token.'));
                 }
 
                 try {
                     const user = await User.findById(decoded.userId);
                     if (!user || !user.isActive) {
-                        // User not found, treat as anonymous
-                        socket.userId = null;
-                        socket.user = { id: null, role: 'viewer' };
-                        return next();
+                        return next(new Error('Authentication error: User not found or inactive.'));
                     }
 
                     socket.userId = decoded.userId;
@@ -95,18 +84,12 @@ class AuthMiddleWare {
                     next();
                 } catch (dbError) {
                     console.error('Socket auth database error:', dbError);
-                    // On error, allow as anonymous
-                    socket.userId = null;
-                    socket.user = { id: null, role: 'viewer' };
-                    next();
+                    next(new Error('Authentication error: Database error'));
                 }
             })
         } catch (error) {
             console.error('Socket authentication error:', error);
-            // On error, allow as anonymous
-            socket.userId = null;
-            socket.user = { id: null, role: 'viewer' };
-            next();
+            next(new Error('Authentication error'));
         }
     }
 

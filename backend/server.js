@@ -7,7 +7,6 @@ const rateLimit = require('express-rate-limit');
 const mongoose = require('mongoose')
 const winston = require('winston');
 const prometheus = require('prom-client');
-const morgan = require('morgan')
 
 const MediaService = require('./src/services/MediaService');
 const MessageQueue = require('./src/services/MessageQueue');
@@ -16,7 +15,6 @@ const StreamService = require('./src/services/StreamService');
 const ChatService = require('./src/services/ChatService');
 const AuthMiddleWare = require('./src/middleware/middleware.auth');
 const { specs, swaggerUi } = require('./swagger');
-const cookieParser = require('cookie-parser');
 
 //metrics - later
 
@@ -53,15 +51,9 @@ const io = socketIo(server, {
 if (process.env.NODE_ENV !== 'test') {
     app.use(helmet());
 }
+app.use(cors());
 
-app.use(cors({
-    origin: 'http://localhost:3000', // Your frontend URL //todo: remove this
-    credentials: true
-}));
-
-app.use(morgan("dev"))
 app.use(express.json({ limit: "10mb" }));
-app.use(cookieParser());
 
 // Serve test frontend
 app.use('/test', express.static('test-frontend'));
@@ -153,7 +145,7 @@ async function initializeServices() {
         
         // Register routes after services are initialized
         app.use('/api/auth', require('./src/routes/routes.auth')(logger));
-        app.use('/api/streams', require('./src/routes/routes.stream')(streamService, logger, AuthMiddleWare));
+        app.use('/api/streams', AuthMiddleWare.authenticate, require('./src/routes/routes.stream')(streamService, logger));
         app.use('/api/chat', AuthMiddleWare.authenticate, require('./src/routes/routes.chat')(chatService, logger));
         
         logger.info('All services initialized successfully');
@@ -237,20 +229,13 @@ io.on('connection', (socket) => {
                 logger.info(`No existing producers found for room ${data.streamId}`);
             }
 
-            // Get actual viewer count from socket room
-            const roomSockets = await io.in(`room:${data.streamId}`).fetchSockets();
-            const viewerCount = roomSockets.length;
-            
-            // Broadcast viewer count to all in room
-            io.to(`room:${data.streamId}`).emit('viewer-count', viewerCount);
-            
             socket.to(`room:${data.streamId}`).emit('viewer-joined', {
                 userId: socket.userId,
-                viewers: viewerCount
-            });
+                viewers: streamData.viewers
+            })
 
             socket.emit('stream-joined', streamData);
-            logger.info(`User ${socket.userId} joined stream ${data.streamId}, total viewers: ${viewerCount}`);
+            logger.info(`User ${socket.userId} joined stream ${data.streamId}`);
 
             if (callback) callback({ success: true, stream: streamData });
         } catch (error) {
@@ -427,12 +412,6 @@ io.on('connection', (socket) => {
                 const streamId = roomId.replace('room:', '');
                 try {
                     await streamService.handleUserDisconnect(streamId, socket.userId);
-                    
-                    // Update viewer count after disconnect
-                    const roomSockets = await io.in(roomId).fetchSockets();
-                    const viewerCount = roomSockets.length - 1; // -1 because this socket is still in room
-                    io.to(roomId).emit('viewer-count', Math.max(0, viewerCount));
-                    
                     socket.to(roomId).emit('viewer-left', {
                         userId: socket.userId
                     });
