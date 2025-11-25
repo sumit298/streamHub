@@ -2,9 +2,22 @@
 import { Sidebar } from "@/components/Sidebar"
 import { Navbar } from "@/components/ui/Navbar"
 import { useEffect, useState } from "react"
+import { useAuth, api } from "@/lib/AuthContext"
 
 const Dashboard = () => {
     const [streams, setStreams] = useState([]);
+    const { user, logout } = useAuth();
+
+    const handleLogout = async () => {
+        await logout();
+        window.location.href = '/login';
+    };
+
+    const testAuth = async () => {
+        console.log('Making test API call...');
+        const { data } = await api.get('/api/auth/me');
+        console.log('Response:', data);
+    };
 
     // const fetchStreams = async ()=> {
     //     try {
@@ -36,6 +49,20 @@ const Dashboard = () => {
                                     Discover amazing live streams, connect with creators, and join a
                                     vibrant community of viewers and streamers.
                                 </p>
+                                <div className="flex gap-4">
+                                    <button 
+                                        onClick={testAuth}
+                                        className="bg-white text-purple-600 px-6 py-3 rounded-lg font-semibold hover:bg-gray-100 transition"
+                                    >
+                                        Test Refresh Token
+                                    </button>
+                                    <button 
+                                        onClick={handleLogout}
+                                        className="bg-red-500 text-white px-6 py-3 rounded-lg font-semibold hover:bg-red-600 transition"
+                                    >
+                                        Logout
+                                    </button>
+                                </div>
                             </div>
                         </div>
 

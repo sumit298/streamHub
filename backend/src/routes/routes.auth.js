@@ -281,13 +281,20 @@ module.exports = (logger) => {
 
   router.post("/refresh-token", async (req, res) => {
     try {
-      const { token } = req.body;
+      const token = req.cookies.token;
 
       if (!token) {
-        return res.status(400).json({ error: "Token is required" });
+        return res.status(401).json({ error: "No token found" });
       }
 
       const newToken = AuthMiddleWare.refreshToken(token);
+
+      res.cookie("token", newToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "strict",
+        maxAge: 24 * 60 * 60 * 1000, // 1 day"
+      })
 
       res.json({
         success: true,
