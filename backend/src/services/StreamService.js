@@ -330,54 +330,32 @@ class StreamService {
 
     async getStreamInfo(streamId) {
         try {
-            let stream = await this.cacheService.getStream(streamId);
-
-            if (!stream) {
-                try {
-                    const streamDoc = await Stream.findOne({ id: streamId });
-                    if (streamDoc) {
-                        stream = streamDoc.toObject();
-                        await this.cacheService.updateStream(streamId, stream);
-                    }
-                } catch (dbError) {
-                    this.logger.warn('Database query failed:', dbError)
-                }
-            }
-
-            if (!stream) {
+            const streamDoc = await Stream.findOne({ id: streamId });
+            if (!streamDoc) {
                 return null;
             }
 
-            const stats = await this.cacheService.getStreamStats(streamId);
-            const mediaStats = await this.mediaService.getRoomStats(streamId);
-
-            return {
-                ...stream,
-                ...stats,
-                mediaStats
-            };
+            return streamDoc.toObject();
         } catch (error) {
             this.logger.error("Error getting stream info", error);
             throw error;
         }
     }
 
-    async getActiveStreams() {
+    async getActiveStreams(options = {}) {
         try {
-
-            // stuff of redis
-
-            const activeStreamIds = await this.cacheService.client.smembers('active:streams');
-            const streams = [];
-
-            for (const streamId of activeStreamIds) {
-                const streamInfo = await this.getStreamInfo(streamId);
-                if (streamInfo && streamInfo.isLive) {
-                    streams.push(streamInfo);
-                }
+            const query = {};
+            if (options.category) {
+                query.category = options.category;
             }
 
-            return streams.sort((a, b) => b.viewers - a.viewers);
+            const streams = await Stream.find(query)
+                .limit(options.limit || 20)
+                .skip(options.offset || 0)
+                .sort({ createdAt: -1 })
+                .lean();
+
+            return streams;
         } catch (error) {
             this.logger.error(`Error getting active streams:`, error);
             return []

@@ -6,6 +6,7 @@ import { useAuth, api } from "@/lib/AuthContext"
 
 const Dashboard = () => {
     const [streams, setStreams] = useState([]);
+    const [loading, setLoading] = useState(true);
     const { user, logout } = useAuth();
 
     const handleLogout = async () => {
@@ -19,19 +20,20 @@ const Dashboard = () => {
         console.log('Response:', data);
     };
 
-    // const fetchStreams = async ()=> {
-    //     try {
-    //         const response = await fetch("http://localhost:3001/api/streams")
-    //         console.log(response.json())
-            
-    //     } catch (error) {
-            
-    //     }
-    // }
+    const fetchStreams = async () => {
+        try {
+            const { data } = await api.get('/api/streams');
+            setStreams(data.streams || []);
+        } catch (error) {
+            console.error('Failed to fetch streams:', error);
+        } finally {
+            setLoading(false);
+        }
+    };
 
-    // useEffect(()=>{
-    //     fetchStreams()
-    // },[] )
+    useEffect(() => {
+        fetchStreams();
+    }, []);
     return (
         <div className="min-h-screen bg-background">
             <Navbar />
@@ -82,9 +84,31 @@ const Dashboard = () => {
                                 </a>
                             </div>
                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                                {/* {featuredStreams.map((stream) => (
-                  <StreamCard key={stream.id} {...stream} />
-                ))} */}
+                                {loading ? (
+                                    <p>Loading streams...</p>
+                                ) : streams.length > 0 ? (
+                                    streams.map((stream: any) => (
+                                        <div key={stream._id} className="bg-card rounded-lg overflow-hidden hover:scale-105 transition cursor-pointer">
+                                            <div className="aspect-video bg-black relative">
+                                                {stream.thumbnailUrl ? (
+                                                    <img src={stream.thumbnailUrl} alt={stream.title} className="w-full h-full object-cover" />
+                                                ) : (
+                                                    <div className="w-full h-full flex items-center justify-center text-gray-500">No Preview</div>
+                                                )}
+                                                {stream.isLive && (
+                                                    <span className="absolute top-2 left-2 bg-red-600 text-white px-2 py-1 text-xs rounded">🔴 LIVE</span>
+                                                )}
+                                            </div>
+                                            <div className="p-4">
+                                                <h3 className="font-semibold truncate">{stream.title}</h3>
+                                                <p className="text-sm text-gray-400">{stream.category}</p>
+                                                <p className="text-xs text-gray-500 mt-1">👁️ {stream.viewerCount || 0} viewers</p>
+                                            </div>
+                                        </div>
+                                    ))
+                                ) : (
+                                    <p className="text-gray-500">No streams yet. Create your first stream!</p>
+                                )}
                             </div>
                         </div>
 
