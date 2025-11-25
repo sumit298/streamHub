@@ -227,20 +227,20 @@ class StreamService {
             let stream = null;
             let finalStats = { maxViewers: 0, views: 0, chatMessages: 0 };
 
-            // Get stream from cache or database
-            if (this.cacheService) {
-                stream = await this.cacheService.getStream(streamId);
-                finalStats = await this.cacheService.getStreamStats(streamId);
-            }
+            // // Get stream from cache or database
+            // if (this.cacheService) {
+            //     stream = await this.cacheService.getStream(streamId);
+            //     finalStats = await this.cacheService.getStreamStats(streamId);
+            // }
 
-            if (!stream) {
+            // if (!stream) {
                 const streamDoc = await Stream.findOne({ id: streamId });
                 if (streamDoc) {
                     stream = streamDoc.toObject();
                 } else {
                     throw new Error('Stream not found');
                 }
-            }
+            // }
 
             await this.mediaService.closeParticipant(streamId, userId);
 
@@ -253,9 +253,9 @@ class StreamService {
                 totalChatMessages: finalStats.chatMessages || 0
             }
 
-            if (this.cacheService) {
-                await this.cacheService.updateStream(streamId, streamUpdate);
-            }
+            // if (this.cacheService) {
+            //     await this.cacheService.updateStream(streamId, streamUpdate);
+            // }
 
             // update database
             try {
@@ -330,54 +330,32 @@ class StreamService {
 
     async getStreamInfo(streamId) {
         try {
-            let stream = await this.cacheService.getStream(streamId);
-
-            if (!stream) {
-                try {
-                    const streamDoc = await Stream.findOne({ id: streamId });
-                    if (streamDoc) {
-                        stream = streamDoc.toObject();
-                        await this.cacheService.updateStream(streamId, stream);
-                    }
-                } catch (dbError) {
-                    this.logger.warn('Database query failed:', dbError)
-                }
-            }
-
-            if (!stream) {
+            const streamDoc = await Stream.findOne({ id: streamId });
+            if (!streamDoc) {
                 return null;
             }
 
-            const stats = await this.cacheService.getStreamStats(streamId);
-            const mediaStats = await this.mediaService.getRoomStats(streamId);
-
-            return {
-                ...stream,
-                ...stats,
-                mediaStats
-            };
+            return streamDoc.toObject();
         } catch (error) {
             this.logger.error("Error getting stream info", error);
             throw error;
         }
     }
 
-    async getActiveStreams() {
+    async getActiveStreams(options = {}) {
         try {
-
-            // stuff of redis
-
-            const activeStreamIds = await this.cacheService.client.smembers('active:streams');
-            const streams = [];
-
-            for (const streamId of activeStreamIds) {
-                const streamInfo = await this.getStreamInfo(streamId);
-                if (streamInfo && streamInfo.isLive) {
-                    streams.push(streamInfo);
-                }
+            const query = {};
+            if (options.category) {
+                query.category = options.category;
             }
 
-            return streams.sort((a, b) => b.viewers - a.viewers);
+            const streams = await Stream.find(query)
+                .limit(options.limit || 20)
+                .skip(options.offset || 0)
+                .sort({ createdAt: -1 })
+                .lean();
+
+            return streams;
         } catch (error) {
             this.logger.error(`Error getting active streams:`, error);
             return []
@@ -425,7 +403,7 @@ class StreamService {
 
     async updateStream(streamId, updateData) {
         try {
-            await this.cacheService.updateStream(streamId, updateData);
+            // await this.cacheService.updateStream(streamId, updateData);
             await Stream.updateOne({ id: streamId }, updateData);
             return await this.getStreamInfo(streamId);
         } catch (error) {
