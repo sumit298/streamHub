@@ -45,7 +45,7 @@ module.exports = (streamService, logger, AuthMiddleWare) => {
         "entertainment",
         "sports",
         "general",
-        "talk shows"
+        "talk shows",
       ])
       .withMessage("Invalid category"),
     body("isPrivate")
@@ -101,6 +101,7 @@ module.exports = (streamService, logger, AuthMiddleWare) => {
   // GET /api/streams - Get all active streams with filtering
   router.get(
     "/",
+    AuthMiddleWare.authenticate,
     streamQueryLimiter,
     [
       query("category")
@@ -170,7 +171,11 @@ module.exports = (streamService, logger, AuthMiddleWare) => {
         const accessibleStreams = streams.filter((stream) => {
           if (!stream.isPrivate) return true;
           if (req.userId && stream.userId === req.userId) return true;
-          if (req.userId && stream.settings?.allowedViewers?.includes(req.userId)) return true;
+          if (
+            req.userId &&
+            stream.settings?.allowedViewers?.includes(req.userId)
+          )
+            return true;
           return false;
         });
 
@@ -195,6 +200,7 @@ module.exports = (streamService, logger, AuthMiddleWare) => {
   router.post(
     "/",
     AuthMiddleWare.authenticate,
+    // AuthMiddleWare.requireStreamer,
     streamCreateLimiter,
     createStreamValidation,
     async (req, res) => {
@@ -256,6 +262,7 @@ module.exports = (streamService, logger, AuthMiddleWare) => {
   // GET /api/streams/:id - Get specific stream details (PUBLIC - no auth required for testing)
   router.get(
     "/:id",
+    AuthMiddleWare.authenticate,
     streamQueryLimiter,
     [param("id").notEmpty().withMessage("Stream ID is required")],
     async (req, res) => {
@@ -270,6 +277,7 @@ module.exports = (streamService, logger, AuthMiddleWare) => {
 
         const streamId = req.params.id;
         const streamInfo = await streamService.getStreamInfo(streamId);
+        console.log("stream Info",streamInfo)
 
         if (!streamInfo) {
           return res.status(404).json({
@@ -327,7 +335,10 @@ module.exports = (streamService, logger, AuthMiddleWare) => {
         // }
 
         // check ownership
-        if (streamInfo.userId.toString() !== req.userId.toString() && req.user.role !== "admin") {
+        if (
+          streamInfo.userId.toString() !== req.userId.toString() &&
+          req.user.role !== "admin"
+        ) {
           return res.status(403).json({
             error: "Access denied. You can only end your own streams.",
           });
@@ -354,60 +365,68 @@ module.exports = (streamService, logger, AuthMiddleWare) => {
   );
 
   // PATCH /api/streams/:id - Update stream details
-  router.patch("/:id", AuthMiddleWare.authenticate, updateStreamValidation, async (req, res) => {
-    try {
-      const errors = validationResult(req);
-      if (!errors.isEmpty()) {
-        return res.status(400).json({
-          error: "Validation failed",
-          details: errors.array(),
+  router.patch(
+    "/:id",
+    AuthMiddleWare.authenticate,
+    updateStreamValidation,
+    async (req, res) => {
+      try {
+        const errors = validationResult(req);
+        if (!errors.isEmpty()) {
+          return res.status(400).json({
+            error: "Validation failed",
+            details: errors.array(),
+          });
+        }
+
+        const streamId = req.params.id;
+        const streamInfo = await streamService.getStreamInfo(streamId);
+
+        if (!streamInfo) {
+          return res.status(404).json({
+            error: "Stream not found",
+          });
+        }
+
+        // Check ownership
+        if (
+          streamInfo.userId.toString() !== req.userId.toString() &&
+          req.user.role !== "admin"
+        ) {
+          return res.status(403).json({
+            error: "Access denied. You can only update your own streams.",
+          });
+        }
+
+        const updateData = {};
+        if (req.body.title !== undefined) updateData.title = req.body.title;
+        if (req.body.description !== undefined)
+          updateData.description = req.body.description;
+        if (req.body.category !== undefined)
+          updateData.category = req.body.category;
+        if (req.body.tags !== undefined) updateData.tags = req.body.tags;
+        if (req.body.isLive !== undefined) updateData.isLive = req.body.isLive;
+
+        const updatedStream = await streamService.updateStream(
+          streamId,
+          updateData
+        );
+
+        res.json({
+          success: true,
+          message: "Stream updated successfully",
+          stream: updatedStream,
+        });
+      } catch (error) {
+        logger.error("Update stream error:", error);
+        res.status(500).json({
+          error: "Failed to update stream",
+          message:
+            process.env.NODE_ENV === "development" ? error.message : undefined,
         });
       }
-
-      const streamId = req.params.id;
-      const streamInfo = await streamService.getStreamInfo(streamId);
-
-      if (!streamInfo) {
-        return res.status(404).json({
-          error: "Stream not found",
-        });
-      }
-
-      // Check ownership
-      if (streamInfo.userId.toString() !== req.userId.toString() && req.user.role !== "admin") {
-        return res.status(403).json({
-          error: "Access denied. You can only update your own streams.",
-        });
-      }
-
-      const updateData = {};
-      if (req.body.title !== undefined) updateData.title = req.body.title;
-      if (req.body.description !== undefined)
-        updateData.description = req.body.description;
-      if (req.body.category !== undefined)
-        updateData.category = req.body.category;
-      if (req.body.tags !== undefined) updateData.tags = req.body.tags;
-      if (req.body.isLive !== undefined) updateData.isLive = req.body.isLive;
-
-      const updatedStream = await streamService.updateStream(
-        streamId,
-        updateData
-      );
-
-      res.json({
-        success: true,
-        message: "Stream updated successfully",
-        stream: updatedStream,
-      });
-    } catch (error) {
-      logger.error("Update stream error:", error);
-      res.status(500).json({
-        error: "Failed to update stream",
-        message:
-          process.env.NODE_ENV === "development" ? error.message : undefined,
-      });
     }
-  });
+  );
 
   // DELETE /api/streams/:id - End/delete a stream
   router.delete(
@@ -434,7 +453,10 @@ module.exports = (streamService, logger, AuthMiddleWare) => {
         }
 
         // Check ownership
-        if (streamInfo.userId.toString() !== req.userId.toString() && req.user.role !== "admin") {
+        if (
+          streamInfo.userId.toString() !== req.userId.toString() &&
+          req.user.role !== "admin"
+        ) {
           return res.status(403).json({
             error: "Access denied. You can only delete your own streams.",
           });
@@ -524,7 +546,10 @@ module.exports = (streamService, logger, AuthMiddleWare) => {
         }
 
         // Only stream owner or admins can view detailed stats
-        if (streamInfo.userId.toString() !== req.userId.toString() && req.user.role !== "admin") {
+        if (
+          streamInfo.userId.toString() !== req.userId.toString() &&
+          req.user.role !== "admin"
+        ) {
           return res.status(403).json({
             error:
               "Access denied. You can only view stats for your own streams.",

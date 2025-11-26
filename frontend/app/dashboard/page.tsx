@@ -8,6 +8,7 @@ const Dashboard = () => {
     const [streams, setStreams] = useState([]);
     const [loading, setLoading] = useState(true);
     const { user, logout } = useAuth();
+    console.log("user", user)
 
     const handleLogout = async () => {
         await logout();
@@ -45,7 +46,7 @@ const Dashboard = () => {
                         <div className="mb-12">
                             <div className="bg-gradient-to-r from-accent-purple to-accent-pink rounded-2xl p-8 md:p-12 text-white mb-8">
                                 <h1 className="text-4xl md:text-5xl font-bold mb-4">
-                                    Welcome to StreamApp
+                                    Welcome back, {user?.username || 'User'}!
                                 </h1>
                                 <p className="text-lg text-white/90 mb-6 max-w-2xl">
                                     Discover amazing live streams, connect with creators, and join a
@@ -88,7 +89,13 @@ const Dashboard = () => {
                                     <p>Loading streams...</p>
                                 ) : streams.length > 0 ? (
                                     streams.map((stream: any) => (
-                                        <div key={stream._id} className="bg-card rounded-lg overflow-hidden hover:scale-105 transition cursor-pointer">
+                                        <div 
+                                            key={stream._id} 
+                                            onClick={() => stream.isLive && (window.location.href = `/watch/${stream._id}`)}
+                                            className={`bg-card rounded-lg overflow-hidden hover:scale-105 transition ${
+                                                stream.isLive ? 'cursor-pointer' : 'cursor-default opacity-60'
+                                            }`}
+                                        >
                                             <div className="aspect-video bg-black relative">
                                                 {stream.thumbnailUrl ? (
                                                     <img src={stream.thumbnailUrl} alt={stream.title} className="w-full h-full object-cover" />
@@ -96,13 +103,19 @@ const Dashboard = () => {
                                                     <div className="w-full h-full flex items-center justify-center text-gray-500">No Preview</div>
                                                 )}
                                                 {stream.isLive && (
-                                                    <span className="absolute top-2 left-2 bg-red-600 text-white px-2 py-1 text-xs rounded">🔴 LIVE</span>
+                                                    <span className="absolute top-2 left-2 bg-red-600 text-white px-2 py-1 text-xs rounded font-semibold">🔴 LIVE</span>
+                                                )}
+                                                {!stream.isLive && (
+                                                    <span className="absolute top-2 left-2 bg-gray-600 text-white px-2 py-1 text-xs rounded">Offline</span>
                                                 )}
                                             </div>
                                             <div className="p-4">
                                                 <h3 className="font-semibold truncate">{stream.title}</h3>
-                                                <p className="text-sm text-gray-400">{stream.category}</p>
-                                                <p className="text-xs text-gray-500 mt-1">👁️ {stream.viewerCount || 0} viewers</p>
+                                                <p className="text-sm text-gray-400">{stream.streamer?.username || 'Unknown'}</p>
+                                                <div className="flex items-center justify-between mt-2">
+                                                    <p className="text-xs text-gray-500">👁️ {stream.viewerCount || 0} viewers</p>
+                                                    <p className="text-xs text-gray-500">{stream.category}</p>
+                                                </div>
                                             </div>
                                         </div>
                                     ))

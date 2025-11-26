@@ -35,6 +35,7 @@ module.exports = (logger) => {
       .withMessage("Password must contain at least one uppercase letter")
       .matches(/[0-9]/)
       .withMessage("Password must contain at least one number"),
+    body("role").isIn(['viewer', 'streamer', 'admin']).optional()
   ];
 
   const loginValidation = [
@@ -114,7 +115,7 @@ module.exports = (logger) => {
           errors: formattedErrors,
         });
       }
-      const { username, email, password } = req.body;
+      const { username, email, password, role = "viewer" } = req.body;
       console.log("request", req.body);
 
       const existingUser = await User.findOne({
@@ -130,7 +131,7 @@ module.exports = (logger) => {
         });
       }
 
-      const user = new User({ username, email, password });
+      const user = new User({ username, email, password, role });
 
       await user.save();
 

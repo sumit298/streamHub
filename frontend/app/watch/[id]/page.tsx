@@ -4,6 +4,7 @@ import { useParams } from "next/navigation";
 import { Device } from 'mediasoup-client';
 import { io, Socket } from 'socket.io-client';
 import toast from "react-hot-toast";
+import { api } from "@/lib/AuthContext";
 
 
 const WatchPage = () => {
@@ -61,15 +62,15 @@ const WatchPage = () => {
     }, [socket, streamInfo]);
 
     const fetchStreamInfo = async () => {
-        try {
-            const response = await fetch(`http://localhost:3001/api/streams/${params.id}`);
-            const data = await response.json();
-            setStreamInfo(data.stream);
-        } catch (error) {
-            console.error('Failed to fetch stream info:', error);
-            toast.error('Stream not found');
-        }
-    };
+    try {
+        const { data } = await api.get(`/api/streams/${params.id}`);
+        setStreamInfo(data.stream);
+    } catch (error) {
+        console.error('Failed to fetch stream info:', error);
+        toast.error('Stream not found');
+    }
+};
+
 
     const initializeViewer = async () => {
         if (initRef.current) {
