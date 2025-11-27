@@ -101,7 +101,7 @@ module.exports = (logger) => {
   router.post("/register", registerValidation, async (req, res) => {
     try {
       const errors = validationResult(req);
-      console.log("errors", errors);
+      // console.log("errors", errors);
       if (!errors.isEmpty()) {
         // Format errors properly
         const formattedErrors = {};
@@ -116,7 +116,7 @@ module.exports = (logger) => {
         });
       }
       const { username, email, password, role = "viewer" } = req.body;
-      console.log("request", req.body);
+      // console.log("request", req.body);
 
       const existingUser = await User.findOne({
         $or: [{ email }, { username }],

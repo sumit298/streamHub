@@ -75,7 +75,7 @@ const Register = () => {
                 password: registerData.password
             }
             console.log("Valid data:", registerData);
-            const registerResult = await fetch("http://localhost:3001/api/auth/register", {
+            const registerResult = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001"}/api/auth/register`, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json"

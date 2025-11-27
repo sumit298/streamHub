@@ -41,10 +41,7 @@ const streamSchema = new mongoose.Schema({
         default: false,
         index: true
     },
-    isPrivate: {
-        type: Boolean,
-        default: false
-    },
+    
     thumbnail: {
         type: String,
         default: null
@@ -118,14 +115,7 @@ const streamSchema = new mongoose.Schema({
             enum: [15, 30, 60]
         }
     },
-    allowedViewers: [{
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'User'
-    }], // For private streams
-    blockedUsers: [{
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'User'
-    }]
+    
 });
 
 streamSchema.index({ userId: 1, createdAt: -1 });
@@ -165,7 +155,7 @@ streamSchema.virtual('formattedDuration').get(function () {
 streamSchema.methods.canUserView = function (userId) {
     if (!this.isPrivate) return true;
     if (this.userId.toString() === userId.toString()) return true;
-    if (this.allowedViewers.includes(userId)) return true;
+   
     return false;
 }
 

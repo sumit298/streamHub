@@ -3,28 +3,28 @@ import { Sidebar } from "@/components/Sidebar"
 import { Navbar } from "@/components/ui/Navbar"
 import { useEffect, useState } from "react"
 import { useAuth, api } from "@/lib/AuthContext"
+import { io, Socket } from 'socket.io-client'
 
 const Dashboard = () => {
     const [streams, setStreams] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [viewerCounts, setViewerCounts] = useState<Record<string, number>>({});
+    const [socket, setSocket] = useState<Socket | null>(null);
     const { user, logout } = useAuth();
-    console.log("user", user)
 
     const handleLogout = async () => {
         await logout();
         window.location.href = '/login';
     };
 
-    const testAuth = async () => {
-        console.log('Making test API call...');
-        const { data } = await api.get('/api/auth/me');
-        console.log('Response:', data);
-    };
+
 
     const fetchStreams = async () => {
         try {
             const { data } = await api.get('/api/streams');
-            setStreams(data.streams || []);
+            // Filter to show only LIVE streams on dashboard
+            const liveStreams = (data.streams || []).filter((stream: any) => stream.isLive);
+            setStreams(liveStreams);
         } catch (error) {
             console.error('Failed to fetch streams:', error);
         } finally {
@@ -34,7 +34,38 @@ const Dashboard = () => {
 
     useEffect(() => {
         fetchStreams();
+        
+        // Connect to Socket.IO for real-time viewer counts
+        const newSocket = io(process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001", {
+            withCredentials: true,
+            transports: ['websocket', 'polling']
+        });
+
+        newSocket.on('connect', () => {
+            console.log('Dashboard connected to socket');
+        });
+
+        newSocket.on('viewer-count', ({ streamId, count }: { streamId: string, count: number }) => {
+            setViewerCounts(prev => ({ ...prev, [streamId]: count }));
+        });
+
+        setSocket(newSocket);
+
+        return () => {
+            newSocket.close();
+        };
     }, []);
+
+    // Subscribe to viewer count updates for visible streams
+    useEffect(() => {
+        if (socket && streams.length > 0) {
+            streams.forEach((stream: any) => {
+                if (stream.isLive) {
+                    socket.emit('subscribe-viewer-count', { streamId: stream.id });
+                }
+            });
+        }
+    }, [socket, streams]);
     return (
         <div className="min-h-screen bg-background">
             <Navbar />
@@ -53,13 +84,8 @@ const Dashboard = () => {
                                     vibrant community of viewers and streamers.
                                 </p>
                                 <div className="flex gap-4">
-                                    <button 
-                                        onClick={testAuth}
-                                        className="bg-white text-purple-600 px-6 py-3 rounded-lg font-semibold hover:bg-gray-100 transition"
-                                    >
-                                        Test Refresh Token
-                                    </button>
-                                    <button 
+
+                                    <button
                                         onClick={handleLogout}
                                         className="bg-red-500 text-white px-6 py-3 rounded-lg font-semibold hover:bg-red-600 transition"
                                     >
@@ -69,7 +95,7 @@ const Dashboard = () => {
                             </div>
                         </div>
 
-                      
+
 
                         {/* Live Streams */}
                         <div className="mb-8">
@@ -89,12 +115,10 @@ const Dashboard = () => {
                                     <p>Loading streams...</p>
                                 ) : streams.length > 0 ? (
                                     streams.map((stream: any) => (
-                                        <div 
-                                            key={stream._id} 
-                                            onClick={() => stream.isLive && (window.location.href = `/watch/${stream._id}`)}
-                                            className={`bg-card rounded-lg overflow-hidden hover:scale-105 transition ${
-                                                stream.isLive ? 'cursor-pointer' : 'cursor-default opacity-60'
-                                            }`}
+                                        <div
+                                            key={stream._id}
+                                            onClick={() => window.location.href = `/watch/${stream.id}`}
+                                            className="bg-card rounded-lg overflow-hidden hover:scale-105 transition cursor-pointer"
                                         >
                                             <div className="aspect-video bg-black relative">
                                                 {stream.thumbnailUrl ? (
@@ -102,30 +126,25 @@ const Dashboard = () => {
                                                 ) : (
                                                     <div className="w-full h-full flex items-center justify-center text-gray-500">No Preview</div>
                                                 )}
-                                                {stream.isLive && (
-                                                    <span className="absolute top-2 left-2 bg-red-600 text-white px-2 py-1 text-xs rounded font-semibold">🔴 LIVE</span>
-                                                )}
-                                                {!stream.isLive && (
-                                                    <span className="absolute top-2 left-2 bg-gray-600 text-white px-2 py-1 text-xs rounded">Offline</span>
-                                                )}
+                                                <span className="absolute top-2 left-2 bg-red-600 text-white px-2 py-1 text-xs rounded font-semibold">🔴 LIVE</span>
                                             </div>
                                             <div className="p-4">
                                                 <h3 className="font-semibold truncate">{stream.title}</h3>
                                                 <p className="text-sm text-gray-400">{stream.streamer?.username || 'Unknown'}</p>
                                                 <div className="flex items-center justify-between mt-2">
-                                                    <p className="text-xs text-gray-500">👁️ {stream.viewerCount || 0} viewers</p>
+                                                    <p className="text-xs text-gray-500">👁️ {viewerCounts[stream.id] ?? stream.viewerCount ?? 0} viewers</p>
                                                     <p className="text-xs text-gray-500">{stream.category}</p>
                                                 </div>
                                             </div>
                                         </div>
                                     ))
                                 ) : (
-                                    <p className="text-gray-500">No streams yet. Create your first stream!</p>
+                                    <p className="text-gray-500">No live streams right now. Check back later!</p>
                                 )}
                             </div>
                         </div>
+                            
 
-                        
                     </div>
                 </main>
             </div>

@@ -277,7 +277,7 @@ module.exports = (streamService, logger, AuthMiddleWare) => {
 
         const streamId = req.params.id;
         const streamInfo = await streamService.getStreamInfo(streamId);
-        console.log("stream Info",streamInfo)
+        // console.log("stream Info",streamInfo)
 
         if (!streamInfo) {
           return res.status(404).json({

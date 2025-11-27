@@ -26,10 +26,21 @@ const WatchPage = () => {
     };
 
     useEffect(() => {
+        // Reset on mount
+        initRef.current = false;
+
+        return () => {
+            // Reset on unmount so reload works
+            initRef.current = false;
+        };
+    }, []);
+
+
+    useEffect(() => {
         const init = async () => {
             await fetchStreamInfo();
-            
-            const newSocket = io("http://localhost:3001", {
+
+            const newSocket = io(process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:3001", {
                 withCredentials: true,
                 transports: ['websocket', 'polling']
             });
@@ -50,7 +61,7 @@ const WatchPage = () => {
 
             setSocket(newSocket);
         };
-        
+
         init();
         return () => { socket?.close(); };
     }, [params.id]);
@@ -62,14 +73,14 @@ const WatchPage = () => {
     }, [socket, streamInfo]);
 
     const fetchStreamInfo = async () => {
-    try {
-        const { data } = await api.get(`/api/streams/${params.id}`);
-        setStreamInfo(data.stream);
-    } catch (error) {
-        console.error('Failed to fetch stream info:', error);
-        toast.error('Stream not found');
-    }
-};
+        try {
+            const { data } = await api.get(`/api/streams/${params.id}`);
+            setStreamInfo(data.stream);
+        } catch (error) {
+            console.error('Failed to fetch stream info:', error);
+            toast.error('Stream not found');
+        }
+    };
 
 
     const initializeViewer = async () => {
@@ -78,10 +89,10 @@ const WatchPage = () => {
             return;
         }
         initRef.current = true;
-        
+
         try {
             console.log('Initializing viewer for stream:', params.id);
-            
+
             const routerCapabilities = await new Promise((resolve) => {
                 socket?.emit("get-router-capabilities", resolve);
             }) as any;
@@ -101,10 +112,10 @@ const WatchPage = () => {
             console.log('Receive transport created');
 
             recvTransport.on("connect", async ({ dtlsParameters }, callback) => {
-                socket?.emit("connect-transport", { 
-                    roomId: params.id, 
-                    transportId: recvTransport.id, 
-                    dtlsParameters 
+                socket?.emit("connect-transport", {
+                    roomId: params.id,
+                    transportId: recvTransport.id,
+                    dtlsParameters
                 }, callback);
             });
 
@@ -139,14 +150,14 @@ const WatchPage = () => {
                         kind: audioConsumer.kind,
                         rtpParameters: audioConsumer.rtpParameters
                     });
-                    
+
                     await new Promise((resolve) => {
-                        socket?.emit('resume-consumer', { 
-                            roomId: params.id, 
-                            consumerId: consumer.id 
+                        socket?.emit('resume-consumer', {
+                            roomId: params.id,
+                            consumerId: consumer.id
                         }, resolve);
                     });
-                    
+
                     stream.addTrack(consumer.track);
                     console.log('Audio track added to stream');
                 }
@@ -174,15 +185,15 @@ const WatchPage = () => {
                     kind: videoConsumer.kind,
                     rtpParameters: videoConsumer.rtpParameters
                 });
-                
+
                 // Resume consumer to start receiving media
                 await new Promise((resolve) => {
-                    socket?.emit('resume-consumer', { 
-                        roomId: params.id, 
-                        consumerId: consumer.id 
+                    socket?.emit('resume-consumer', {
+                        roomId: params.id,
+                        consumerId: consumer.id
                     }, resolve);
                 });
-                
+
                 stream.addTrack(consumer.track);
                 console.log('Video track added to stream');
             }
@@ -193,11 +204,11 @@ const WatchPage = () => {
                 const video = videoRef.current;
                 video.srcObject = stream;
                 console.log('Stream set to video element, tracks:', stream.getTracks().length);
-                
+
                 stream.getTracks().forEach(track => {
                     console.log(`Track ${track.kind}: enabled=${track.enabled}, muted=${track.muted}, readyState=${track.readyState}`);
                 });
-                
+
                 const playVideo = async () => {
                     try {
                         await video.play();
@@ -209,7 +220,7 @@ const WatchPage = () => {
                         setIsLoading(false);
                     }
                 };
-                
+
                 if (video.readyState >= 2) {
                     playVideo();
                 } else {
@@ -252,7 +263,7 @@ const WatchPage = () => {
                         </button>
                     )}
                 </div>
-                
+
                 <div className="bg-card p-4 rounded-lg">
                     <h1 className="text-2xl font-bold mb-2">{streamInfo?.title || 'Loading...'}</h1>
                     <div className="flex gap-4 text-sm text-gray-400">
