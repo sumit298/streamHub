@@ -140,7 +140,7 @@ module.exports = (logger) => {
       res.cookie("token", token, {
         httpOnly: true,
         secure: process.env.NODE_ENV === "production",
-        sameSite: "strict",
+        sameSite: process.env.NODE_ENV === "production" ? "none" : "strict",
         maxAge: 24 * 60 * 60 * 1000, // 1 day
       });
 
@@ -262,7 +262,7 @@ module.exports = (logger) => {
       res.cookie("token", token, {
         httpOnly: true,
         secure: process.env.NODE_ENV === "production",
-        sameSite: "strict",
+        sameSite: process.env.NODE_ENV === "production" ? "none" : "strict",
         maxAge: 24 * 60 * 60 * 1000, // 1 day
       });
 
@@ -293,8 +293,8 @@ module.exports = (logger) => {
       res.cookie("token", newToken, {
         httpOnly: true,
         secure: process.env.NODE_ENV === "production",
-        sameSite: "strict",
-        maxAge: 24 * 60 * 60 * 1000, // 1 day"
+        sameSite: process.env.NODE_ENV === "production" ? "none" : "strict",
+        maxAge: 24 * 60 * 60 * 1000, // 1 day
       })
 
       res.json({
