@@ -177,6 +177,10 @@ class MediaService {
                 preferUdp: true,
                 initialAvailableOutgoingBitrate: 1000000,
                 maxSctpMessageSize: 262144,
+                iceServers: [
+                    { urls: 'stun:stun.l.google.com:19302' },
+                    { urls: 'stun:stun1.l.google.com:19302' }
+                ],
                 appData: { userId, direction }
             };
 
