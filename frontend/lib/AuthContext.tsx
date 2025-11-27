@@ -14,7 +14,7 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 const api = axios.create({
-    baseURL: "http://localhost:3001",
+    baseURL: process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001",
     withCredentials: true,
     headers: {
         "Content-Type": "application/json",
@@ -26,8 +26,15 @@ api.interceptors.response.use(
     async (error) => {
         const originalRequest = error.config;
 
+        // Silently handle 401 on /me endpoint (user not logged in)
+        if (error.response?.status === 401 && originalRequest.url?.includes('/api/auth/me')) {
+            return Promise.resolve({ data: { user: null } });
+        }
+
         // Don't retry if it's already a retry, or if it's the refresh endpoint itself
-        if (error.response?.status === 401 && !originalRequest._retry && !originalRequest.url?.includes('/refresh-token')) {
+        if (error.response?.status === 401 && !originalRequest._retry &&
+            !originalRequest.url?.includes('/refresh-token')) {
+
             originalRequest._retry = true;
 
             try {
@@ -42,6 +49,7 @@ api.interceptors.response.use(
     }
 )
 
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
     const [user, setUser] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -51,7 +59,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     useEffect(() => {
         // Check if token cookie exists before calling /me
-        const hasToken = document.cookie.includes('token=');
+        const hasToken = true
+        console.log("hasToken", hasToken);
+        console.log(document.cookie)
 
         if (!hasToken) {
             setLoading(false);
@@ -60,7 +70,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         api.get('/api/auth/me').then(res => setUser(res.data.user)).catch((err) => {
             console.error("Error fetching user data:", err);
-            setLoading(false);
         }).finally(() => setLoading(false));
     }, [])
 

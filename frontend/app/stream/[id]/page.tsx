@@ -27,7 +27,7 @@ const StreamsPage = () => {
 
 
     useEffect(() => {
-        const newSocket = io("http://localhost:3001", {
+        const newSocket = io(process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:3001", {
             withCredentials: true, // Sends httpOnly cookies automatically
             transports: ['websocket', 'polling']
         });
@@ -186,7 +186,7 @@ const StreamsPage = () => {
             console.log("audio producer created", audioProducer.id)
             setProducer({ video: videoProducer, audio: audioProducer })
 
-            const patchResponse = await fetch(`http://localhost:3001/api/streams/${params.id}`, {
+            const patchResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001"}/api/streams/${params.id}`, {
                 method: "PATCH",
                 credentials: "include",
                 headers: {
@@ -220,7 +220,7 @@ const StreamsPage = () => {
                 setProducer(null);
             }
 
-            const response = await fetch(`http://localhost:3001/api/streams/${params.id}/end`, {
+            const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001"}/api/streams/${params.id}/end`, {
                 method: "POST",
                 credentials: "include"
             });
