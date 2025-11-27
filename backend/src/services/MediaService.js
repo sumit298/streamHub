@@ -27,8 +27,8 @@ class MediaService {
         try {
             const worker = await mediasoup.createWorker({
                 logLevel: 'error',
-                rtcMinPort: 2000 + (index * 1000),
-                rtcMaxPort: 2000 + (index * 1000) + 999,
+                rtcMinPort: process.env.RTC_MIN_PORT || 2000 + (index * 1000),
+                rtcMaxPort: process.env.RTC_MAX_PORT || 2000 + (index * 1000) + 999,
                 appData: { workerId: index }
             });
 
@@ -169,7 +169,7 @@ class MediaService {
                 listenIps: [
                     {
                         ip: '0.0.0.0',
-                        announcedIp: process.env.ANNOUNCED_IP || '127.0.0.1'
+                        announcedIp: process.env.ANNOUNCED_IP || process.env.RENDER_EXTERNAL_HOSTNAME || '127.0.0.1'
                     }
                 ],
                 enableUdp: true,
