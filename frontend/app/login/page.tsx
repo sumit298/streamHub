@@ -64,12 +64,14 @@ const Login = () => {
           email: "",
           password: "",
         });
-
+        toast.success("Login successful!")
         router.push("/dashboard");
       } else {
+
+        toast.error(result.error || result.message || "Login failed");
+
         if (result.errors) {
           setErrors(result.errors);
-          toast.error(result.error)
         }
       }
 
@@ -89,6 +91,12 @@ const Login = () => {
       }
     }
   };
+
+  const handleKeyPressToLogin = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if(e.key === 'Enter' && !Object.values(loginData).some((value)=> value === "")){
+      handleSubmit();
+    }
+  }
 
   return (
     <div className="flex items-center justify-center flex-col h-screen bg-linear-to-br from-accent-purple/10 via-background to-accent-pink/10">
@@ -119,6 +127,7 @@ const Login = () => {
               type="email"
               name="email"
               id="email"
+              onKeyPress={handleKeyPressToLogin}
               placeholder="you@example.com"
               className="pl-9"
               onChange={(e) => handleChange(e)}
@@ -144,6 +153,7 @@ const Login = () => {
               placeholder="Enter your password"
               onChange={(e) => handleChange(e)}
               value={loginData.password}
+              onKeyPress={handleKeyPressToLogin}
             />
 
             {showPassword ? (
