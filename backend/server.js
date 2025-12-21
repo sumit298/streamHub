@@ -8,6 +8,8 @@ const mongoose = require("mongoose");
 const winston = require("winston");
 const prometheus = require("prom-client");
 const morgan = require("morgan");
+const https = require("https");
+const fs = require("fs");
 
 const MediaService = require("./src/services/MediaService");
 const MessageQueue = require("./src/services/MessageQueue");
@@ -36,9 +38,30 @@ const logger = winston.createLogger({
   ],
 });
 
+let server;
+let io;
+
 const app = express();
-const server = http.createServer(app);
-const io = socketIo(server, {
+
+if (
+  process.env.NODE_ENV === "production" &&
+  fs.existsSync("/etc/letsencrypt/live/stream-hub.duckdns.org/fullchain.pem")
+) {
+  const httpsOptions = {
+    key: fs.readFileSync(
+      "/etc/letsencrypt/live/stream-hub.duckdns.org/privkey.pem"
+    ),
+    cert: fs.readFileSync(
+      "/etc/letsencrypt/live/stream-hub.duckdns.org/fullchain.pem"
+    ),
+  };
+  server = https.createServer(httpsOptions, app);
+  logger.info("Using HTTPS server");
+} else {
+  server = http.createServer(app);
+  logger.info("Using HTTP server");
+}
+io = socketIo(server, {
   cors: {
     origin:
       process.env.CORS_ORIGIN ||
@@ -582,7 +605,8 @@ process.on("SIGINT", async () => {
   });
 });
 
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 3001;
+
 initializeServices().then(() => {
   server.listen(PORT, () => {
     logger.info(`Server running on port ${PORT}`);
