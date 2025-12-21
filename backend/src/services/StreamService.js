@@ -68,9 +68,7 @@ class StreamService {
 
       // Get stream from database since cache is disabled
       try {
-        const streamDoc = await Stream.findOne({
-          $or: [{ id: streamId }, { _id: streamId }],
-        });
+        const streamDoc = await Stream.findOne({id: streamId});
         if (streamDoc) {
           stream = streamDoc.toObject();
         }

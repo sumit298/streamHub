@@ -12,6 +12,17 @@ const BrowsePage = () => {
     const [socket, setSocket] = useState<Socket | null>(null);
     const [filter, setFilter] = useState<'all' | 'live' | 'past'>('all');
 
+    const formatDuration = (milliseconds: number) => {
+        const seconds = Math.floor(milliseconds / 1000);
+        const h = Math.floor(seconds / 3600);
+        const m = Math.floor((seconds % 3600) / 60);
+        const s = seconds % 60;
+        if (h > 0) {
+            return `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+        }
+        return `${m}:${s.toString().padStart(2, '0')}`;
+    };
+
     const fetchStreams = async () => {
         try {
             const { data } = await api.get('/api/streams');
@@ -25,7 +36,7 @@ const BrowsePage = () => {
 
     useEffect(() => {
         fetchStreams();
-        
+
         // Connect to Socket.IO for real-time viewer counts
         const newSocket = io(process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001", {
             withCredentials: true,
@@ -84,31 +95,28 @@ const BrowsePage = () => {
                         <div className="flex gap-4 mb-6 border-b border-gray-700">
                             <button
                                 onClick={() => setFilter('all')}
-                                className={`pb-3 px-4 font-medium transition ${
-                                    filter === 'all' 
-                                        ? 'text-primary border-b-2 border-primary' 
-                                        : 'text-gray-400 hover:text-gray-300'
-                                }`}
+                                className={`pb-3 px-4 font-medium transition ${filter === 'all'
+                                    ? 'text-primary border-b-2 border-primary'
+                                    : 'text-gray-400 hover:text-gray-300'
+                                    }`}
                             >
                                 All Streams ({allStreams.length})
                             </button>
                             <button
                                 onClick={() => setFilter('live')}
-                                className={`pb-3 px-4 font-medium transition ${
-                                    filter === 'live' 
-                                        ? 'text-primary border-b-2 border-primary' 
-                                        : 'text-gray-400 hover:text-gray-300'
-                                }`}
+                                className={`pb-3 px-4 font-medium transition ${filter === 'live'
+                                    ? 'text-primary border-b-2 border-primary'
+                                    : 'text-gray-400 hover:text-gray-300'
+                                    }`}
                             >
                                 🔴 Live Now ({liveCount})
                             </button>
                             <button
                                 onClick={() => setFilter('past')}
-                                className={`pb-3 px-4 font-medium transition ${
-                                    filter === 'past' 
-                                        ? 'text-primary border-b-2 border-primary' 
-                                        : 'text-gray-400 hover:text-gray-300'
-                                }`}
+                                className={`pb-3 px-4 font-medium transition ${filter === 'past'
+                                    ? 'text-primary border-b-2 border-primary'
+                                    : 'text-gray-400 hover:text-gray-300'
+                                    }`}
                             >
                                 Past Streams ({pastCount})
                             </button>
@@ -123,9 +131,8 @@ const BrowsePage = () => {
                                     <div
                                         key={stream._id}
                                         onClick={() => stream.isLive && (window.location.href = `/watch/${stream.id}`)}
-                                        className={`bg-card rounded-lg overflow-hidden hover:scale-105 transition ${
-                                            stream.isLive ? 'cursor-pointer' : 'cursor-default opacity-75'
-                                        }`}
+                                        className={`bg-card rounded-lg overflow-hidden hover:scale-105 transition ${stream.isLive ? 'cursor-pointer' : 'cursor-default opacity-75'
+                                            }`}
                                     >
                                         <div className="aspect-video bg-black relative">
                                             {stream.thumbnailUrl ? (
@@ -146,7 +153,7 @@ const BrowsePage = () => {
                                             )}
                                             {stream.duration && !stream.isLive && (
                                                 <span className="absolute bottom-2 right-2 bg-black/80 text-white px-2 py-1 text-xs rounded">
-                                                    {Math.floor(stream.duration / 60000)}m
+                                                    ⏱️ {formatDuration(stream.duration)}
                                                 </span>
                                             )}
                                         </div>
@@ -155,13 +162,18 @@ const BrowsePage = () => {
                                             <p className="text-sm text-gray-400">{stream.streamer?.username || 'Unknown'}</p>
                                             <div className="flex items-center justify-between mt-2">
                                                 <p className="text-xs text-gray-500">
-                                                    👁️ {stream.isLive 
-                                                        ? (viewerCounts[stream.id] ?? stream.viewerCount ?? 0) 
+                                                    👁️ {stream.isLive
+                                                        ? (viewerCounts[stream.id] ?? stream.viewerCount ?? 0)
                                                         : (stream.totalViews || 0)
                                                     } {stream.isLive ? 'watching' : 'views'}
                                                 </p>
                                                 <p className="text-xs text-gray-500">{stream.category}</p>
                                             </div>
+                                            {stream.duration && !stream.isLive && (
+                                                <p className="text-xs text-gray-500 mt-1">
+                                                    Duration: {formatDuration(stream.duration)}
+                                                </p>
+                                            )}
                                         </div>
                                     </div>
                                 ))

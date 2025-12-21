@@ -22,6 +22,7 @@ const StreamsPage = () => {
     const [connectionStatus, setConnectionStatus] = useState<string>('disconnected');
     const [viewerCount, setViewerCount] = useState(0);
     const [duration, setDuration] = useState(0);
+    const [streamStartTime, setStreamStartTime] = useState(null);
 
 
 
@@ -56,22 +57,28 @@ const StreamsPage = () => {
     useEffect(() => {
         if (socket) {
             socket.on("viewer-count", (count: number) => {
+                console.log("🎥 STREAMER received viewer-count:", count, typeof count);
                 setViewerCount(count);
+            })
+            socket.on("stream-start-time", (data) => {
+                console.log('⏱️ Received stream start time:', data.startTime);
+                setStreamStartTime(data.startTime);
             })
         }
     }, [socket])
 
     useEffect(() => {
-        if (isStreaming) {
-            const interval = setInterval(() => {
-                setDuration(prev => prev + 1);
-            }, 1000)
-            return () => clearInterval(interval);
-        }
-        else {
+        if (!streamStartTime) {
             setDuration(0);
+            return;
         }
-    }, [isStreaming])
+
+        const interval = setInterval(() => {
+            setDuration(Math.floor((Date.now() - streamStartTime) / 1000));
+        }, 1000);
+
+        return () => clearInterval(interval);
+    }, [streamStartTime]);
 
 
     const formatDuration = (seconds: number) => {
@@ -214,6 +221,7 @@ const StreamsPage = () => {
 
     const stopStream = async () => {
         try {
+
             if (producer) {
                 producer.video?.close();
                 producer.audio?.close();
@@ -229,8 +237,20 @@ const StreamsPage = () => {
                 throw new Error('Failed to end stream');
             }
 
+            // Fetch duration from backend response
+            const data = await response.json();
+            console.log("🎥 STREAMER received duration:", data.duration);
+            setStreamStartTime(null);
             setIsStreaming(false);
-            toast.success("Stream ended successfully");
+            if (data.duration && !isNaN(data.duration)) {
+                const finalDurationSeconds = data.duration ? Math.floor(data.duration / 1000) : duration;
+                setDuration(finalDurationSeconds);
+                toast.success(`Stream ended. Duration: ${formatDuration(finalDurationSeconds)}`);
+            } else {
+                // Fallback: use current duration state
+                toast.success(`Stream ended. Duration: ${formatDuration(duration)}`);
+            }
+
         } catch (error) {
             console.error("Failed to stop stream:", error);
             toast.error("Failed to end stream");

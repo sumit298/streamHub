@@ -1,0 +1,43 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mongodb
+  namespace: streamhub
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mongodb
+  template:
+    metadata:
+      labels:
+        app: mongodb
+    spec:
+      containers:
+        - name: mongodb
+          image: mongo:7
+          command: ["mongod", "--port", "27018"] 
+          ports:
+            - containerPort: 27018
+          env:
+            - name: MONGO_INITDB_DATABASE
+              value: "streamhub"
+          volumeMounts:
+            - name: mongodb-storage
+              mountPath: /data/db
+      volumes:
+        - name: mongodb-storage
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mongodb
+  namespace: streamhub
+spec:
+  selector:
+    app: mongodb
+  ports:
+    - port: 27018
+      targetPort: 27018
+  type: ClusterIP

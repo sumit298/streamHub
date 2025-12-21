@@ -8,16 +8,17 @@ const Home = () => {
       {/* Hero Section */}
       <div className="relative overflow-hidden">
         {/* Animated Background */}
-        <div className="absolute inset-0  overflow-hidden">
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
           <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-gradient-to-br from-accent-purple/30 via-accent-pink/20 to-transparent rounded-full blur-3xl animate-pulse" />
           <div className="absolute bottom-0 left-0 w-[600px] h-[600px] bg-gradient-to-tr from-accent-blue/20 via-accent-purple/20 to-transparent rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }} />
           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[400px] h-[400px] bg-gradient-to-r from-accent-pink/10 to-accent-orange/10 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '2s' }} />
         </div>
 
+
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24 md:py-40">
           <div className="text-center">
             {/* Badge */}
-            <div className="mb-8 animate-fade-in">
+          <div className="mb-8 animate-fade-in">
               <div className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-accent-purple/20 to-accent-pink/20 border border-accent-purple/30 rounded-full backdrop-blur-sm">
                 <span className="relative flex h-2 w-2">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-accent-purple opacity-75"></span>
@@ -54,10 +55,10 @@ const Home = () => {
                   <Play className="ml-2 h-5 w-5" />
                 </Link>
               </Button>
-              <Button 
-                variant="outline" 
-                size="lg" 
-                className="text-lg px-10 py-6 border-2 hover:bg-surface hover:border-accent-purple/50" 
+              <Button
+                variant="outline"
+                size="lg"
+                className="text-lg px-10 py-6 border-2 hover:bg-surface hover:border-accent-purple/50"
                 asChild
               >
                 <Link href="/browse">Watch Live Streams</Link>
@@ -355,7 +356,7 @@ const Home = () => {
 
       {/* CTA Section */}
       <div className="py-20 md:py-32 relative overflow-hidden">
-        
+
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="relative border-3 border-accent-purple/30 rounded-[2.5rem] shadow-2xl  overflow-hidden ">
             <div className="bg-background p-12 md:p-20 text-center">
@@ -364,7 +365,7 @@ const Home = () => {
                   ✨ No Credit Card Required
                 </span>
               </div>
-              
+
               <h2 className="text-4xl md:text-6xl font-bold mb-6">
                 <span className="bg-gradient-to-r from-accent-purple via-accent-pink to-accent-orange bg-clip-text text-transparent">
                   Your Streaming Journey
@@ -372,11 +373,11 @@ const Home = () => {
                 <br />
                 <span className="text-text-primary">Starts Here</span>
               </h2>
-              
+
               <p className="text-lg md:text-xl text-text-secondary max-w-2xl mx-auto mb-10 leading-relaxed">
                 Join 50,000+ creators who are building their brands and connecting with millions of viewers worldwide
               </p>
-              
+
               <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
                 <Button
                   variant="default"

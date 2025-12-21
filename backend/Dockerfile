@@ -1,12 +1,16 @@
-FROM node:20-alpine
+FROM node:20-bullseye-slim
 
-# Install Python and build dependencies for MediaSoup
-RUN apk add --no-cache python3 py3-pip make g++ linux-headers
+# Install build dependencies
+RUN apt-get update && apt-get install -y \
+    python3 \
+    python3-pip \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
 COPY package*.json ./
-RUN npm ci --omit=dev --verbose
+RUN npm ci --omit=dev
 
 COPY . .
 
