@@ -27,8 +27,8 @@ class MediaService {
         try {
             const worker = await mediasoup.createWorker({
                 logLevel: 'error',
-                rtcMinPort: process.env.RTC_MIN_PORT || 2000 + (index * 1000),
-                rtcMaxPort: process.env.RTC_MAX_PORT || 2000 + (index * 1000) + 999,
+                rtcMinPort: process.env.RTC_MIN_PORT || 10000,
+                rtcMaxPort: process.env.RTC_MAX_PORT || 10100,
                 appData: { workerId: index }
             });
 
@@ -179,8 +179,19 @@ class MediaService {
                 maxSctpMessageSize: 262144,
                 iceServers: [
                     { urls: 'stun:stun.l.google.com:19302' },
-                    { urls: 'stun:stun1.l.google.com:19302' }
+                    { urls: 'stun:stun1.l.google.com:19302' },
+                    { urls: 'stun:stun2.l.google.com:19302' },
+                    {
+                        urls: [
+                            'turn:openrelay.metered.ca:80',
+                            'turn:openrelay.metered.ca:443',
+                            'turns:openrelay.metered.ca:443'
+                        ],
+                        username: process.env.TURN_USERNAME || 'openrelayproject',
+                        credential: process.env.TURN_PASSWORD || 'openrelayproject'
+                    }
                 ],
+                iceTransportPolicy: 'all',
                 appData: { userId, direction }
             };
 

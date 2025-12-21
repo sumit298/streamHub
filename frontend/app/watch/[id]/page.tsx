@@ -17,6 +17,8 @@ const WatchPage = () => {
     const [isLoading, setIsLoading] = useState(true);
     const [streamInfo, setStreamInfo] = useState<any>(null);
     const [isMuted, setIsMuted] = useState(true);
+    const [streamStartTime, setStreamStartTime] = useState<number | null>(null);
+    const [duration, setDuration] = useState(0);
 
     const toggleMute = () => {
         if (videoRef.current) {
@@ -51,8 +53,30 @@ const WatchPage = () => {
             });
 
             newSocket.on("viewer-count", (count: number) => {
+                console.log("👁️ VIEWER received viewer-count:", count, typeof count);
+
                 setViewerCount(count);
             });
+
+            newSocket.on('existing-producers', async (producers: any[]) => {
+                console.log('👁️ VIEWER received existing producers:', producers);
+
+                if (producers.length > 0 && !initRef.current) {
+                    await initializeViewer();
+                }
+            })
+
+            newSocket.on("new-producer", async (data: any) => {
+                console.log('📺 New producer available:', data);
+                if (!initRef.current && socket && streamInfo) {
+                    await initializeViewer();
+                }
+            })
+
+            newSocket.on("stream-start-time", (data) => {
+                console.log('⏱️ Received stream start time:', data.startTime);
+                setStreamStartTime(data.startTime);
+            })
 
             newSocket.on('error', (error) => {
                 console.error('Socket error:', error);
@@ -72,6 +96,16 @@ const WatchPage = () => {
         }
     }, [socket, streamInfo]);
 
+    useEffect(() => {
+        if (!streamStartTime) return;
+
+        const interval = setInterval(() => {
+            setDuration(Math.floor((Date.now() - streamStartTime) / 1000));
+        }, 1000);
+
+        return () => clearInterval(interval);
+    }, [streamStartTime]);
+
     const fetchStreamInfo = async () => {
         try {
             const { data } = await api.get(`/api/streams/${params.id}`);
@@ -80,6 +114,13 @@ const WatchPage = () => {
             console.error('Failed to fetch stream info:', error);
             toast.error('Stream not found');
         }
+    };
+
+    const formatDuration = (seconds: number) => {
+        const h = Math.floor(seconds / 3600);
+        const m = Math.floor((seconds % 3600) / 60);
+        const s = seconds % 60;
+        return `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
     };
 
 
@@ -126,7 +167,11 @@ const WatchPage = () => {
             console.log('Available producers:', producers);
 
             if (!producers || producers.length === 0) {
-                throw new Error('No active producers found. Stream may not have started yet.');
+                console.log('⏳ No producers yet, waiting for stream to start...');
+                initRef.current = false;
+                setIsLoading(false);
+                toast('Waiting for stream to start...', { icon: '⏳' });
+                return;
             }
 
             const stream = new MediaStream();
@@ -237,6 +282,17 @@ const WatchPage = () => {
         }
     };
 
+    const leaveStream = () => {
+        if (videoRef.current?.srcObject) {
+            const stream = videoRef.current.srcObject as MediaStream;
+            stream.getTracks().forEach(track => track.stop());
+            videoRef.current.srcObject = null;
+        }
+        socket?.close();
+        toast.success("Disconnected from stream");
+        window.location.href = "/dashboard";
+    }
+
     return (
         <div className="min-h-screen bg-background p-4">
             <div className="max-w-6xl mx-auto">
@@ -269,11 +325,20 @@ const WatchPage = () => {
                     <div className="flex gap-4 text-sm text-gray-400">
                         <p>🔴 Live</p>
                         <p>👁️ {viewerCount} viewers</p>
+                        <p>⏱️ {formatDuration(duration)}</p>
                         <p>📁 {streamInfo?.category}</p>
                     </div>
                     {streamInfo?.description && (
                         <p className="mt-4 text-gray-300">{streamInfo.description}</p>
                     )}
+                    <div className="mt-4">
+                        <button
+                            onClick={leaveStream}
+                            className="absolute top-4 right-4 bg-red-500 text-white px-4 py-2 rounded"
+                        >
+                            Leave Stream
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>

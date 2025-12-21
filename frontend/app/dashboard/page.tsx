@@ -34,7 +34,7 @@ const Dashboard = () => {
 
     useEffect(() => {
         fetchStreams();
-        
+
         // Connect to Socket.IO for real-time viewer counts
         const newSocket = io(process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001", {
             withCredentials: true,
@@ -75,7 +75,7 @@ const Dashboard = () => {
                     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
                         {/* Hero Section */}
                         <div className="mb-12">
-                            <div className="bg-gradient-to-r from-accent-purple to-accent-pink rounded-2xl p-8 md:p-12 text-white mb-8">
+                            <div className="bg-linear-to-r from-accent-purple to-accent-pink rounded-2xl p-8 md:p-12 text-white mb-8">
                                 <h1 className="text-4xl md:text-5xl font-bold mb-4">
                                     Welcome back, {user?.username || 'User'}!
                                 </h1>
@@ -143,7 +143,7 @@ const Dashboard = () => {
                                 )}
                             </div>
                         </div>
-                            
+
 
                     </div>
                 </main>

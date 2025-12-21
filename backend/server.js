@@ -40,7 +40,10 @@ const app = express();
 const server = http.createServer(app);
 const io = socketIo(server, {
   cors: {
-    origin: process.env.CORS_ORIGIN || process.env.CLIENT_URL || "http://localhost:3000",
+    origin:
+      process.env.CORS_ORIGIN ||
+      process.env.CLIENT_URL ||
+      "http://localhost:3000",
     methods: ["GET", "POST"],
     credentials: true,
   },
@@ -55,7 +58,10 @@ if (process.env.NODE_ENV !== "test") {
 
 app.use(
   cors({
-    origin: process.env.CORS_ORIGIN || process.env.CLIENT_URL || "http://localhost:3000",
+    origin:
+      process.env.CORS_ORIGIN ||
+      process.env.CLIENT_URL ||
+      "http://localhost:3000",
     credentials: true,
   })
 );
@@ -135,7 +141,7 @@ async function initializeServices() {
     logger.info("Initializing services...");
 
     await mongoose.connect(
-      process.env.DATABASE_URL || "mongodb://localhost:27017/ils_db",
+      process.env.DATABASE_URL || "mongodb://localhost:27018/streamhub",
       {
         maxPoolSize: 10,
         serverSelectionTimeoutMS: 5000,
@@ -272,17 +278,35 @@ io.on("connection", (socket) => {
         logger.info(
           `Sent ${existingProducers.length} existing producers to ${socket.userId}`
         );
+
+        const streamInfo = await streamService.getStreamInfo(data.streamId);
+        if (streamInfo?.startedAt) {
+          io.to(`room:${data.streamId}`).emit("stream-start-time", {
+            startTime: new Date(streamInfo.startedAt).getTime(),
+          });
+
+          logger.info(`Sent stream start time to ${socket.userId}`);
+        }
       } else {
         logger.info(`No existing producers found for room ${data.streamId}`);
       }
 
       // Get actual viewer count from socket room
       const roomSockets = await io.in(`room:${data.streamId}`).fetchSockets();
-      const viewerCount = roomSockets.length;
+      const viewerCount = roomSockets.length - 1;
+
+      console.log(`📊 Room ${data.streamId} has ${viewerCount} sockets`);
+      console.log(
+        `📊 Socket IDs in room:`,
+        roomSockets.map((s) => s.id)
+      );
 
       // Broadcast viewer count to all in room and dashboard subscribers
       io.to(`room:${data.streamId}`).emit("viewer-count", viewerCount);
-      io.emit("viewer-count", { streamId: data.streamId, count: viewerCount });
+      // io.emit("viewer-count", { streamId: data.streamId, count: viewerCount });
+      console.log(
+        `📊 Emitted viewer-count: ${viewerCount} to room:${data.streamId}`
+      );
 
       socket.to(`room:${data.streamId}`).emit("viewer-joined", {
         userId: socket.userId,
@@ -327,6 +351,11 @@ io.on("connection", (socket) => {
         socket.userId,
         data.direction
       );
+
+      if (data.direction === "send") {
+        socket.join(`room:${data.roomId}`);
+        logger.info(`User ${socket.userId} joined room ${data.roomId}`);
+      }
 
       callback(transport);
     } catch (error) {
@@ -374,6 +403,14 @@ io.on("connection", (socket) => {
         producerId: producer.id,
         kind: producer.kind,
       });
+
+      const streamInfo = await streamService.getStreamInfo(data.roomId);
+      if (streamInfo?.startedAt) {
+        io.to(`room:${data.roomId}`).emit("stream-start-time", {
+          startTime: new Date(streamInfo.startedAt).getTime(),
+        });
+        logger.info(`Broadcasted stream start time for ${data.roomId}`);
+      }
 
       callback({ producerId: producer.id });
     } catch (error) {
@@ -450,11 +487,11 @@ io.on("connection", (socket) => {
 
       // Get current viewer count for this stream
       const roomSockets = await io.in(`room:${streamId}`).fetchSockets();
-      const viewerCount = roomSockets.length;
+      const viewerCount = roomSockets.length - 1;
 
       // Send current count to this socket
-      socket.emit("viewer-count", { streamId, count: viewerCount });
-      
+      socket.emit("viewer-count", viewerCount);
+
       logger.debug(`Sent viewer count for stream ${streamId}: ${viewerCount}`);
     } catch (error) {
       logger.error("Subscribe viewer count error", error);
@@ -496,10 +533,10 @@ io.on("connection", (socket) => {
 
           // Update viewer count after disconnect
           const roomSockets = await io.in(roomId).fetchSockets();
-          const viewerCount = roomSockets.length - 1; // -1 because this socket is still in room
+          const viewerCount = roomSockets.length - 2; // -1 because this socket is still in room
           const finalCount = Math.max(0, viewerCount);
           io.to(roomId).emit("viewer-count", finalCount);
-          io.emit("viewer-count", { streamId, count: finalCount });
+          // io.emit("viewer-count", { streamId, count: finalCount });
 
           socket.to(roomId).emit("viewer-left", {
             userId: socket.userId,
