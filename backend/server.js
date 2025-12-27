@@ -45,14 +45,14 @@ const app = express();
 
 if (
   process.env.NODE_ENV === "production" &&
-  fs.existsSync("/etc/letsencrypt/live/stream-hub.duckdns.org/fullchain.pem")
+  fs.existsSync("./fullchain.pem")
 ) {
   const httpsOptions = {
     key: fs.readFileSync(
-      "/etc/letsencrypt/live/stream-hub.duckdns.org/privkey.pem"
+      "./privkey.pem"
     ),
     cert: fs.readFileSync(
-      "/etc/letsencrypt/live/stream-hub.duckdns.org/fullchain.pem"
+      "./fullchain.pem"
     ),
   };
   server = https.createServer(httpsOptions, app);
