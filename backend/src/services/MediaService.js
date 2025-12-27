@@ -27,8 +27,8 @@ class MediaService {
         try {
             const worker = await mediasoup.createWorker({
                 logLevel: 'error',
-                rtcMinPort: process.env.RTC_MIN_PORT || 10000,
-                rtcMaxPort: process.env.RTC_MAX_PORT || 10100,
+                rtcMinPort: 40000,
+                rtcMaxPort: 49999,
                 appData: { workerId: index }
             });
 
