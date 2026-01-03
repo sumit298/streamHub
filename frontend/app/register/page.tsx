@@ -136,7 +136,7 @@ const Register = () => {
                 </span>
             </div>
 
-            <div className="rounded-md border p-8 mx-4 mt-4 sm:w-3/4 md:w-1/2 lg:w-1/3 w-1/4 shadow-lg max-w-md">
+            <div className="rounded-md border p-6 mx-4 mt-4 w-full sm:w-96 md:w-1/2 lg:w-1/3 shadow-lg max-w-md">
                 <div className="mb-7">
                     <p className="text-2xl font-bold">Get Started</p>
                     <span className="text-sm text-gray-600">
