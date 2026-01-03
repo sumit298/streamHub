@@ -41,6 +41,11 @@ const streamSchema = new mongoose.Schema({
         default: false,
         index: true
     },
+    isPending: {
+        type: Boolean,
+        default: false,
+        index: true
+    },
     
     thumbnail: {
         type: String,
@@ -121,6 +126,7 @@ const streamSchema = new mongoose.Schema({
 streamSchema.index({ userId: 1, createdAt: -1 });
 streamSchema.index({ category: 1, isLive: 1, 'stats.viewers': -1 });
 streamSchema.index({ isLive: 1, 'stats.maxViewers': -1 });
+streamSchema.index({ isPending: 1, isLive: 1 });
 streamSchema.index({ createdAt: -1, isLive: 1 });
 
 // Text index for search
@@ -171,6 +177,7 @@ streamSchema.methods.getPublicInfo = function () {
         category: this.category,
         tags: this.tags,
         isLive: this.isLive,
+        isPending: this.isPending,
         thumbnail: this.thumbnail,
         stats: this.stats,
         settings: {

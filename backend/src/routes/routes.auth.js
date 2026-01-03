@@ -316,7 +316,7 @@ module.exports = (logger) => {
 
       res.json({
         success: true,
-        user: user.getPublicProfile(),
+        user: user.getSafeProfile(),
       });
     } catch (error) {
       logger.error("Get profile error:", error);

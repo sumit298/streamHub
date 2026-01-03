@@ -60,6 +60,7 @@ export const CreateStreamDialog = ({ open, onOpenChange }: CreateStreamDialogPro
             description,
             thumbnail: thumbnail || `https://picsum.photos/400/225?random=${Date.now()}`,
             tags: tags.split(',').map(tag => tag.trim()).filter(tag => tag.length > 0),
+            isPending: true
         };
 
         //api call

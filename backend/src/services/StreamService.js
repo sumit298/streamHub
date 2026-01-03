@@ -19,6 +19,7 @@ class StreamService {
         description: streamData.description || "",
         category: streamData.category || "general",
         isLive: false,
+        isPending: true,
         isPrivate: streamData.isPrivate || false,
         chatEnabled: streamData.chatEnabled !== false,
         recordingEnabled: streamData.recordingEnabled || false,
@@ -68,7 +69,7 @@ class StreamService {
 
       // Get stream from database since cache is disabled
       try {
-        const streamDoc = await Stream.findOne({id: streamId});
+        const streamDoc = await Stream.findOne({ id: streamId });
         if (streamDoc) {
           stream = streamDoc.toObject();
         }
@@ -177,6 +178,7 @@ class StreamService {
           { id: roomId },
           {
             isLive: true,
+            isPending: false,
             startedAt: new Date(),
           }
         );
@@ -274,6 +276,7 @@ class StreamService {
 
       const streamUpdate = {
         isLive: false,
+        isPending: false,
         endedAt: new Date().toISOString(),
         duration: stream.startedAt
           ? Date.now() - new Date(stream.startedAt).getTime()
@@ -377,20 +380,41 @@ class StreamService {
   async getActiveStreams(options = {}) {
     try {
       const query = {};
+
+      if (options.status === "live") {
+        query.isLive = true;
+      } else if (options.status === "ended") {
+        query.isLive = false;
+        query.isPending = false;
+      } else if (options.status === "pending") {
+        query.$or = [{ isPending: true }, { isLive: true }];
+      }
       if (options.category) {
         query.category = options.category;
       }
 
+      // Apply filter based on "my" or "community"
+      if (options.filter === "my" && options.userId) {
+        query.userId = options.userId;
+      } else if (options.filter === "community" && options.userId) {
+        query.userId = { $ne: options.userId };
+      }
+
+      const total = await Stream.countDocuments(query);
+
       const streams = await Stream.find(query)
         .limit(options.limit || 20)
         .skip(options.offset || 0)
-        .sort({ createdAt: -1 })
+        .sort({ _id: -1 })
         .lean();
 
-      return streams;
+      return {
+        total,
+        streams,
+      };
     } catch (error) {
       this.logger.error(`Error getting active streams:`, error);
-      return [];
+      return { stremas: [], total: 0 };
     }
   }
 

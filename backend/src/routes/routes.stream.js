@@ -133,6 +133,10 @@ module.exports = (streamService, logger, AuthMiddleWare) => {
         .optional()
         .isIn(["viewers", "created", "title"])
         .withMessage("Invalid sort parameter"),
+      query("filter")
+        .optional()
+        .isIn(["my", "community"])
+        .withMessage("Invalid filter parameter"),
     ],
     async (req, res) => {
       try {
@@ -150,6 +154,7 @@ module.exports = (streamService, logger, AuthMiddleWare) => {
           offset = 0,
           search,
           sortBy = "viewers",
+          filter,
         } = req.query;
 
         let streams;
@@ -164,26 +169,39 @@ module.exports = (streamService, logger, AuthMiddleWare) => {
             limit: parseInt(limit),
             offset: parseInt(offset),
             sortBy,
+            status: req.query.status, // 'live' | 'ended'
+            filter,
+            userId: req.userId,
           });
         }
 
-        // Filter out private streams the user can't access
-        const accessibleStreams = streams.filter((stream) => {
-          if (!stream.isPrivate) return true;
-          if (req.userId && stream.userId === req.userId) return true;
-          if (
-            req.userId &&
-            stream.settings?.allowedViewers?.includes(req.userId)
-          )
-            return true;
-          return false;
-        });
+        // TODO: do it later
+        // // Filter out private streams the user can't access
+        // const accessibleStreams = streams.filter((stream) => {
+        //   if (!stream.isPrivate) return true;
+        //   if (req.userId && stream.userId === req.userId) return true;
+        //   if (
+        //     req.userId &&
+        //     stream.settings?.allowedViewers?.includes(req.userId)
+        //   )
+        //     return true;
+        //   return false;
+        // });
 
         res.json({
           success: true,
-          streams: accessibleStreams,
-          total: accessibleStreams.length,
-          hasMore: accessibleStreams.length === parseInt(limit),
+          streams: streams.streams,
+          total: streams.total,
+          hasMore: (parseInt(offset) + streams.streams.length) < streams.total,
+          pagination: {
+            limit: parseInt(limit),
+            offset: parseInt(offset),
+            total: streams.total,
+            currentPage: Math.floor(parseInt(offset) / parseInt(limit)) + 1,
+            totalPages: Math.ceil(streams.total / parseInt(limit)),
+          },
+          
+          
         });
       } catch (error) {
         logger.error("Get streams error:", error);

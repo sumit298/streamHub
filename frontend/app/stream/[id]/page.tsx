@@ -153,8 +153,26 @@ const StreamsPage = () => {
 
             const sendTransport = device.createSendTransport(transportInfo);
 
-            sendTransport.on("connect", async ({ dtlsParameters }, callback) => {
-                socket.emit("connect-transport", { roomId: params.id, transportId: sendTransport.id, dtlsParameters }, callback);
+            sendTransport.on("connect", async ({ dtlsParameters }, callback, errback) => {
+                try {
+                    console.log('🔌 Connecting transport...');
+                    socket.emit("connect-transport", { 
+                        roomId: params.id, 
+                        transportId: sendTransport.id, 
+                        dtlsParameters 
+                    }, (response: any) => {
+                        if (response?.error) {
+                            console.error('❌ Transport connect error:', response.error);
+                            errback(new Error(response.error));
+                        } else {
+                            console.log('✅ Transport connected successfully');
+                            callback();
+                        }
+                    });
+                } catch (error) {
+                    console.error('❌ Connect transport exception:', error);
+                    errback(error);
+                }
             })
 
             sendTransport.on("produce", async ({ kind, rtpParameters }, callback) => {
@@ -179,8 +197,22 @@ const StreamsPage = () => {
 
 
             sendTransport.on('connectionstatechange', (state) => {
-                console.log('Transport connection state:', state);
+                console.log('🔗 Transport connection state:', state);
                 setConnectionStatus(state);
+                
+                if (state === 'failed' || state === 'closed') {
+                    console.error('❌ Transport connection failed or closed');
+                    toast.error('Connection failed. Please try again.');
+                    setIsStreaming(false);
+                }
+            });
+
+            sendTransport.on('icestatechange', (state) => {
+                console.log('🧊 ICE state:', state);
+            });
+
+            sendTransport.on('iceconnectionstatechange', (state) => {
+                console.log('🧊 ICE connection state:', state);
             });
 
             const videoTrack = stream.getVideoTracks()[0];
@@ -341,7 +373,22 @@ const StreamsPage = () => {
                             </>
                         )}
                     </div>
-                    <p className="text-xs mt-2">Connection: {connectionStatus}</p>
+                    <p className="text-xs mt-2">
+                        Connection: 
+                        <span className={`ml-1 font-medium ${
+                            connectionStatus === 'connected' ? 'text-green-500' :
+                            connectionStatus === 'connecting' ? 'text-yellow-500' :
+                            connectionStatus === 'failed' || connectionStatus === 'error' ? 'text-red-500' :
+                            'text-gray-500'
+                        }`}>
+                            {connectionStatus === 'connected' ? '✓ Connected' :
+                             connectionStatus === 'connecting' ? '⟳ Connecting...' :
+                             connectionStatus === 'failed' ? '✗ Failed' :
+                             connectionStatus === 'error' ? '✗ Error' :
+                             connectionStatus === 'disconnected' ? '○ Disconnected' :
+                             connectionStatus}
+                        </span>
+                    </p>
                 </div>
                 <div className="mt-4">
                     <button
