@@ -160,8 +160,14 @@ module.exports = (streamService, logger, AuthMiddleWare) => {
         let streams;
 
         if (search) {
-          // Use search functionality
-          streams = await streamService.searchStreams(search, parseInt(limit));
+          // Use search functionality with filters and pagination
+          streams = await streamService.searchStreams(search, {
+            limit: parseInt(limit),
+            offset: parseInt(offset),
+            category,
+            filter,
+            userId: req.userId,
+          });
         } else {
           // Get active streams with filtering
           streams = await streamService.getActiveStreams({
@@ -249,7 +255,8 @@ module.exports = (streamService, logger, AuthMiddleWare) => {
           isPrivate: req.body.isPrivate || false,
           chatEnabled: req.body.chatEnabled !== false,
           recordingEnabled: req.body.recordingEnabled || false,
-          tags: req.body.tags || [],
+          tags: Array.isArray(req.body.tags) && req.body.tags.length > 0 ? req.body.tags : [],
+          thumbnail: req.body.thumbnail || null,
         };
 
         const stream = await streamService.createStream(req.userId, streamData);

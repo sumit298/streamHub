@@ -5,7 +5,7 @@
   "main": "server.js",
   "scripts": {
     "start": "node --env-file=.env server.js",
-    "dev": "node --env-file=.env --watch server.js",
+    "dev": "node --env-file=.env.local --watch server.js",
     "seed": "node seed-data.js",
     "test:basic": "node test-basic.js",
     "test:services": "node test-services.js",

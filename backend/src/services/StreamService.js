@@ -23,6 +23,8 @@ class StreamService {
         isPrivate: streamData.isPrivate || false,
         chatEnabled: streamData.chatEnabled !== false,
         recordingEnabled: streamData.recordingEnabled || false,
+        tags: streamData.tags || [],
+        thumbnail: streamData.thumbnail || null,
         stats: {
           viewers: 0,
           maxViewers: 0,
@@ -403,50 +405,78 @@ class StreamService {
       const total = await Stream.countDocuments(query);
 
       const streams = await Stream.find(query)
+        .populate('userId', 'username avatar')
         .limit(options.limit || 20)
         .skip(options.offset || 0)
         .sort({ _id: -1 })
         .lean();
 
+      // Transform userId to streamer object
+      const transformedStreams = streams.map(stream => ({
+        ...stream,
+        streamer: stream.userId ? {
+          username: stream.userId.username,
+          avatar: stream.userId.avatar
+        } : null
+      }));
+
       return {
         total,
-        streams,
+        streams: transformedStreams,
       };
     } catch (error) {
       this.logger.error(`Error getting active streams:`, error);
-      return { stremas: [], total: 0 };
+      return { streams: [], total: 0 };
     }
   }
 
-  async searchStreams(query, limit = 20) {
+  async searchStreams(searchQuery, options = {}) {
     try {
-      // This would typically use a search engine like Elasticsearch
-      // For now, we'll do a simple database search
-      const streams = await Stream.find({
+      const query = {
         $or: [
-          { title: { $regex: query, $options: "i" } },
-          { description: { $regex: query, $options: "i" } },
-          { category: { $regex: query, $options: "i" } },
+          { title: { $regex: searchQuery, $options: "i" } },
+          { description: { $regex: searchQuery, $options: "i" } },
+          { category: { $regex: searchQuery, $options: "i" } },
         ],
-        isLive: true,
-      })
-        .limit(limit)
-        .sort({ createdAt: -1 });
+      };
 
-      // Enhance with real-time data
-      const enhancedStreams = [];
-      for (const stream of streams) {
-        const stats = await this.cacheService.getStreamStats(stream.id);
-        enhancedStreams.push({
-          ...stream.toObject(),
-          ...stats,
-        });
+      // Apply filter based on "my" or "community"
+      if (options.filter === "my" && options.userId) {
+        query.userId = options.userId;
+      } else if (options.filter === "community" && options.userId) {
+        query.userId = { $ne: options.userId };
       }
 
-      return enhancedStreams;
+      // Apply category filter if provided
+      if (options.category) {
+        query.category = options.category;
+      }
+
+      const total = await Stream.countDocuments(query);
+
+      const streams = await Stream.find(query)
+        .populate('userId', 'username avatar')
+        .limit(options.limit || 20)
+        .skip(options.offset || 0)
+        .sort({ createdAt: -1 })
+        .lean();
+
+      // Transform userId to streamer object
+      const transformedStreams = streams.map(stream => ({
+        ...stream,
+        streamer: stream.userId ? {
+          username: stream.userId.username,
+          avatar: stream.userId.avatar
+        } : null
+      }));
+
+      return {
+        total,
+        streams: transformedStreams,
+      };
     } catch (error) {
       this.logger.error("Error searching streams:", error);
-      return [];
+      return { streams: [], total: 0 };
     }
   }
 
