@@ -294,50 +294,113 @@ const WatchPage = () => {
     }
 
     return (
-        <div className="min-h-screen bg-background p-4">
-            <div className="max-w-6xl mx-auto">
-                <div className="aspect-video bg-black rounded-lg mb-4 relative">
-                    <video
-                        ref={videoRef}
-                        autoPlay
-                        playsInline
-                        muted={isMuted}
-                        controls
-                        className="w-full h-full object-cover rounded-lg"
-                    />
-                    {isLoading && (
-                        <div className="absolute inset-0 flex items-center justify-center">
-                            <p className="text-white">Loading stream...</p>
+        <div className="min-h-screen bg-background">
+            {/* Header */}
+            <div className="bg-card border-b border-gray-700 sticky top-0 z-10">
+                <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
+                    <button
+                        onClick={leaveStream}
+                        className="text-gray-400 hover:text-white transition flex items-center gap-2"
+                    >
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                        </svg>
+                        Leave
+                    </button>
+                    <div className="flex items-center gap-3">
+                        <span className="flex items-center gap-1.5 px-3 py-1.5 bg-red-600/20 text-red-500 rounded-full font-medium text-sm">
+                            <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>
+                            LIVE
+                        </span>
+                        <span className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-700 rounded-full text-sm">
+                            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                                <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
+                                <path fillRule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clipRule="evenodd" />
+                            </svg>
+                            {viewerCount}
+                        </span>
+                        <span className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-700 rounded-full text-sm">
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            {formatDuration(duration)}
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+            <div className="max-w-7xl mx-auto p-4 grid grid-cols-1 lg:grid-cols-3 gap-4">
+                {/* Main Video Area */}
+                <div className="lg:col-span-2 space-y-4">
+                    <div className="aspect-video bg-black rounded-lg overflow-hidden relative">
+                        <video
+                            ref={videoRef}
+                            autoPlay
+                            playsInline
+                            muted={isMuted}
+                            controls
+                            className="w-full h-full object-cover"
+                        />
+                        {isLoading && (
+                            <div className="absolute inset-0 flex items-center justify-center bg-gray-900">
+                                <div className="text-center">
+                                    <div className="w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                                    <p className="text-white font-medium">Connecting to stream...</p>
+                                    <p className="text-gray-400 text-sm mt-2">Please wait</p>
+                                </div>
+                            </div>
+                        )}
+                        {!isLoading && isMuted && (
+                            <button
+                                onClick={toggleMute}
+                                className="absolute bottom-4 right-4 bg-white hover:bg-gray-100 text-black px-4 py-2 rounded-lg font-semibold transition flex items-center gap-2 shadow-lg"
+                            >
+                                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fillRule="evenodd" d="M9.383 3.076A1 1 0 0110 4v12a1 1 0 01-1.707.707L4.586 13H2a1 1 0 01-1-1V8a1 1 0 011-1h2.586l3.707-3.707a1 1 0 011.09-.217zM12.293 7.293a1 1 0 011.414 0L15 8.586l1.293-1.293a1 1 0 111.414 1.414L16.414 10l1.293 1.293a1 1 0 01-1.414 1.414L15 11.414l-1.293 1.293a1 1 0 01-1.414-1.414L13.586 10l-1.293-1.293a1 1 0 010-1.414z" clipRule="evenodd" />
+                                </svg>
+                                Click to Unmute
+                            </button>
+                        )}
+                    </div>
+
+                    {/* Stream Info */}
+                    <div className="bg-card rounded-lg p-6">
+                        <h1 className="text-2xl font-bold mb-2">{streamInfo?.title || 'Loading...'}</h1>
+                        <div className="flex items-center gap-4 text-sm text-gray-400 mb-4">
+                            <span className="px-2 py-1 bg-gray-700 rounded capitalize">{streamInfo?.category}</span>
+                            {streamInfo?.tags && streamInfo.tags.length > 0 && (
+                                <div className="flex gap-2">
+                                    {streamInfo.tags.slice(0, 3).map((tag: string, idx: number) => (
+                                        <span key={idx} className="px-2 py-1 bg-primary/20 text-primary rounded text-xs">
+                                            {tag}
+                                        </span>
+                                    ))}
+                                </div>
+                            )}
                         </div>
-                    )}
-                    {!isLoading && isMuted && (
-                        <button
-                            onClick={toggleMute}
-                            className="absolute bottom-4 right-4 bg-white text-black px-4 py-2 rounded-lg font-semibold hover:bg-gray-200 transition flex items-center gap-2"
-                        >
-                            🔇 Click to Unmute
-                        </button>
-                    )}
+                        {streamInfo?.description && (
+                            <p className="text-gray-300 leading-relaxed">{streamInfo.description}</p>
+                        )}
+                    </div>
                 </div>
 
-                <div className="bg-card p-4 rounded-lg">
-                    <h1 className="text-2xl font-bold mb-2">{streamInfo?.title || 'Loading...'}</h1>
-                    <div className="flex gap-4 text-sm text-gray-400">
-                        <p>🔴 Live</p>
-                        <p>👁️ {viewerCount} viewers</p>
-                        <p>⏱️ {formatDuration(duration)}</p>
-                        <p>📁 {streamInfo?.category}</p>
-                    </div>
-                    {streamInfo?.description && (
-                        <p className="mt-4 text-gray-300">{streamInfo.description}</p>
-                    )}
-                    <div className="mt-4">
-                        <button
-                            onClick={leaveStream}
-                            className="absolute top-4 right-4 bg-red-500 text-white px-4 py-2 rounded"
-                        >
-                            Leave Stream
-                        </button>
+                {/* Sidebar - Chat placeholder */}
+                <div className="space-y-4">
+                    <div className="bg-card rounded-lg p-4 h-[600px] flex flex-col">
+                        <h3 className="font-semibold mb-4 flex items-center gap-2">
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                            </svg>
+                            Live Chat
+                        </h3>
+                        <div className="flex-1 flex items-center justify-center text-gray-500">
+                            <div className="text-center">
+                                <svg className="w-12 h-12 mx-auto mb-3 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                                </svg>
+                                <p className="text-sm">Chat coming soon</p>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>

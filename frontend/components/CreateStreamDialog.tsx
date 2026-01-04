@@ -20,13 +20,12 @@ const categories = [
     "Gaming",
     "Music",
     "Art",
-    "Talk Shows",
-    "Education",
-    "Sports",
     "Technology",
-    "Cooking",
-    "Fitness",
-    "Other"
+    "Education",
+    "Entertainment",
+    "Sports",
+    "Talk Shows",
+    "General"
 ];
 
 export const CreateStreamDialog = ({ open, onOpenChange }: CreateStreamDialogProps) => {

@@ -22,6 +22,9 @@ const BrowsePage = () => {
   const [myStreamsCount, setMyStreamsCount] = useState(0);
   const [communityStreamsCount, setCommunityStreamsCount] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [isSearching, setIsSearching] = useState(false);
+  const [searchResultsTotal, setSearchResultsTotal] = useState(0);
 
   const fetchCounts = async () => {
     try {
@@ -51,13 +54,14 @@ const BrowsePage = () => {
     return `${m}:${s.toString().padStart(2, "0")}`;
   };
 
-  const fetchStreams = async (page = 1) => {
+  const fetchStreams = async (page = 1, search = "") => {
     try {
       setLoading(true);
       setError(null);
       const offset = (page - 1) * limit;
       const filterParam = filter !== "all" ? `&filter=${filter}` : "";
-      const url = `/api/streams?limit=${limit}&offset=${offset}${filterParam}`;
+      const searchParam = search ? `&search=${encodeURIComponent(search)}` : "";
+      const url = `/api/streams?limit=${limit}&offset=${offset}${filterParam}${searchParam}`;
       
       const { data } = await api.get(url);
       setAllStreams(data.streams || []);
@@ -65,21 +69,40 @@ const BrowsePage = () => {
       setHasMore(data.hasMore || false);
       setCurrentPage(page);
       
-      // Store current filter's total for pagination check
-      if (filter === "all") setTotalStreams(data.total || 0);
-      else if (filter === "my") setMyStreamsCount(data.total || 0);
-      else if (filter === "community") setCommunityStreamsCount(data.total || 0);
+      if (search) {
+        setSearchResultsTotal(data.total || 0);
+      } else {
+        setSearchResultsTotal(0);
+        if (filter === "all") setTotalStreams(data.total || 0);
+        else if (filter === "my") setMyStreamsCount(data.total || 0);
+        else if (filter === "community") setCommunityStreamsCount(data.total || 0);
+      }
     } catch (error) {
       console.error("Failed to fetch streams:", error);
       setError("Failed to load streams. Please try again.");
     } finally {
       setLoading(false);
+      setIsSearching(false);
     }
+  };
+
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSearching(true);
+    setCurrentPage(1);
+    fetchStreams(1, searchQuery);
+  };
+
+  const clearSearch = () => {
+    setSearchQuery("");
+    setSearchResultsTotal(0);
+    setCurrentPage(1);
+    fetchStreams(1, "");
   };
 
   useEffect(() => {
     setCurrentPage(1);
-    fetchStreams(1);
+    fetchStreams(1, searchQuery);
   }, [filter]);
 
   useEffect(() => {
@@ -141,6 +164,56 @@ const BrowsePage = () => {
                 Discover streams from our community
               </p>
             </div>
+
+            {/* Search Bar */}
+            <form onSubmit={handleSearch} className="mb-6">
+              <div className="relative max-w-2xl">
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search streams by title, category, or streamer..."
+                  className="w-full px-4 py-3 pl-12 pr-24 bg-card border border-gray-700 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent text-text-primary placeholder-gray-500"
+                />
+                <svg
+                  className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                  />
+                </svg>
+                {searchQuery && (
+                  <button
+                    type="button"
+                    onClick={clearSearch}
+                    className="absolute right-24 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-white hover:bg-gray-700 rounded-full transition"
+                    title="Clear search"
+                  >
+                    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                )}
+                <button
+                  type="submit"
+                  disabled={isSearching}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 px-4 py-1.5 bg-primary text-white rounded-md hover:bg-primary/80 disabled:opacity-50 transition"
+                >
+                  {isSearching ? "..." : "Search"}
+                </button>
+              </div>
+              {searchQuery && (
+                <p className="mt-2 text-sm text-gray-400">
+                  Searching for: <span className="text-primary font-medium">{searchQuery}</span>
+                </p>
+              )}
+            </form>
 
             <div className="flex gap-4 mb-6 border-b border-gray-700">
               <button
@@ -210,16 +283,16 @@ const BrowsePage = () => {
                   <div
                     key={stream._id}
                     onClick={() => stream.isLive && router.push(`/watch/${stream.id}`)}
-                    className={`bg-card rounded-lg overflow-hidden hover:scale-105 transition ${stream.userId === user?.id ? 'border-2 border-primary' : 'border-2 border-transparent'} ${
+                    className={`bg-card rounded-lg overflow-hidden hover:scale-105 transition border ${stream.userId === user?.id ? 'border-primary' : 'border-gray-700'} ${
                       stream.isLive
                         ? "cursor-pointer"
                         : "cursor-default opacity-75"
                     }`}
                   >
                     <div className="aspect-video bg-black relative ">
-                      {stream.thumbnailUrl ? (
+                      {stream.thumbnail ? (
                         <img
-                          src={stream.thumbnailUrl}
+                          src={stream.thumbnail}
                           alt={stream.title}
                           className="w-full h-full object-cover"
                         />
@@ -244,26 +317,35 @@ const BrowsePage = () => {
                       )}
                     </div>
                     <div className="p-4">
-                      <h3 className="font-semibold truncate">{stream.title}</h3>
-                      <p className="text-sm text-gray-400">
+                      <h3 className="font-semibold text-base text-text-primary mb-1 line-clamp-2 leading-tight">
+                        {stream.title}
+                      </h3>
+                      <p className="text-sm text-gray-400 mb-3">
                         {stream.streamer?.username || "Unknown"}
                       </p>
-                      <div className="flex items-center justify-between mt-2">
-                        <p className="text-xs text-gray-500">
-                          👁️{" "}
+                      <div className="flex items-center gap-3 text-xs text-gray-500">
+                        <span className="flex items-center gap-1">
+                          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
+                            <path fillRule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clipRule="evenodd" />
+                          </svg>
                           {stream.isLive
                             ? viewerCounts[stream.id] ?? stream.viewerCount ?? 0
                             : stream.totalViews || 0}{" "}
                           {stream.isLive ? "watching" : "views"}
-                        </p>
-                        <p className="text-xs text-gray-500">
+                        </span>
+                        <span className="px-2 py-0.5 bg-gray-700/50 rounded text-xs capitalize">
                           {stream.category}
-                        </p>
+                        </span>
                       </div>
-                      {stream.duration && !stream.isLive && (
-                        <p className="text-xs text-gray-500 mt-1">
-                          Duration: {formatDuration(stream.duration)}
-                        </p>
+                      {stream.tags && stream.tags.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5 mt-2">
+                          {stream.tags.slice(0, 3).map((tag: string, idx: number) => (
+                            <span key={idx} className="px-2 py-0.5 bg-primary/20 text-primary text-xs rounded">
+                              {tag}
+                            </span>
+                          ))}
+                        </div>
                       )}
                     </div>
                   </div>
@@ -279,15 +361,16 @@ const BrowsePage = () => {
             )}
             {/* Pagination - only show if there are items and multiple pages */}
             {!loading && allStreams.length > 0 && (
+              searchQuery ? searchResultsTotal > limit :
               filter === "all" ? totalStreams > limit :
               filter === "my" ? myStreamsCount > limit :
               communityStreamsCount > limit
             ) && (
                 <div className="flex justify-center mt-8 space-x-4">
                   <button
-                    onClick={() => fetchStreams(currentPage - 1)}
+                    onClick={() => fetchStreams(currentPage - 1, searchQuery)}
                     disabled={currentPage === 1 || loading}
-                    className="px-4 py-2 bg-gray-700 text-white rounded disabled:opacity-50"
+                    className="px-4 py-2 bg-gray-700 text-white rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-600 transition"
                   >
                     Previous
                   </button>
@@ -295,9 +378,9 @@ const BrowsePage = () => {
                     Page {currentPage} of {totalPages}
                   </span>
                   <button
-                    onClick={() => fetchStreams(currentPage + 1)}
+                    onClick={() => fetchStreams(currentPage + 1, searchQuery)}
                     disabled={!hasMore || loading}
-                    className="px-4 py-2 bg-gray-700 text-white rounded disabled:opacity-50"
+                    className="px-4 py-2 bg-gray-700 text-white rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-600 transition"
                   >
                     Next
                   </button>

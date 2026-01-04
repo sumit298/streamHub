@@ -138,15 +138,20 @@ const Dashboard = () => {
                                         </div>
                                     ))
                                 ) : streams.length > 0 ? (
-                                    streams.map((stream: any) => (
+                                    streams.map((stream: any) => {
+                                        console.log('Stream userId:', stream.userId, 'Current user id:', user?.id);
+                                        const isMyStream = stream.userId === user?.id || stream.userId?._id === user?.id || stream.userId?.toString() === user?.id;
+                                        return (
                                         <div
                                             key={stream._id}
-                                            onClick={() => router.push(`/stream/${stream.id}`)}
+                                            onClick={() => {
+                                                router.push(isMyStream ? `/stream/${stream.id}` : `/watch/${stream.id}`);
+                                            }}
                                             className="bg-card rounded-lg overflow-hidden hover:scale-105 transition cursor-pointer border-2 border-primary"
                                         >
                                             <div className="aspect-video bg-black relative">
-                                                {stream.thumbnailUrl ? (
-                                                    <img src={stream.thumbnailUrl} alt={stream.title} className="w-full h-full object-cover" />
+                                                {stream.thumbnail ? (
+                                                    <img src={stream.thumbnail} alt={stream.title} className="w-full h-full object-cover" />
                                                 ) : (
                                                     <div className="w-full h-full flex items-center justify-center text-gray-500">No Preview</div>
                                                 )}
@@ -171,7 +176,8 @@ const Dashboard = () => {
                                                 </div>
                                             </div>
                                         </div>
-                                    ))
+                                        );
+                                    })
                                 ) : (
                                     <div className="col-span-full text-center py-12">
                                         <p className="text-gray-500 text-lg">No streams yet. Use the "Go Live" button in the navbar to create your first stream!</p>
