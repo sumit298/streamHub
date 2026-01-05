@@ -503,6 +503,11 @@ io.on("connection", (socket) => {
     }
   });
 
+  socket.on("join-chat", ({streamId}) => {
+    socket.join(`room:${streamId}`)
+  });
+
+
   socket.on("subscribe-viewer-count", async (data) => {
     try {
       const { streamId } = data;
@@ -531,7 +536,8 @@ io.on("connection", (socket) => {
         socket.userId,
         data.roomId,
         data.content,
-        data.type || "text"
+        data.type || "text",
+        socket.user?.username || 'Anonymous'
       );
 
       io.to(`room:${data.roomId}`).emit("new-message", message);

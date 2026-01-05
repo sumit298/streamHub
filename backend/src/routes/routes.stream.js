@@ -371,6 +371,12 @@ module.exports = (streamService, logger, AuthMiddleWare) => {
 
         const result = await streamService.endStream(streamId, req.userId);
 
+        // Notify all viewers that stream has ended
+        req.app.get('io').to(`room:${streamId}`).emit('stream-ended', {
+          streamId,
+          message: 'Stream has ended'
+        });
+
         logger.info(`Stream ended: ${streamId} by user ${req.userId}`);
 
         res.status(200).json({

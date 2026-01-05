@@ -4,11 +4,13 @@ import { useParams } from "next/navigation";
 import { Device } from 'mediasoup-client';
 import { io, Socket } from 'socket.io-client';
 import toast from "react-hot-toast";
-import { api } from "@/lib/AuthContext";
+import { api, useAuth } from "@/lib/AuthContext";
+import ChatPanel from "@/components/ChatPanel";
 
 
 const WatchPage = () => {
     const params = useParams();
+    const { user } = useAuth();
     const videoRef = useRef<HTMLVideoElement>(null);
     const initRef = useRef(false);
     const [device, setDevice] = useState<Device | null>(null);
@@ -19,6 +21,7 @@ const WatchPage = () => {
     const [isMuted, setIsMuted] = useState(true);
     const [streamStartTime, setStreamStartTime] = useState<number | null>(null);
     const [duration, setDuration] = useState(0);
+    const [streamEnded, setStreamEnded] = useState(false);
 
     const toggleMute = () => {
         if (videoRef.current) {
@@ -77,6 +80,12 @@ const WatchPage = () => {
                 console.log('⏱️ Received stream start time:', data.startTime);
                 setStreamStartTime(data.startTime);
             })
+
+            newSocket.on('stream-ended', () => {
+                console.log('🛑 Stream has ended');
+                setStreamEnded(true);
+                toast.error('Stream has ended');
+            });
 
             newSocket.on('error', (error) => {
                 console.error('Socket error:', error);
@@ -295,12 +304,33 @@ const WatchPage = () => {
 
     return (
         <div className="min-h-screen bg-background">
+            {/* Stream Ended Overlay */}
+            {streamEnded && (
+                <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center">
+                    <div className="bg-card rounded-lg p-8 max-w-md text-center">
+                        <div className="w-16 h-16 bg-red-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <svg className="w-8 h-8 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                        </div>
+                        <h2 className="text-2xl font-bold mb-2">Stream Ended</h2>
+                        <p className="text-gray-400 mb-6">The streamer has ended this broadcast</p>
+                        <button
+                            onClick={() => window.location.href = '/dashboard'}
+                            className="bg-primary hover:bg-primary/80 text-white px-6 py-3 rounded-lg font-semibold transition w-full"
+                        >
+                            Back to Dashboard
+                        </button>
+                    </div>
+                </div>
+            )}
+
             {/* Header */}
             <div className="bg-card border-b border-gray-700 sticky top-0 z-10">
                 <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
                     <button
                         onClick={leaveStream}
-                        className="text-gray-400 hover:text-white transition flex items-center gap-2"
+                        className="text-gray-900 hover:text-gray-400 transition flex items-center gap-2"
                     >
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
@@ -312,14 +342,14 @@ const WatchPage = () => {
                             <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>
                             LIVE
                         </span>
-                        <span className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-700 rounded-full text-sm">
+                        <span className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-200 rounded-full text-sm">
                             <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
                                 <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
                                 <path fillRule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clipRule="evenodd" />
                             </svg>
                             {viewerCount}
                         </span>
-                        <span className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-700 rounded-full text-sm">
+                        <span className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-200 rounded-full text-sm">
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                             </svg>
@@ -384,23 +414,10 @@ const WatchPage = () => {
                     </div>
                 </div>
 
-                {/* Sidebar - Chat placeholder */}
+                {/* Sidebar - Chat */}
                 <div className="space-y-4">
-                    <div className="bg-card rounded-lg p-4 h-[600px] flex flex-col">
-                        <h3 className="font-semibold mb-4 flex items-center gap-2">
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                            </svg>
-                            Live Chat
-                        </h3>
-                        <div className="flex-1 flex items-center justify-center text-gray-500">
-                            <div className="text-center">
-                                <svg className="w-12 h-12 mx-auto mb-3 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                                </svg>
-                                <p className="text-sm">Chat coming soon</p>
-                            </div>
-                        </div>
+                    <div className="bg-card rounded-lg h-[600px]">
+                        <ChatPanel socket={socket} streamId={params.id as string} username={user?.username || 'Anonymous'} />
                     </div>
                 </div>
             </div>

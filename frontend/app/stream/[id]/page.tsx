@@ -4,9 +4,12 @@ import { useParams } from "next/navigation";
 import { Device } from 'mediasoup-client';
 import { io, Socket } from 'socket.io-client';
 import toast from "react-hot-toast";
+import { useAuth } from "@/lib/AuthContext";
+import ChatPanel from "@/components/ChatPanel";
 
 const StreamsPage = () => {
     const params = useParams();
+    const { user } = useAuth();
     const videoRef = useRef<HTMLVideoElement>(null);
     const [stream, setStream] = useState<MediaStream | null>(null);
     const [permissions, setPermissions] = useState({
@@ -365,7 +368,7 @@ const StreamsPage = () => {
             <div className="bg-card border-b border-gray-700 sticky top-0 z-10">
                 <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
                     <div className="flex items-center gap-4">
-                        <a href="/dashboard" className="text-gray-400 hover:text-white transition">
+                        <a href="/dashboard" className="text-gray-900 hover:text-gray-400 transition">
                             ← Back
                         </a>
                         <div>
@@ -381,14 +384,14 @@ const StreamsPage = () => {
                                         <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>
                                         LIVE
                                     </span>
-                                    <span className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-700 rounded-full">
+                                    <span className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-200 rounded-full">
                                         <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
                                             <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
                                             <path fillRule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clipRule="evenodd" />
                                         </svg>
                                         {viewerCount}
                                     </span>
-                                    <span className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-700 rounded-full">
+                                    <span className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-200 rounded-full">
                                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                                         </svg>
@@ -493,6 +496,11 @@ const StreamsPage = () => {
 
                 {/* Sidebar */}
                 <div className="space-y-4">
+                    {/* Chat */}
+                    <div className="bg-card rounded-lg h-[400px]">
+                        <ChatPanel socket={socket} streamId={params.id as string} username={user?.username || 'Streamer'} />
+                    </div>
+
                     {/* Connection Status */}
                     <div className="bg-card rounded-lg p-4">
                         <h3 className="font-semibold mb-3 flex items-center gap-2">

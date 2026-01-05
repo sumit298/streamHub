@@ -9,7 +9,7 @@ class ChatService {
     this.messageTypes = ['text', 'emoji', 'system', 'gif', 'sticker'];
   }
 
-  async sendMessage(userId, streamId, content, type = 'text') {
+  async sendMessage(userId, streamId, content, type = 'text', username = null) {
     try {
       // Validate message type
       if (!this.messageTypes.includes(type)) {
@@ -38,6 +38,7 @@ class ChatService {
       const message = {
         id: uuidv4(),
         userId,
+        username,
         streamId,
         content: content.trim(),
         type,
