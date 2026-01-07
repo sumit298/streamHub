@@ -6,9 +6,14 @@ A scalable real-time live streaming platform built with Node.js, WebRTC (MediaSo
 
 - **User Authentication** - JWT-based auth with secure password hashing
 - **Live Streaming** - WebRTC-powered real-time video streaming via MediaSoup
+- **Screen Sharing** - Share desktop/application screens with system audio
+- **Mobile Responsive** - Optimized streaming experience across all devices
+- **Cross-Platform** - Works on desktop browsers and mobile devices
 - **Real-time Chat** - Socket.IO-based live chat during streams
 - **Stream Management** - Create, update, delete, and browse live streams
 - **Analytics** - Track viewers, chat messages, and stream statistics
+- **HTTPS/SSL Support** - Secure streaming with SSL certificates
+- **CORS Security** - Proper cross-origin resource sharing configuration
 - **Caching** - Redis integration for performance optimization
 - **Message Queue** - RabbitMQ for event processing and analytics
 

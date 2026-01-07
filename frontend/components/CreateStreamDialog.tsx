@@ -20,13 +20,12 @@ const categories = [
     "Gaming",
     "Music",
     "Art",
-    "Talk Shows",
-    "Education",
-    "Sports",
     "Technology",
-    "Cooking",
-    "Fitness",
-    "Other"
+    "Education",
+    "Entertainment",
+    "Sports",
+    "Talk Shows",
+    "General"
 ];
 
 export const CreateStreamDialog = ({ open, onOpenChange }: CreateStreamDialogProps) => {
@@ -60,6 +59,7 @@ export const CreateStreamDialog = ({ open, onOpenChange }: CreateStreamDialogPro
             description,
             thumbnail: thumbnail || `https://picsum.photos/400/225?random=${Date.now()}`,
             tags: tags.split(',').map(tag => tag.trim()).filter(tag => tag.length > 0),
+            isPending: true
         };
 
         //api call

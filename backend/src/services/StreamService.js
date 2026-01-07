@@ -1,5 +1,5 @@
 const { v4: uuidv4 } = require("uuid");
-const { Stream } = require("../models");
+const { Stream, User } = require("../models");
 
 class StreamService {
   constructor(mediaService, messageQueue, cacheService, logger) {
@@ -12,16 +12,24 @@ class StreamService {
   async createStream(userId, streamData) {
     try {
       const streamId = uuidv4();
+      const user = await User.findById(userId);
+      if (!user) {
+        throw new Error("User not found");
+      }
       const stream = {
         id: streamId,
         userId,
+        streamUserName: user.username,
         title: streamData.title,
         description: streamData.description || "",
         category: streamData.category || "general",
         isLive: false,
+        isPending: true,
         isPrivate: streamData.isPrivate || false,
         chatEnabled: streamData.chatEnabled !== false,
         recordingEnabled: streamData.recordingEnabled || false,
+        tags: streamData.tags || [],
+        thumbnail: streamData.thumbnail || null,
         stats: {
           viewers: 0,
           maxViewers: 0,
@@ -68,7 +76,7 @@ class StreamService {
 
       // Get stream from database since cache is disabled
       try {
-        const streamDoc = await Stream.findOne({id: streamId});
+        const streamDoc = await Stream.findOne({ id: streamId });
         if (streamDoc) {
           stream = streamDoc.toObject();
         }
@@ -177,6 +185,7 @@ class StreamService {
           { id: roomId },
           {
             isLive: true,
+            isPending: false,
             startedAt: new Date(),
           }
         );
@@ -274,6 +283,7 @@ class StreamService {
 
       const streamUpdate = {
         isLive: false,
+        isPending: false,
         endedAt: new Date().toISOString(),
         duration: stream.startedAt
           ? Date.now() - new Date(stream.startedAt).getTime()
@@ -377,9 +387,75 @@ class StreamService {
   async getActiveStreams(options = {}) {
     try {
       const query = {};
+
+      if (options.status === "live") {
+        query.isLive = true;
+      } else if (options.status === "ended") {
+        query.isLive = false;
+        query.isPending = false;
+      } else if (options.status === "pending") {
+        query.$or = [{ isPending: true }, { isLive: true }];
+      }
       if (options.category) {
         query.category = options.category;
       }
+
+      // Apply filter based on "my" or "community"
+      if (options.filter === "my" && options.userId) {
+        query.userId = options.userId;
+      } else if (options.filter === "community" && options.userId) {
+        query.userId = { $ne: options.userId };
+      }
+
+      const total = await Stream.countDocuments(query);
+
+      const streams = await Stream.find(query)
+        .limit(options.limit || 20)
+        .skip(options.offset || 0)
+        .sort({ _id: -1 })
+        .lean();
+
+      // Transform userId to streamer object
+      const transformedStreams = streams.map((stream) => ({
+        ...stream,
+        streamer: {
+          username: stream.streamUserName || "Unknown",
+        },
+      }));
+
+      return {
+        total,
+        streams: transformedStreams,
+      };
+    } catch (error) {
+      this.logger.error(`Error getting active streams:`, error);
+      return { streams: [], total: 0 };
+    }
+  }
+
+  async searchStreams(searchQuery, options = {}) {
+    try {
+      const query = {
+        $or: [
+          { title: { $regex: searchQuery, $options: "i" } },
+          { description: { $regex: searchQuery, $options: "i" } },
+          { category: { $regex: searchQuery, $options: "i" } },
+        ],
+      };
+
+      // Apply filter based on "my" or "community"
+      if (options.filter === "my" && options.userId) {
+        query.userId = options.userId;
+      } else if (options.filter === "community" && options.userId) {
+        query.userId = { $ne: options.userId };
+      }
+
+      // Apply category filter if provided
+      if (options.category) {
+        query.category = options.category;
+      }
+
+      const total = await Stream.countDocuments(query);
 
       const streams = await Stream.find(query)
         .limit(options.limit || 20)
@@ -387,42 +463,21 @@ class StreamService {
         .sort({ createdAt: -1 })
         .lean();
 
-      return streams;
-    } catch (error) {
-      this.logger.error(`Error getting active streams:`, error);
-      return [];
-    }
-  }
+      // Transform userId to streamer object
+      const transformedStreams = streams.map((stream) => ({
+        ...stream,
+        streamer: {
+          username: stream.streamUserName || "Unknown",
+        },
+      }));
 
-  async searchStreams(query, limit = 20) {
-    try {
-      // This would typically use a search engine like Elasticsearch
-      // For now, we'll do a simple database search
-      const streams = await Stream.find({
-        $or: [
-          { title: { $regex: query, $options: "i" } },
-          { description: { $regex: query, $options: "i" } },
-          { category: { $regex: query, $options: "i" } },
-        ],
-        isLive: true,
-      })
-        .limit(limit)
-        .sort({ createdAt: -1 });
-
-      // Enhance with real-time data
-      const enhancedStreams = [];
-      for (const stream of streams) {
-        const stats = await this.cacheService.getStreamStats(stream.id);
-        enhancedStreams.push({
-          ...stream.toObject(),
-          ...stats,
-        });
-      }
-
-      return enhancedStreams;
+      return {
+        total,
+        streams: transformedStreams,
+      };
     } catch (error) {
       this.logger.error("Error searching streams:", error);
-      return [];
+      return { streams: [], total: 0 };
     }
   }
 

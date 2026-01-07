@@ -5,11 +5,26 @@ const cors = require("cors");
 const helmet = require("helmet");
 const rateLimit = require("express-rate-limit");
 const mongoose = require("mongoose");
-const winston = require("winston");
 const prometheus = require("prom-client");
 const morgan = require("morgan");
 const https = require("https");
 const fs = require("fs");
+const os = require("os");
+
+// Auto-detect local IP in development if not set
+if (!process.env.ANNOUNCED_IP && process.env.NODE_ENV === "development") {
+  const nets = os.networkInterfaces();
+  for (const name of Object.keys(nets)) {
+    for (const net of nets[name]) {
+      if (net.family === "IPv4" && !net.internal) {
+        process.env.ANNOUNCED_IP = net.address;
+        console.log(`🌐 Auto-detected ANNOUNCED_IP: ${net.address}`);
+        break;
+      }
+    }
+    if (process.env.ANNOUNCED_IP) break;
+  }
+}
 
 const MediaService = require("./src/services/MediaService");
 const MessageQueue = require("./src/services/MessageQueue");
@@ -19,41 +34,22 @@ const ChatService = require("./src/services/ChatService");
 const AuthMiddleWare = require("./src/middleware/middleware.auth");
 const { specs, swaggerUi } = require("./swagger");
 const cookieParser = require("cookie-parser");
+const logger = require("./src/utils/logger");
+const requestMiddleware = require("./src/middleware/middleware.requestId");
 
 //metrics - later
 
-const logger = winston.createLogger({
-  level: "info",
-  format: winston.format.combine(
-    winston.format.timestamp(),
-    winston.format.errors({ stack: true }),
-    winston.format.json()
-  ),
-  transports: [
-    new winston.transports.File({ filename: "error.log", level: "error" }),
-    new winston.transports.File({ filename: "combined.log" }),
-    new winston.transports.Console({
-      format: winston.format.simple(),
-    }),
-  ],
-});
-
+let shuttingDown = false;
+let sigintHandlerRegistered = false;
 let server;
 let io;
 
 const app = express();
 
-if (
-  process.env.NODE_ENV === "production" &&
-  fs.existsSync("./fullchain.pem")
-) {
+if (process.env.NODE_ENV === "production" && fs.existsSync("./fullchain.pem")) {
   const httpsOptions = {
-    key: fs.readFileSync(
-      "./privkey.pem"
-    ),
-    cert: fs.readFileSync(
-      "./fullchain.pem"
-    ),
+    key: fs.readFileSync("./privkey.pem"),
+    cert: fs.readFileSync("./fullchain.pem"),
   };
   server = https.createServer(httpsOptions, app);
   logger.info("Using HTTPS server");
@@ -74,6 +70,7 @@ io = socketIo(server, {
   pingTimeout: 60000,
   pingInterval: 25000,
 });
+app.set("io", io);
 
 if (process.env.NODE_ENV !== "test") {
   app.use(helmet());
@@ -88,7 +85,7 @@ app.use(
     credentials: true,
   })
 );
-
+app.use(requestMiddleware);
 app.use(morgan("dev"));
 app.use(express.json({ limit: "10mb" }));
 app.use(cookieParser());
@@ -222,6 +219,33 @@ async function initializeServices() {
   }
 }
 
+// Graceful shutdown
+if (!sigintHandlerRegistered) {
+  sigintHandlerRegistered = true;
+  process.on("SIGINT", async () => {
+    if (shuttingDown) return; // Prevent multiple executions
+    shuttingDown = true;
+    
+    logger.info("Shutting down gracefully...");
+
+    // Close all active connections
+    io?.emit("server-shutdown");
+
+    // Close services
+    await mediaService?.cleanup();
+    // await messageQueue?.close();
+    // await cacheService?.disconnect();
+    await mongoose.disconnect();
+
+    server.close(() => {
+      logger.info("Server closed");
+      process.exit(0);
+    });
+
+    setTimeout(() => process.exit(1), 5000);
+  });
+}
+
 // Routes will be registered after services are initialized
 
 // Socket.io handling
@@ -247,7 +271,7 @@ io.on("connection", (socket) => {
   socket.on("create-stream", async (data, callback) => {
     try {
       if (!data?.title || data.title.length > 100) {
-        return callback({ error: "Invalid stream title" });
+        return callback?.({ error: "Invalid stream title" });
       }
 
       const stream = await streamService.createStream(socket.userId, data);
@@ -257,17 +281,17 @@ io.on("connection", (socket) => {
       logger.info(`Stream created: ${stream.id} by user: ${socket.userId}`);
       //   metricsService.incrementActiveStreams();
 
-      if (callback) callback({ success: true, stream });
+      if (callback) callback?.({ success: true, stream });
     } catch (error) {
       logger.error("Create stream error", error);
-      if (callback) callback({ error: error.message });
+      if (callback) callback?.({ error: error.message });
     }
   });
 
   socket.on("join-stream", async (data, callback) => {
     try {
       if (!data?.streamId) {
-        return callback({ error: "stream id required" });
+        return callback?.({ error: "stream id required" });
       }
 
       const streamData = await streamService.joinStream(
@@ -314,14 +338,18 @@ io.on("connection", (socket) => {
         logger.info(`No existing producers found for room ${data.streamId}`);
       }
 
-      // Get actual viewer count from socket room
+      // Get actual viewer count from socket room - count unique users
       const roomSockets = await io.in(`room:${data.streamId}`).fetchSockets();
-      const viewerCount = roomSockets.length - 1;
+      const uniqueUsers = new Set();
+      roomSockets.forEach(s => {
+        if (s.userId) uniqueUsers.add(s.userId);
+      });
+      const viewerCount = uniqueUsers.size - 1; // Subtract streamer
 
-      console.log(`📊 Room ${data.streamId} has ${viewerCount} sockets`);
+      console.log(`📊 Room ${data.streamId} has ${roomSockets.length} sockets, ${uniqueUsers.size} unique users`);
       console.log(
         `📊 Socket IDs in room:`,
-        roomSockets.map((s) => s.id)
+        roomSockets.map((s) => `${s.id} (user: ${s.userId})`)
       );
 
       // Broadcast viewer count to all in room and dashboard subscribers
@@ -341,10 +369,10 @@ io.on("connection", (socket) => {
         `User ${socket.userId} joined stream ${data.streamId}, total viewers: ${viewerCount}`
       );
 
-      if (callback) callback({ success: true, stream: streamData });
+      if (callback) callback?.({ success: true, stream: streamData });
     } catch (error) {
       logger.error("Join stream error", error);
-      if (callback) callback({ error: error.message });
+      if (callback) callback?.({ error: error.message });
     }
   });
 
@@ -352,21 +380,23 @@ io.on("connection", (socket) => {
   socket.on("get-router-capabilities", (callback) => {
     try {
       const capabilities = mediaService.getRouterCapabilities();
-      callback(capabilities);
+      callback?.(capabilities);
     } catch (error) {
       logger.error("Get router capabilities error", error);
-      callback({ error: `Failed to get router capabilities ${error.message}` });
+      callback?.({
+        error: `Failed to get router capabilities ${error.message}`,
+      });
     }
   });
 
   socket.on("create-transport", async (data, callback) => {
     try {
       if (!data?.roomId || !data?.direction) {
-        return callback({ error: "Invalid transport parameters" });
+        return callback?.({ error: "Invalid transport parameters" });
       }
 
       if (!["send", "recv"].includes(data.direction)) {
-        return callback({ error: "Invalid transport direction" });
+        return callback?.({ error: "Invalid transport direction" });
       }
 
       const transport = await streamService.createTransport(
@@ -380,17 +410,17 @@ io.on("connection", (socket) => {
         logger.info(`User ${socket.userId} joined room ${data.roomId}`);
       }
 
-      callback(transport);
+      callback?.(transport);
     } catch (error) {
       logger.error("Create transport error", error);
-      callback({ error: error.message });
+      callback?.({ error: error.message });
     }
   });
 
   socket.on("connect-transport", async (data, callback) => {
     try {
       if (!data?.transportId || !data?.dtlsParameters) {
-        return callback({ error: "Invalid connect transport parameters" });
+        return callback?.({ error: "Invalid connect transport parameters" });
       }
 
       await streamService.connectTransport(
@@ -400,17 +430,17 @@ io.on("connection", (socket) => {
         data.dtlsParameters
       );
 
-      callback({ success: true });
+      callback?.({ success: true });
     } catch (error) {
       logger.error("Connect transport error", error);
-      callback({ error: error.message });
+      callback?.({ error: error.message });
     }
   });
 
   socket.on("produce", async (data, callback) => {
     try {
       if (!data?.transportId || !data?.rtpParameters || !data?.kind) {
-        return callback({ error: "Invalid produce parameters" });
+        return callback?.({ error: "Invalid produce parameters" });
       }
 
       const producer = await streamService.produce(
@@ -435,17 +465,17 @@ io.on("connection", (socket) => {
         logger.info(`Broadcasted stream start time for ${data.roomId}`);
       }
 
-      callback({ producerId: producer.id });
+      callback?.({ producerId: producer.id });
     } catch (error) {
       logger.error("Produce error", error);
-      callback({ error: error.message });
+      callback?.({ error: error.message });
     }
   });
 
   socket.on("consume", async (data, callback) => {
     try {
       if (!data?.producerId || !data?.rtpCapabilities) {
-        return callback({ error: "Invalid consume parameters" });
+        return callback?.({ error: "Invalid consume parameters" });
       }
 
       const consumer = await streamService.consume(
@@ -455,10 +485,10 @@ io.on("connection", (socket) => {
         data.rtpCapabilities
       );
 
-      callback(consumer);
+      callback?.(consumer);
     } catch (error) {
       logger.error("Consume error", error);
-      callback({ error: error.message });
+      callback?.({ error: error.message });
     }
   });
 
@@ -469,10 +499,10 @@ io.on("connection", (socket) => {
         socket.userId,
         data.consumerId
       );
-      if (callback) callback({ success: true });
+      if (callback) callback?.({ success: true });
     } catch (error) {
       logger.error("Resume consumer error", error);
-      if (callback) callback({ error: error.message });
+      if (callback) callback?.({ error: error.message });
     }
   });
 
@@ -496,11 +526,19 @@ io.on("connection", (socket) => {
       logger.info(
         `Found ${producers.length} existing producers for room ${data.roomId}`
       );
-      callback(producers);
+      callback?.(producers);
     } catch (error) {
       logger.error("Get producers error", error);
-      callback([]);
+      callback?.([]);
     }
+  });
+
+  socket.on("join-chat", ({ streamId }, callback) => {
+    if (!streamId) {
+      return callback?.({ error: "streamId required" });
+    }
+    socket.join(`room:${streamId}`);
+    callback?.({ success: true });
   });
 
   socket.on("subscribe-viewer-count", async (data) => {
@@ -508,9 +546,13 @@ io.on("connection", (socket) => {
       const { streamId } = data;
       if (!streamId) return;
 
-      // Get current viewer count for this stream
+      // Get current viewer count for this stream - count unique users
       const roomSockets = await io.in(`room:${streamId}`).fetchSockets();
-      const viewerCount = roomSockets.length - 1;
+      const uniqueUsers = new Set();
+      roomSockets.forEach(s => {
+        if (s.userId) uniqueUsers.add(s.userId);
+      });
+      const viewerCount = uniqueUsers.size - 1; // Subtract streamer
 
       // Send current count to this socket
       socket.emit("viewer-count", viewerCount);
@@ -524,21 +566,22 @@ io.on("connection", (socket) => {
   socket.on("send-message", async (data, callback) => {
     try {
       if (!data?.roomId || !data?.content || data?.content.length > 500) {
-        return callback({ error: "Invalid message parameters" });
+        return callback?.({ error: "Invalid message parameters" });
       }
 
       const message = await chatService.sendMessage(
         socket.userId,
         data.roomId,
         data.content,
-        data.type || "text"
+        data.type || "text",
+        socket.user?.username || "Anonymous"
       );
 
       io.to(`room:${data.roomId}`).emit("new-message", message);
-      if (callback) callback({ success: true, message });
+      if (callback) callback?.({ success: true, message });
     } catch (error) {
       logger.error("Send message error", error);
-      if (callback) callback({ error: error.message });
+      if (callback) callback?.({ error: error.message });
     }
   });
 
@@ -554,10 +597,13 @@ io.on("connection", (socket) => {
         try {
           await streamService.handleUserDisconnect(streamId, socket.userId);
 
-          // Update viewer count after disconnect
+          // Update viewer count after disconnect - count unique users
           const roomSockets = await io.in(roomId).fetchSockets();
-          const viewerCount = roomSockets.length - 2; // -1 because this socket is still in room
-          const finalCount = Math.max(0, viewerCount);
+          const uniqueUsers = new Set();
+          roomSockets.forEach(s => {
+            if (s.userId && s.id !== socket.id) uniqueUsers.add(s.userId);
+          });
+          const finalCount = Math.max(0, uniqueUsers.size - 1); // Subtract streamer
           io.to(roomId).emit("viewer-count", finalCount);
           // io.emit("viewer-count", { streamId, count: finalCount });
 
@@ -586,22 +632,11 @@ io.on("connection", (socket) => {
   });
 });
 
-// Graceful shutdown
-process.on("SIGINT", async () => {
-  logger.info("Shutting down gracefully...");
-
-  // Close all active connections
-  io.emit("server-shutdown");
-
-  // Close services
-  await mediaService?.cleanup();
-  // await messageQueue?.close();
-  // await cacheService?.disconnect();
-  await mongoose.disconnect();
-
-  server.close(() => {
-    logger.info("Server closed");
-    process.exit(0);
+app.use((err, req, res, next) => {
+  logger.error(err.message, { requestId: req.requestId, stack: err.stack });
+  res.status(err.status || 500).json({
+    error: err.message || "Internal server error",
+    requestId: req.requestId,
   });
 });
 

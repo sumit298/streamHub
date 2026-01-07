@@ -4,38 +4,33 @@ import { Button } from "./button";
 import Link from "next/link";
 import { Input } from "./input";
 import { CreateStreamDialog } from "../CreateStreamDialog";
+import { useAuth } from "@/lib/AuthContext";
 
 export const Navbar = () => {
   const [isCreateStreamOpen, setIsCreateStreamOpen] = useState(false);
+  const { user } = useAuth();
+
+  const getInitials = (username?: string) => {
+    if (!username) return "U";
+    return username.slice(0, 2).toUpperCase();
+  };
 
   return (
-    <nav className="bg-background border-b border-border sticky top-0 z-50 backdrop-blur-sm bg-background/95">
+    <nav className="bg-background border-b border-border sticky top-0 z-50 backdrop-blur-sm">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
           {/* Logo */}
           <Link href="/dashboard" className="flex items-center">
-            <div className="text-2xl font-bold bg-gradient-to-r from-accent-purple to-accent-pink bg-clip-text text-transparent">
+            <div className="text-2xl font-bold bg-linear-to-r from-accent-purple to-accent-pink bg-clip-text text-transparent">
               StreamHub
             </div>
           </Link>
-
-          {/* Search */}
-          <div className="flex-1 max-w-lg mx-8 hidden md:block">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-text-muted" />
-              <Input
-                type="text"
-                placeholder="Search streams..."
-                className="w-full pl-10 bg-surface border-border focus:ring-2 focus:ring-primary focus:border-transparent rounded-lg"
-              />
-            </div>
-          </div>
 
           {/* Actions */}
           <div className="flex items-center space-x-4">
             <Button 
               variant="default" 
-              className="font-semibold"
+              className="font-semibold cursor-pointer"
               onClick={() => setIsCreateStreamOpen(true)}
             >
               Go Live
@@ -45,9 +40,10 @@ export const Navbar = () => {
             </button>
             <Link
               href="/profile"
-              className="w-9 h-9 bg-gradient-to-br from-accent-purple to-accent-pink rounded-full flex items-center justify-center text-white hover:shadow-md transition-shadow"
+              title={user?.username || "Profile"}
+              className="w-9 h-9 bg-linear-to-br from-accent-purple to-accent-pink rounded-full flex items-center justify-center text-white font-semibold text-sm hover:shadow-md transition-shadow"
             >
-              <User className="h-5 w-5" />
+              {getInitials(user?.username)}
             </Link>
           </div>
         </div>

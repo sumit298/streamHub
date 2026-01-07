@@ -5,6 +5,7 @@ error.log
 start-docker.sh
 start-services.sh
 .env
+.env.local
 .env.test
 .env.production
 test-frontend/
@@ -19,5 +20,4 @@ frontend-streaming-integration.md
 test-all-apis.js
 architecture.md
 DESIGN_BRIEF.md
-seed-data.js
-
+seed-data.jslogs/

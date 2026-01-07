@@ -28,12 +28,14 @@ module.exports = (streamService, logger, AuthMiddleWare) => {
     body("title")
       .trim()
       .isLength({ min: 1, max: 100 })
-      .withMessage("Title must be between 1 and 100 characters"),
+      .withMessage("Title must be between 1 and 100 characters")
+      .escape(),
     body("description")
       .optional()
       .trim()
       .isLength({ max: 1000 })
-      .withMessage("Description must be less than 1000 characters"),
+      .withMessage("Description must be less than 1000 characters")
+      .escape(),
     body("category")
       .optional()
       .isIn([
@@ -133,6 +135,10 @@ module.exports = (streamService, logger, AuthMiddleWare) => {
         .optional()
         .isIn(["viewers", "created", "title"])
         .withMessage("Invalid sort parameter"),
+      query("filter")
+        .optional()
+        .isIn(["my", "community"])
+        .withMessage("Invalid filter parameter"),
     ],
     async (req, res) => {
       try {
@@ -150,13 +156,20 @@ module.exports = (streamService, logger, AuthMiddleWare) => {
           offset = 0,
           search,
           sortBy = "viewers",
+          filter,
         } = req.query;
 
         let streams;
 
         if (search) {
-          // Use search functionality
-          streams = await streamService.searchStreams(search, parseInt(limit));
+          // Use search functionality with filters and pagination
+          streams = await streamService.searchStreams(search, {
+            limit: parseInt(limit),
+            offset: parseInt(offset),
+            category,
+            filter,
+            userId: req.userId,
+          });
         } else {
           // Get active streams with filtering
           streams = await streamService.getActiveStreams({
@@ -164,26 +177,39 @@ module.exports = (streamService, logger, AuthMiddleWare) => {
             limit: parseInt(limit),
             offset: parseInt(offset),
             sortBy,
+            status: req.query.status, // 'live' | 'ended'
+            filter,
+            userId: req.userId,
           });
         }
 
-        // Filter out private streams the user can't access
-        const accessibleStreams = streams.filter((stream) => {
-          if (!stream.isPrivate) return true;
-          if (req.userId && stream.userId === req.userId) return true;
-          if (
-            req.userId &&
-            stream.settings?.allowedViewers?.includes(req.userId)
-          )
-            return true;
-          return false;
-        });
+        // TODO: do it later
+        // // Filter out private streams the user can't access
+        // const accessibleStreams = streams.filter((stream) => {
+        //   if (!stream.isPrivate) return true;
+        //   if (req.userId && stream.userId === req.userId) return true;
+        //   if (
+        //     req.userId &&
+        //     stream.settings?.allowedViewers?.includes(req.userId)
+        //   )
+        //     return true;
+        //   return false;
+        // });
 
         res.json({
           success: true,
-          streams: accessibleStreams,
-          total: accessibleStreams.length,
-          hasMore: accessibleStreams.length === parseInt(limit),
+          streams: streams.streams,
+          total: streams.total,
+          hasMore: (parseInt(offset) + streams.streams.length) < streams.total,
+          pagination: {
+            limit: parseInt(limit),
+            offset: parseInt(offset),
+            total: streams.total,
+            currentPage: Math.floor(parseInt(offset) / parseInt(limit)) + 1,
+            totalPages: Math.ceil(streams.total / parseInt(limit)),
+          },
+          
+          
         });
       } catch (error) {
         logger.error("Get streams error:", error);
@@ -231,7 +257,8 @@ module.exports = (streamService, logger, AuthMiddleWare) => {
           isPrivate: req.body.isPrivate || false,
           chatEnabled: req.body.chatEnabled !== false,
           recordingEnabled: req.body.recordingEnabled || false,
-          tags: req.body.tags || [],
+          tags: Array.isArray(req.body.tags) && req.body.tags.length > 0 ? req.body.tags : [],
+          thumbnail: req.body.thumbnail || null,
         };
 
         const stream = await streamService.createStream(req.userId, streamData);
@@ -345,6 +372,12 @@ module.exports = (streamService, logger, AuthMiddleWare) => {
         }
 
         const result = await streamService.endStream(streamId, req.userId);
+
+        // Notify all viewers that stream has ended
+        req.app.get('io').to(`room:${streamId}`).emit('stream-ended', {
+          streamId,
+          message: 'Stream has ended'
+        });
 
         logger.info(`Stream ended: ${streamId} by user ${req.userId}`);
 
