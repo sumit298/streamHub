@@ -533,8 +533,12 @@ io.on("connection", (socket) => {
     }
   });
 
-  socket.on("join-chat", ({ streamId }) => {
+  socket.on("join-chat", ({ streamId }, callback) => {
+    if (!streamId) {
+      return callback?.({ error: "streamId required" });
+    }
     socket.join(`room:${streamId}`);
+    callback?.({ success: true });
   });
 
   socket.on("subscribe-viewer-count", async (data) => {

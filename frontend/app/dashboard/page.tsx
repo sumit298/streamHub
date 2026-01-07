@@ -165,6 +165,19 @@ const Dashboard = () => {
                                 : `/watch/${stream.id}`
                             );
                           }}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.preventDefault();
+                              router.push(
+                                isMyStream
+                                  ? `/stream/${stream.id}`
+                                  : `/watch/${stream.id}`
+                              );
+                            }
+                          }}
+                          role="button"
+                          tabIndex={0}
+                          aria-label={`${stream.isLive ? 'Watch' : 'View'} stream: ${stream.title}`}
                           className="bg-card rounded-lg overflow-hidden hover:scale-105 transition cursor-pointer border-2 border-primary"
                         >
                           <div className="aspect-video bg-black relative">

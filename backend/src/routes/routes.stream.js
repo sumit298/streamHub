@@ -34,8 +34,8 @@ module.exports = (streamService, logger, AuthMiddleWare) => {
       .optional()
       .trim()
       .isLength({ max: 1000 })
-      .escape()
-      .withMessage("Description must be less than 1000 characters"),
+      .withMessage("Description must be less than 1000 characters")
+      .escape(),
     body("category")
       .optional()
       .isIn([

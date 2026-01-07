@@ -13,6 +13,9 @@ class StreamService {
     try {
       const streamId = uuidv4();
       const user = await User.findById(userId);
+      if (!user) {
+        throw new Error("User not found");
+      }
       const stream = {
         id: streamId,
         userId,

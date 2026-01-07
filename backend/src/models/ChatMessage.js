@@ -152,19 +152,15 @@ const chatMessageSchema = new mongoose.Schema(
         default: 0,
       },
     },
-    timestamp: {
-      type: Date,
-      default: Date.now,
-      index: true,
-    },
+
   },
   { timestamps: true }
 );
 
 // Compound indexes for efficient queries
-chatMessageSchema.index({ streamId: 1, timestamp: -1 });
-chatMessageSchema.index({ streamId: 1, deleted: 1, timestamp: -1 });
-chatMessageSchema.index({ userId: 1, timestamp: -1 });
+chatMessageSchema.index({ streamId: 1, createdAt: -1 });
+chatMessageSchema.index({ streamId: 1, deleted: 1, createdAt: -1 });
+chatMessageSchema.index({ userId: 1, createdAt: -1 });
 chatMessageSchema.index({ deleted: 1, "moderation.flagged": 1 });
 chatMessageSchema.index({ type: 1, streamId: 1 });
 

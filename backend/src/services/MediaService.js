@@ -50,19 +50,33 @@ class MediaService {
     try {
       if (this.workers[index]) {
         this.workers[index].close();
+        this.workers[index] = null;
       }
       await this.createWorker(index);
 
       this.logger.info(`Worker ${index} respawned successfully`);
     } catch (error) {
       this.logger.error(`Failed to respawn worker ${index}:`, error);
+      // Schedule retry with backoff
+      setTimeout(() => this.respawnWorker(index), 5000);
     }
   }
 
   getNextWorker() {
-    const worker = this.workers[this.workerIndex];
-    this.workerIndex = (this.workerIndex + 1) % this.workers.length;
-    return worker;
+    if (this.workers.length === 0) {
+      throw new Error("No workers available");
+    }
+
+    const startIndex = this.workerIndex;
+    do {
+      const worker = this.workers[this.workerIndex];
+      this.workerIndex = (this.workerIndex + 1) % this.workers.length;
+      if (worker && !worker.closed) {
+        return worker;
+      }
+    } while (this.workerIndex !== startIndex);
+
+    throw new Error("No healthy workers available")
   }
 
   getOptimizedCodecs() {
@@ -231,7 +245,7 @@ class MediaService {
     if (!transport) throw new Error("Transport not found");
 
     await transport.connect({ dtlsParameters });
-    this.logger.info(`Transport connected: ${transportId} for the ${userId}`);
+    this.logger.info(`Transport connected: ${transportId} for user ${userId}`);
   }
 
   async produce(roomId, userId, transportId, rtpParameters, kind) {
