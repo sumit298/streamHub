@@ -1,5 +1,5 @@
 const { v4: uuidv4 } = require("uuid");
-const { Stream } = require("../models");
+const { Stream, User } = require("../models");
 
 class StreamService {
   constructor(mediaService, messageQueue, cacheService, logger) {
@@ -12,9 +12,11 @@ class StreamService {
   async createStream(userId, streamData) {
     try {
       const streamId = uuidv4();
+      const user = await User.findById(userId);
       const stream = {
         id: streamId,
         userId,
+        streamUserName: user.username,
         title: streamData.title,
         description: streamData.description || "",
         category: streamData.category || "general",
@@ -405,19 +407,17 @@ class StreamService {
       const total = await Stream.countDocuments(query);
 
       const streams = await Stream.find(query)
-        .populate('userId', 'username avatar')
         .limit(options.limit || 20)
         .skip(options.offset || 0)
         .sort({ _id: -1 })
         .lean();
 
       // Transform userId to streamer object
-      const transformedStreams = streams.map(stream => ({
+      const transformedStreams = streams.map((stream) => ({
         ...stream,
-        streamer: stream.userId ? {
-          username: stream.userId.username,
-          avatar: stream.userId.avatar
-        } : null
+        streamer: {
+          username: stream.streamUserName || "Unknown",
+        },
       }));
 
       return {
@@ -455,19 +455,17 @@ class StreamService {
       const total = await Stream.countDocuments(query);
 
       const streams = await Stream.find(query)
-        .populate('userId', 'username avatar')
         .limit(options.limit || 20)
         .skip(options.offset || 0)
         .sort({ createdAt: -1 })
         .lean();
 
       // Transform userId to streamer object
-      const transformedStreams = streams.map(stream => ({
+      const transformedStreams = streams.map((stream) => ({
         ...stream,
-        streamer: stream.userId ? {
-          username: stream.userId.username,
-          avatar: stream.userId.avatar
-        } : null
+        streamer: {
+          username: stream.streamUserName || "Unknown",
+        },
       }));
 
       return {

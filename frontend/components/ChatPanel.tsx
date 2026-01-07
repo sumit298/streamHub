@@ -7,6 +7,7 @@ interface Message {
   userId: string;
   content: string;
   timestamp: string;
+  username: string
 }
 
 export default function ChatPanel({ 

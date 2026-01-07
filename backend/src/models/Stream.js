@@ -13,6 +13,11 @@ const streamSchema = new mongoose.Schema({
         required: true,
         index: true,
     },
+    streamUserName: {
+        type: String,
+        required: false,
+        index: true,
+    },
     title: {
         type: String,
         required: true,
@@ -121,7 +126,8 @@ const streamSchema = new mongoose.Schema({
         }
     },
     
-});
+}, {timestamps: true});
+
 
 streamSchema.index({ userId: 1, createdAt: -1 });
 streamSchema.index({ category: 1, isLive: 1, 'stats.viewers': -1 });

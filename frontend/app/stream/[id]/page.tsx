@@ -56,20 +56,32 @@ const StreamsPage = () => {
         setSocket(newSocket);
 
         return () => {
+            newSocket.off('connect');
+            newSocket.off('disconnect');
+            newSocket.off('error');
             newSocket.close();
         };
     }, []);
 
     useEffect(() => {
         if (socket) {
-            socket.on("viewer-count", (count: number) => {
+            const handleViewerCount = (count: number) => {
                 console.log("🎥 STREAMER received viewer-count:", count, typeof count);
                 setViewerCount(count);
-            })
-            socket.on("stream-start-time", (data) => {
+            };
+            
+            const handleStreamStartTime = (data: any) => {
                 console.log('⏱️ Received stream start time:', data.startTime);
                 setStreamStartTime(data.startTime);
-            })
+            };
+            
+            socket.on("viewer-count", handleViewerCount);
+            socket.on("stream-start-time", handleStreamStartTime);
+            
+            return () => {
+                socket.off("viewer-count", handleViewerCount);
+                socket.off("stream-start-time", handleStreamStartTime);
+            };
         }
     }, [socket])
 
@@ -220,7 +232,7 @@ const StreamsPage = () => {
                     });
                     
                     callback();
-                } catch (error) {
+                } catch (error: any) {
                     console.error('❌ Connect transport exception:', error);
                     errback(error);
                 }
@@ -264,14 +276,6 @@ const StreamsPage = () => {
                     toast.error('Stream connection lost. Ending stream...');
                     setIsStreaming(false);
                 }
-            });
-
-            sendTransport.on('icestatechange', (state) => {
-                console.log('🧊 ICE state:', state);
-            });
-
-            sendTransport.on('iceconnectionstatechange', (state) => {
-                console.log('🧊 ICE connection state:', state);
             });
 
             const videoTrack = stream.getVideoTracks()[0];

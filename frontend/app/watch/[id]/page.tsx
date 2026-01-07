@@ -96,7 +96,16 @@ const WatchPage = () => {
         };
 
         init();
-        return () => { socket?.close(); };
+        return () => {
+            socket?.off('connect');
+            socket?.off('viewer-count');
+            socket?.off('existing-producers');
+            socket?.off('new-producer');
+            socket?.off('stream-start-time');
+            socket?.off('stream-ended');
+            socket?.off('error');
+            socket?.close();
+        };
     }, [params.id]);
 
     useEffect(() => {

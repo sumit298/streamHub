@@ -1,2 +1,11 @@
 k8s/
 .amazonq/
+
+# Logs
+*.log
+logs/
+
+# Documentation
+code_review_document.md
+CODE_REVIEW_DOCUMENT.md
+latency_fix.md

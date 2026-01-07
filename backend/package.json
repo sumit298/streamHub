@@ -27,10 +27,11 @@
     "mongoose": "^7.5.0",
     "morgan": "^1.10.1",
     "prom-client": "^14.2.0",
+    "sanitize-html": "^2.17.0",
     "socket.io": "^4.7.2",
     "swagger-jsdoc": "^6.2.8",
     "swagger-ui-express": "^5.0.1",
-    "uuid": "^9.0.0",
+    "uuid": "^9.0.1",
     "winston": "^3.10.0"
   },
   "devDependencies": {
