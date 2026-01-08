@@ -66,7 +66,8 @@ io = socketIo(server, {
     methods: ["GET", "POST"],
     credentials: true,
   },
-  transports: ["websocket", "polling"],
+  transports: ["polling", "websocket"],
+  allowUpgrades: true,
   pingTimeout: 60000,
   pingInterval: 25000,
 });
@@ -294,10 +295,6 @@ io.on("connection", (socket) => {
         return callback?.({ error: "stream id required" });
       }
 
-      const streamData = await streamService.joinStream(
-        socket.userId,
-        data.streamId
-      );
       socket.join(`room:${data.streamId}`);
 
       // Get existing producers in the room and notify the new viewer
@@ -311,9 +308,10 @@ io.on("connection", (socket) => {
                 id: producer.id,
                 kind: producer.kind,
                 userId: participantId,
+                isScreenShare: producer.appData?.isScreenShare || false,
               });
               logger.info(
-                `Found existing producer ${producer.id} (${producer.kind}) from ${participantId}`
+                `Found existing producer ${producer.id} (${producer.kind}) from ${participantId} ${producer.appData?.isScreenShare ? '[SCREEN]' : '[CAMERA]'}`
               );
             }
           }
@@ -326,14 +324,15 @@ io.on("connection", (socket) => {
           `Sent ${existingProducers.length} existing producers to ${socket.userId}`
         );
 
-        const streamInfo = await streamService.getStreamInfo(data.streamId);
-        if (streamInfo?.startedAt) {
-          io.to(`room:${data.streamId}`).emit("stream-start-time", {
-            startTime: new Date(streamInfo.startedAt).getTime(),
-          });
-
-          logger.info(`Sent stream start time to ${socket.userId}`);
-        }
+        // Send stream start time in background (non-blocking)
+        streamService.getStreamInfo(data.streamId).then(streamInfo => {
+          if (streamInfo?.startedAt) {
+            io.to(`room:${data.streamId}`).emit("stream-start-time", {
+              startTime: new Date(streamInfo.startedAt).getTime(),
+            });
+            logger.info(`Sent stream start time to ${socket.userId}`);
+          }
+        }).catch(err => logger.error('Failed to get stream info:', err));
       } else {
         logger.info(`No existing producers found for room ${data.streamId}`);
       }
@@ -352,9 +351,8 @@ io.on("connection", (socket) => {
         roomSockets.map((s) => `${s.id} (user: ${s.userId})`)
       );
 
-      // Broadcast viewer count to all in room and dashboard subscribers
+      // Broadcast viewer count to all in room
       io.to(`room:${data.streamId}`).emit("viewer-count", viewerCount);
-      // io.emit("viewer-count", { streamId: data.streamId, count: viewerCount });
       console.log(
         `📊 Emitted viewer-count: ${viewerCount} to room:${data.streamId}`
       );
@@ -364,12 +362,17 @@ io.on("connection", (socket) => {
         viewers: viewerCount,
       });
 
-      socket.emit("stream-joined", streamData);
+      socket.emit("stream-joined", { success: true });
       logger.info(
         `User ${socket.userId} joined stream ${data.streamId}, total viewers: ${viewerCount}`
       );
 
-      if (callback) callback?.({ success: true, stream: streamData });
+      // Update DB in background (non-blocking)
+      streamService.joinStream(socket.userId, data.streamId).catch(err => 
+        logger.error('Background joinStream DB update failed:', err)
+      );
+
+      if (callback) callback?.({ success: true });
     } catch (error) {
       logger.error("Join stream error", error);
       if (callback) callback?.({ error: error.message });
@@ -448,22 +451,16 @@ io.on("connection", (socket) => {
         socket.userId,
         data.transportId,
         data.rtpParameters,
-        data.kind
+        data.kind,
+        data.isScreenShare || false
       );
 
       socket.to(`room:${data.roomId}`).emit("new-producer", {
         userId: socket.userId,
         producerId: producer.id,
         kind: producer.kind,
+        isScreenShare: data.isScreenShare || false,
       });
-
-      const streamInfo = await streamService.getStreamInfo(data.roomId);
-      if (streamInfo?.startedAt) {
-        io.to(`room:${data.roomId}`).emit("stream-start-time", {
-          startTime: new Date(streamInfo.startedAt).getTime(),
-        });
-        logger.info(`Broadcasted stream start time for ${data.roomId}`);
-      }
 
       callback?.({ producerId: producer.id });
     } catch (error) {
@@ -518,6 +515,7 @@ io.on("connection", (socket) => {
                 id: producer.id,
                 kind: producer.kind,
                 userId: participantId,
+                isScreenShare: producer.appData?.isScreenShare || false,
               });
             }
           }
@@ -530,6 +528,29 @@ io.on("connection", (socket) => {
     } catch (error) {
       logger.error("Get producers error", error);
       callback?.([]);
+    }
+  });
+
+  socket.on("close-producer", async (data, callback) => {
+    try {
+      const { roomId, producerId } = data;
+      const room = mediaService.rooms.get(roomId);
+      if (room) {
+        const participant = room.participants.get(socket.userId);
+        if (participant) {
+          const producer = participant.producers.get(producerId);
+          if (producer) {
+            producer.close();
+            participant.producers.delete(producerId);
+            socket.to(`room:${roomId}`).emit("producer-closed", { producerId });
+            logger.info(`Producer ${producerId} closed by user ${socket.userId}`);
+          }
+        }
+      }
+      callback?.({ success: true });
+    } catch (error) {
+      logger.error("Close producer error", error);
+      callback?.({ error: error.message });
     }
   });
 
@@ -595,7 +616,24 @@ io.on("connection", (socket) => {
       if (roomId.startsWith("room:")) {
         const streamId = roomId.replace("room:", "");
         try {
+          // Get producers before cleanup to notify viewers
+          const room = mediaService.rooms.get(streamId);
+          const closedProducers = [];
+          if (room) {
+            const participant = room.participants.get(socket.userId);
+            if (participant) {
+              for (const [producerId, producer] of participant.producers) {
+                closedProducers.push(producerId);
+              }
+            }
+          }
+
           await streamService.handleUserDisconnect(streamId, socket.userId);
+
+          // Notify viewers about closed producers
+          closedProducers.forEach(producerId => {
+            socket.to(roomId).emit("producer-closed", { producerId });
+          });
 
           // Update viewer count after disconnect - count unique users
           const roomSockets = await io.in(roomId).fetchSockets();

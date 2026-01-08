@@ -8,6 +8,8 @@ import Link from "next/link";
 import { useState } from "react";
 import {z} from "zod";
 import { useRouter } from "next/navigation";
+import { useAuth, api } from "@/lib/AuthContext";
+import toast from "react-hot-toast";
 
 const registerSchema = z
     .object({
@@ -48,9 +50,11 @@ const Register = () => {
     });
 
     const router = useRouter();
+    const { login } = useAuth();
 
     const [showPassword, setShowPassword] = useState(false);
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+    const [isLoading, setIsLoading] = useState(false);
 
     const [errors, setErrors] = useState({
         username: "",
@@ -68,26 +72,19 @@ const Register = () => {
     const handleSubmit = async () => {
         try {
             registerSchema.parse(registerData);
+            setIsLoading(true);
 
             const apiData = {
                 username: registerData.username,
                 email: registerData.email,
                 password: registerData.password
             }
-            console.log("Valid data:", registerData);
-            const registerResult = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001"}/api/auth/register`, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json"
-                },
-                credentials: "include",
-                body: JSON.stringify(apiData)
-            })
+            
+            const registerResult = await api.post("/api/auth/register", apiData);
 
-            const result = await registerResult.json();
-            console.log(result); 
-
-            if(registerResult.ok){
+            if(registerResult.data){
+                // Auto-login after registration
+                await login(registerData.email, registerData.password);
                 
                 setRegisterData({
                     email: "",
@@ -95,13 +92,9 @@ const Register = () => {
                     password: "",
                     confirmPassword: ""
                 })
-
+                
+                toast.success("Account created successfully!");
                 router.push("/dashboard")
-            }
-            else{
-                if(result.errors){
-                    setErrors(result.errors)
-                }
             }
             
             // reset the state
@@ -121,7 +114,11 @@ const Register = () => {
                     }
                 });
                 setErrors(newErrors);
+            } else {
+                toast.error("Registration failed");
             }
+        } finally {
+            setIsLoading(false);
         }
     };
 
@@ -249,11 +246,12 @@ const Register = () => {
                     className="w-full bg-linear-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 font-semibold"
                     onClick={handleSubmit}
                     disabled={
+                        isLoading ||
                         Object.values(errors).some((error) => error !== "") ||
                         Object.values(registerData).some((value) => value === "")
                     }
                 >
-                    Create Account
+                    {isLoading ? "Creating Account..." : "Create Account"}
                 </Button>
 
                 <div className="text-center">

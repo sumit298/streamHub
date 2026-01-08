@@ -167,10 +167,10 @@ export const CreateStreamDialog = ({ open, onOpenChange }: CreateStreamDialogPro
                     </div>
                 </div>
                 <DialogFooter>
-                    <Button variant="outline" onClick={() => onOpenChange(false)}>
+                    <Button variant="outline" className="cursor-pointer" onClick={() => onOpenChange(false)}>
                         Cancel
                     </Button>
-                    <Button variant="default" onClick={handleCreateStream}>
+                    <Button variant="default" className="cursor-pointer" onClick={handleCreateStream}>
                         Create Stream
                     </Button>
                 </DialogFooter>

@@ -20,4 +20,5 @@ frontend-streaming-integration.md
 test-all-apis.js
 architecture.md
 DESIGN_BRIEF.md
-seed-data.jslogs/
+seed-data.js
+logs/

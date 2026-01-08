@@ -169,14 +169,15 @@ class StreamService {
     }
   }
 
-  async produce(roomId, userId, transportId, rtpParameters, kind) {
+  async produce(roomId, userId, transportId, rtpParameters, kind, isScreenShare = false) {
     try {
       const producer = await this.mediaService.produce(
         roomId,
         userId,
         transportId,
         rtpParameters,
-        kind
+        kind,
+        isScreenShare
       );
 
       // Update database to mark stream as live
@@ -210,7 +211,7 @@ class StreamService {
       }
 
       this.logger.info(
-        `Producer Created ${producer.id} (${kind}) for user ${userId}`
+        `Producer Created ${producer.id} (${kind}) for user ${userId} ${isScreenShare ? '[SCREEN]' : '[CAMERA]'}`
       );
       return producer;
     } catch (error) {
