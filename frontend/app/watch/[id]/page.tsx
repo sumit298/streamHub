@@ -634,7 +634,7 @@ const WatchPage = () => {
               ref={videoRef}
               autoPlay
               playsInline
-              muted
+              muted={isMuted}
               controls
               className="w-full h-full object-cover"
             />
