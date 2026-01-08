@@ -42,6 +42,17 @@ const StreamsPage = () => {
     audio: types.Producer | null;
   } | null>(null);
   const [sendTransport, setSendTransport] = useState<types.Transport | null>(null); //store transport for reuse
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    // Detect mobile device
+    const checkMobile = () => {
+      const userAgent = navigator.userAgent.toLowerCase();
+      const isMobileDevice = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(userAgent);
+      setIsMobile(isMobileDevice);
+    };
+    checkMobile();
+  }, []);
 
   useEffect(() => {
     const newSocket = io(
@@ -675,23 +686,25 @@ const StreamsPage = () => {
                       >
                         {isCameraOff ? "📷" : "📹"}
                       </button>
-                      <button
-                        onClick={
-                          isScreenSharing ? stopScreenShare : startScreenShare
-                        }
-                        className={`px-4 py-3 rounded-lg font-medium transition ${
-                          isScreenSharing
-                            ? "bg-blue-600 hover:bg-blue-700 text-white"
-                            : "bg-gray-700 hover:bg-gray-600 text-white"
-                        }`}
-                        title={
-                          isScreenSharing
-                            ? "Stop screen sharing"
-                            : "Share screen"
-                        }
-                      >
-                        {isScreenSharing ? "🖥️✓" : "🖥️"}
-                      </button>
+                      {!isMobile && (
+                        <button
+                          onClick={
+                            isScreenSharing ? stopScreenShare : startScreenShare
+                          }
+                          className={`px-4 py-3 rounded-lg font-medium transition ${
+                            isScreenSharing
+                              ? "bg-blue-600 hover:bg-blue-700 text-white"
+                              : "bg-gray-700 hover:bg-gray-600 text-white"
+                          }`}
+                          title={
+                            isScreenSharing
+                              ? "Stop screen sharing"
+                              : "Share screen"
+                          }
+                        >
+                          {isScreenSharing ? "🖥️✓" : "🖥️"}
+                        </button>
+                      )}
 
                       <button
                         onClick={stopStream}
