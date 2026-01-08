@@ -9,6 +9,7 @@ import { useState } from "react";
 import { z } from "zod";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
+import { useAuth } from "@/lib/AuthContext";
 
 const loginSchema = z.object({
   email: z
@@ -29,7 +30,9 @@ const Login = () => {
   });
 
   const [showPassword, setShowPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
+  const { login } = useAuth();
 
   const [errors, setErrors] = useState({
     email: "",
@@ -45,35 +48,16 @@ const Login = () => {
   const handleSubmit = async () => {
     try {
       loginSchema.parse(loginData);
-      console.log("Valid data:", loginData);
+      setIsLoading(true)
 
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001"}/api/auth/login`, {
-        headers: {
-          "Content-Type": "application/json",
-        },
-        method: "POST",
-        credentials: "include",
-        body: JSON.stringify(loginData),
+      await login(loginData.email, loginData.password);
+      
+      setloginData({
+        email: "",
+        password: "",
       });
-
-      const result = await response.json();
-      console.log(result);
-
-      if (response.ok) {
-        setloginData({
-          email: "",
-          password: "",
-        });
-        toast.success("Login successful!")
-        router.push("/dashboard");
-      } else {
-
-        toast.error(result.error || result.message || "Login failed");
-
-        if (result.errors) {
-          setErrors(result.errors);
-        }
-      }
+      toast.success("Login successful!")
+      router.push("/dashboard");
 
       // Handle successful login here
     } catch (error) {
@@ -88,7 +72,12 @@ const Login = () => {
           }
         });
         setErrors(newErrors);
+      } else {
+        toast.error("Login failed");
       }
+    }
+    finally{
+      setIsLoading(false)
     }
   };
 
@@ -178,11 +167,12 @@ const Login = () => {
           className="w-full bg-linear-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 font-semibold"
           onClick={handleSubmit}
           disabled={
+            isLoading ||
             Object.values(errors).some((error) => error !== "") ||
             Object.values(loginData).some((value) => value === "")
           }
         >
-          Sign In
+          {isLoading ? "Signing in..." : "Sign In"}
         </Button>
 
         <div className="text-center">

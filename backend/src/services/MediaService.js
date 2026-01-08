@@ -76,7 +76,7 @@ class MediaService {
       }
     } while (this.workerIndex !== startIndex);
 
-    throw new Error("No healthy workers available")
+    throw new Error("No healthy workers available");
   }
 
   getOptimizedCodecs() {
