@@ -280,8 +280,8 @@ const StreamsPage = () => {
         }
       );
 
-      sendTransport.on("produce", async ({ kind, rtpParameters }, callback) => {
-        console.log("Producing...", { kind, rtpParameters });
+      sendTransport.on("produce", async ({ kind, rtpParameters, appData }, callback) => {
+        console.log("Producing...", { kind, rtpParameters, isScreenShare: appData?.isScreenShare });
 
         socket.emit(
           "produce",
@@ -290,6 +290,7 @@ const StreamsPage = () => {
             kind,
             rtpParameters,
             roomId: params.id,
+            isScreenShare: appData?.isScreenShare || false,
           },
           (response: any) => {
             console.log("Produce response:", response);
@@ -431,6 +432,7 @@ const StreamsPage = () => {
       const screenVideoTrack = screenMediaStream.getVideoTracks()[0];
       const screenVideoProducer = await sendTransport.produce({
         track: screenVideoTrack,
+        appData: { isScreenShare: true },
       });
       console.log("Screen video producer created:", screenVideoProducer.id);
 
@@ -440,6 +442,7 @@ const StreamsPage = () => {
         const screenAudioTrack = screenMediaStream.getAudioTracks()[0];
         screenAudioProducer = await sendTransport.produce({
           track: screenAudioTrack,
+          appData: { isScreenShare: true },
         });
         console.log("Screen audio producer created:", screenAudioProducer.id);
       }

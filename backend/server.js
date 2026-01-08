@@ -308,9 +308,10 @@ io.on("connection", (socket) => {
                 id: producer.id,
                 kind: producer.kind,
                 userId: participantId,
+                isScreenShare: producer.appData?.isScreenShare || false,
               });
               logger.info(
-                `Found existing producer ${producer.id} (${producer.kind}) from ${participantId}`
+                `Found existing producer ${producer.id} (${producer.kind}) from ${participantId} ${producer.appData?.isScreenShare ? '[SCREEN]' : '[CAMERA]'}`
               );
             }
           }
@@ -450,13 +451,15 @@ io.on("connection", (socket) => {
         socket.userId,
         data.transportId,
         data.rtpParameters,
-        data.kind
+        data.kind,
+        data.isScreenShare || false
       );
 
       socket.to(`room:${data.roomId}`).emit("new-producer", {
         userId: socket.userId,
         producerId: producer.id,
         kind: producer.kind,
+        isScreenShare: data.isScreenShare || false,
       });
 
       callback?.({ producerId: producer.id });
@@ -512,6 +515,7 @@ io.on("connection", (socket) => {
                 id: producer.id,
                 kind: producer.kind,
                 userId: participantId,
+                isScreenShare: producer.appData?.isScreenShare || false,
               });
             }
           }

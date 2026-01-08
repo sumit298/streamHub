@@ -179,14 +179,16 @@ class MediaService {
   async createWebRtcTransport(roomId, userId, direction) {
     try {
       const room = await this.createRoom(roomId);
+      
+      // Log the announced IP being used
+      const announcedIp = process.env.ANNOUNCED_IP || process.env.RENDER_EXTERNAL_HOSTNAME || "127.0.0.1";
+      this.logger.info(`Creating transport with announcedIp: ${announcedIp} for ${direction} direction`);
+      
       const transportOptions = {
         listenIps: [
           {
             ip: "0.0.0.0",
-            announcedIp:
-              process.env.ANNOUNCED_IP ||
-              process.env.RENDER_EXTERNAL_HOSTNAME ||
-              "127.0.0.1",
+            announcedIp: announcedIp,
           },
         ],
         enableUdp: true,
@@ -194,17 +196,20 @@ class MediaService {
         preferUdp: true,
         initialAvailableOutgoingBitrate: 1000000,
         maxSctpMessageSize: 262144,
-        iceServers: [
-          { urls: "stun:stun.l.google.com:19302" },
-          { urls: "stun:stun4.l.google.com:19302" },
-        ],
-        iceTransportPolicy: "all",
+        // Reduce ICE gathering timeout
+        iceConsentTimeout: 5,
         appData: { userId, direction },
       };
 
       const transport = await room.router.createWebRtcTransport(
         transportOptions
       );
+      
+      // Log ICE candidates
+      this.logger.info(`Transport ${transport.id} created with ${transport.iceCandidates.length} ICE candidates`);
+      transport.iceCandidates.forEach((candidate, idx) => {
+        this.logger.debug(`ICE candidate ${idx}: ${candidate.ip}:${candidate.port} (${candidate.protocol})`);
+      });
 
       let participant = room.participants.get(userId);
       if (!participant) {
@@ -248,7 +253,7 @@ class MediaService {
     this.logger.info(`Transport connected: ${transportId} for user ${userId}`);
   }
 
-  async produce(roomId, userId, transportId, rtpParameters, kind) {
+  async produce(roomId, userId, transportId, rtpParameters, kind, isScreenShare = false) {
     const room = this.rooms.get(roomId);
     if (!room) {
       throw new Error("Room not found");
@@ -263,7 +268,7 @@ class MediaService {
     const producer = await transport.produce({
       kind,
       rtpParameters,
-      appData: { userId, kind },
+      appData: { userId, kind, isScreenShare },
     });
 
     participant.producers.set(producer.id, producer);
@@ -274,7 +279,7 @@ class MediaService {
     });
 
     this.logger.info(
-      `Producer created: ${producer.id} (${kind}) for user ${userId}`
+      `Producer created: ${producer.id} (${kind}) for user ${userId} ${isScreenShare ? '[SCREEN]' : '[CAMERA]'}`
     );
     return producer;
   }

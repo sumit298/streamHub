@@ -74,7 +74,7 @@ const WatchPage = () => {
         setViewerCount(count);
       });
 
-      newSocket.on("existing-producers", async (producers: Array<{id: string; kind: string; userId: string}>) => {
+      newSocket.on("existing-producers", async (producers: Array<{id: string; kind: string; userId: string; isScreenShare?: boolean}>) => {
         console.log("👁️ VIEWER received existing producers:", producers);
 
         if (producers.length > 0 && !initRef.current) {
@@ -82,7 +82,7 @@ const WatchPage = () => {
         }
       });
 
-      newSocket.on("new-producer", async (data: {producerId: string; kind: string; userId: string}) => {
+      newSocket.on("new-producer", async (data: {producerId: string; kind: string; userId: string; isScreenShare?: boolean}) => {
         console.log("📺 New producer available:", data);
         
         if (!initRef.current && socket && streamInfo) {
@@ -142,8 +142,14 @@ const WatchPage = () => {
   useEffect(() => {
     if (!socket || !device || !recvTransport) return;
 
-    const handleNewProducer = async (data: {producerId: string; kind: string; userId: string}) => {
+    const handleNewProducer = async (data: {producerId: string; kind: string; userId: string; isScreenShare?: boolean}) => {
       console.log('📺 New producer available (handler):', data);
+      
+      // Only handle screen share producers here
+      if (!data.isScreenShare) {
+        console.log('Ignoring non-screen-share producer');
+        return;
+      }
       
       if (consumedProducers.has(data.producerId)) {
         console.log('Already consumed this producer');
@@ -317,7 +323,18 @@ const WatchPage = () => {
       setRecvTransport(recvTransport);
       console.log("Receive transport created");
 
+      // Monitor connection state
+      recvTransport.on("connectionstatechange", (state) => {
+        console.log(`🔗 Recv transport connection state: ${state}`);
+        if (state === "failed" || state === "closed") {
+          console.error("Transport connection failed!");
+          toast.error("Connection failed");
+        }
+      });
+
       recvTransport.on("connect", async ({ dtlsParameters }, callback) => {
+        console.log("🔌 Recv transport connecting...");
+        const connectStart = performance.now();
         socket?.emit(
           "connect-transport",
           {
@@ -325,12 +342,15 @@ const WatchPage = () => {
             transportId: recvTransport.id,
             dtlsParameters,
           },
-          callback
+          () => {
+            console.log(`✅ Recv transport connected (${(performance.now() - connectStart).toFixed(0)}ms)`);
+            callback();
+          }
         );
       });
 
       // Get existing producers first
-      const producers = (await new Promise<Array<{id: string; kind: string; userId: string}>>((resolve) => {
+      const producers = (await new Promise<Array<{id: string; kind: string; userId: string; isScreenShare?: boolean}>>((resolve) => {
         socket?.emit("get-producers", { roomId: params.id }, resolve);
       }));
       console.log("Available producers:", producers);
@@ -343,10 +363,23 @@ const WatchPage = () => {
         return;
       }
 
+      // Filter out screen share producers - only consume camera/mic initially
+      const cameraProducers = producers.filter((p) => !p.isScreenShare);
+      
+      console.log("Camera producers to consume:", cameraProducers);
+      
+      if (cameraProducers.length === 0) {
+        console.log("⏳ No camera producers yet, waiting for stream to start...");
+        initRef.current = false;
+        setIsLoading(false);
+        toast("Waiting for stream to start...", { icon: "⏳" });
+        return;
+      }
+
       const stream = new MediaStream();
 
-      // Consume audio FIRST
-      const audioProducer = producers.find((p) => p.kind === "audio");
+      // Consume audio FIRST (only camera audio)
+      const audioProducer = cameraProducers.find((p) => p.kind === "audio");
       if (audioProducer) {
         const audioConsumer = (await new Promise<{
           id: string;
@@ -391,10 +424,10 @@ const WatchPage = () => {
         }
       }
 
-      // Then consume video
-      const videoProducer = producers.find((p: any) => p.kind === "video");
+      // Then consume video (only camera video)
+      const videoProducer = cameraProducers.find((p: any) => p.kind === "video");
       if (!videoProducer) {
-        throw new Error("No video producer found");
+        throw new Error("No camera video producer found");
       }
 
       const videoConsumer = (await new Promise((resolve) => {
@@ -461,11 +494,8 @@ const WatchPage = () => {
           }
         };
 
-        if (video.readyState >= 2) {
-          playVideo();
-        } else {
-          video.onloadeddata = playVideo;
-        }
+        // Force immediate playback without waiting for loadeddata
+        playVideo();
       } else {
         throw new Error("Video element not found");
       }
@@ -584,7 +614,7 @@ const WatchPage = () => {
       <div className="max-w-7xl mx-auto p-4 grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Main Video Area */}
         <div className="lg:col-span-2 space-y-4">
-          {screenStream && (
+          {screenStream && screenProducerIds.current.size > 0 && (
             <div className="aspect-video bg-black rounded-lg overflow-hidden relative">
               <video
                 ref={screenVideoRef}
