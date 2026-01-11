@@ -126,3 +126,7 @@
     @apply bg-background text-foreground;
   }
 }
+
+.flip {
+  transform: scaleX(-1);
+}
