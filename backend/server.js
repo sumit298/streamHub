@@ -11,6 +11,17 @@ const https = require("https");
 const fs = require("fs");
 const os = require("os");
 
+const MediaService = require("./src/services/MediaService");
+const MessageQueue = require("./src/services/MessageQueue");
+const CacheService = require("./src/services/CacheService");
+const StreamService = require("./src/services/StreamService");
+const ChatService = require("./src/services/ChatService");
+const AuthMiddleWare = require("./src/middleware/middleware.auth");
+const { specs, swaggerUi } = require("./swagger");
+const cookieParser = require("cookie-parser");
+const logger = require("./src/utils/logger");
+const requestMiddleware = require("./src/middleware/middleware.requestId");
+
 // Auto-detect local IP in development if not set
 if (!process.env.ANNOUNCED_IP && process.env.NODE_ENV === "development") {
   const nets = os.networkInterfaces();
@@ -25,17 +36,6 @@ if (!process.env.ANNOUNCED_IP && process.env.NODE_ENV === "development") {
     if (process.env.ANNOUNCED_IP) break;
   }
 }
-
-const MediaService = require("./src/services/MediaService");
-const MessageQueue = require("./src/services/MessageQueue");
-const CacheService = require("./src/services/CacheService");
-const StreamService = require("./src/services/StreamService");
-const ChatService = require("./src/services/ChatService");
-const AuthMiddleWare = require("./src/middleware/middleware.auth");
-const { specs, swaggerUi } = require("./swagger");
-const cookieParser = require("cookie-parser");
-const logger = require("./src/utils/logger");
-const requestMiddleware = require("./src/middleware/middleware.requestId");
 
 //metrics - later
 
