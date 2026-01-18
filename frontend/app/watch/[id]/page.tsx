@@ -129,8 +129,13 @@ const WatchPage = () => {
 
   useEffect(() => {
     const init = async () => {
+      console.log('🚀 [INIT] Starting initialization at:', new Date().toISOString());
+      
+      const fetchStart = performance.now();
       await fetchStreamInfo();
+      console.log(`📊 [INIT] Stream info fetched in ${(performance.now() - fetchStart).toFixed(0)}ms`);
 
+      const socketStart = performance.now();
       const newSocket = io(
         process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:3001",
         {
@@ -138,55 +143,55 @@ const WatchPage = () => {
           transports: ["websocket", "polling"],
         }
       );
+      console.log(`🔌 [INIT] Socket created in ${(performance.now() - socketStart).toFixed(0)}ms`);
 
       newSocket.on("connect", () => {
-        console.log("Viewer connected, socket ID:", newSocket.id);
+        console.log("✅ [SOCKET] Connected at:", new Date().toISOString(), "Socket ID:", newSocket.id);
+        const joinStart = performance.now();
         newSocket.emit("join-stream", { streamId: params.id });
+        console.log(`📡 [SOCKET] join-stream emitted in ${(performance.now() - joinStart).toFixed(0)}ms`);
       });
 
       newSocket.on("viewer-count", (count: number) => {
-        console.log("👁️ VIEWER received viewer-count:", count, typeof count);
-
+        console.log("👁️ [EVENT] viewer-count received at:", new Date().toISOString(), "Count:", count);
         setViewerCount(count);
       });
 
       newSocket.on("existing-producers", async (producers: Array<{id: string; kind: string; userId: string; isScreenShare?: boolean}>) => {
-        console.log("👁️ VIEWER received existing producers:", producers);
-
-        if (producers.length > 0 && !initRef.current) {
-          await initializeViewer();
-        }
+        console.log("🎬 [EVENT] existing-producers received at:", new Date().toISOString(), "Producers:", producers);
+        // Don't initialize here - let the useEffect handle it
       });
 
       newSocket.on("new-producer", async (data: {producerId: string; kind: string; userId: string; isScreenShare?: boolean}) => {
-        console.log("📺 New producer available:", data);
-        
-        if (!initRef.current && socket && streamInfo) {
-          await initializeViewer();
-        }
+        console.log("📺 [EVENT] new-producer received at:", new Date().toISOString(), "Data:", data);
+        // Don't initialize here - let the useEffect handle it
       });
 
       newSocket.on("stream-start-time", (data) => {
-        console.log("⏱️ Received stream start time:", data.startTime);
+        console.log("⏱️ [EVENT] stream-start-time received at:", new Date().toISOString(), "Start time:", data.startTime);
         setStreamStartTime(data.startTime);
       });
 
       newSocket.on("stream-ended", () => {
-        console.log("🛑 Stream has ended");
+        console.log("🛑 [EVENT] stream-ended received at:", new Date().toISOString());
         setStreamEnded(true);
         toast.error("Stream has ended", { position: "bottom-left" });
       });
 
       newSocket.on("error", (error) => {
-        console.error("Socket error:", error);
+        console.error("❌ [SOCKET] Error at:", new Date().toISOString(), error);
         toast.error("Connection error", { position: "bottom-left" });
       });
 
+      const socketSetStart = performance.now();
       setSocket(newSocket);
+      console.log(`🔧 [INIT] Socket state set in ${(performance.now() - socketSetStart).toFixed(0)}ms`);
+      console.log('✅ [INIT] Initialization complete at:', new Date().toISOString());
     };
 
     init();
     return () => {
+      console.log('🧹 [CLEANUP] Cleaning up socket listeners at:', new Date().toISOString());
       socket?.off("connect");
       socket?.off("viewer-count");
       socket?.off("existing-producers");
@@ -199,8 +204,17 @@ const WatchPage = () => {
   }, [params.id]);
 
   useEffect(() => {
-    if (socket && streamInfo) {
+    console.log('🔍 [EFFECT] useEffect triggered at:', new Date().toISOString());
+    console.log('🔍 [EFFECT] socket:', !!socket, 'streamInfo:', !!streamInfo, 'initRef.current:', initRef.current);
+    
+    if (socket && streamInfo && !initRef.current) {
+      console.log('🚀 [EFFECT] All conditions met, calling initializeViewer at:', new Date().toISOString());
       initializeViewer();
+    } else {
+      console.log('⏸️ [EFFECT] Conditions not met - waiting...');
+      if (!socket) console.log('  - Missing socket');
+      if (!streamInfo) console.log('  - Missing streamInfo');
+      if (initRef.current) console.log('  - Already initialized');
     }
   }, [socket, streamInfo]);
 
@@ -378,29 +392,36 @@ const WatchPage = () => {
   };
 
   const initializeViewer = async () => {
+    console.log('🎯 [VIEWER] initializeViewer called at:', new Date().toISOString());
+    
     if (initRef.current) {
-      console.log("Already initialized, skipping");
+      console.log('⚠️ [VIEWER] Already initialized, skipping');
       return;
     }
+    
+    console.log('🔒 [VIEWER] Setting initRef.current = true');
     initRef.current = true;
 
     try {
       const startTime = performance.now();
-      console.log("Initializing viewer for stream:", params.id);
+      console.log('🎬 [VIEWER] Starting viewer initialization for stream:', params.id);
 
       const t1 = performance.now();
+      console.log('📡 [VIEWER] Getting router capabilities...');
       const routerCapabilities = (await new Promise<types.RtpCapabilities>((resolve) => {
         socket?.emit("get-router-capabilities", resolve);
       }));
-      console.log(`Got router capabilities (${(performance.now() - t1).toFixed(0)}ms)`);
+      console.log(`✅ [VIEWER] Got router capabilities (${(performance.now() - t1).toFixed(0)}ms)`);
 
       const t2 = performance.now();
+      console.log('🔧 [VIEWER] Loading device...');
       const newDevice = new Device();
       await newDevice.load({ routerRtpCapabilities: routerCapabilities });
       setDevice(newDevice);
-      console.log(`Device loaded (${(performance.now() - t2).toFixed(0)}ms)`);
+      console.log(`✅ [VIEWER] Device loaded (${(performance.now() - t2).toFixed(0)}ms)`);
 
       const t3 = performance.now();
+      console.log('🚛 [VIEWER] Creating transport...');
       const transportInfo = (await new Promise<types.TransportOptions>((resolve) => {
         socket?.emit(
           "create-transport",
@@ -408,23 +429,23 @@ const WatchPage = () => {
           resolve
         );
       }));
-      console.log(`Transport created (${(performance.now() - t3).toFixed(0)}ms)`);
+      console.log(`✅ [VIEWER] Transport created (${(performance.now() - t3).toFixed(0)}ms)`);
 
       const recvTransport = newDevice.createRecvTransport(transportInfo);
       setRecvTransport(recvTransport);
-      console.log("Receive transport created");
+      console.log('🔗 [VIEWER] Receive transport created');
 
       // Monitor connection state
       recvTransport.on("connectionstatechange", (state) => {
-        console.log(`🔗 Recv transport connection state: ${state}`);
+        console.log(`🔗 [VIEWER] Recv transport connection state: ${state} at:`, new Date().toISOString());
         if (state === "failed" || state === "closed") {
-          console.error("Transport connection failed!");
+          console.error('❌ [VIEWER] Transport connection failed!');
           toast.error("Connection failed");
         }
       });
 
       recvTransport.on("connect", async ({ dtlsParameters }, callback) => {
-        console.log("🔌 Recv transport connecting...");
+        console.log('🔌 [VIEWER] Recv transport connecting at:', new Date().toISOString());
         const connectStart = performance.now();
         socket?.emit(
           "connect-transport",
@@ -434,20 +455,22 @@ const WatchPage = () => {
             dtlsParameters,
           },
           () => {
-            console.log(`✅ Recv transport connected (${(performance.now() - connectStart).toFixed(0)}ms)`);
+            console.log(`✅ [VIEWER] Recv transport connected (${(performance.now() - connectStart).toFixed(0)}ms)`);
             callback();
           }
         );
       });
 
       // Get existing producers first
+      const t4 = performance.now();
+      console.log('🎭 [VIEWER] Getting existing producers...');
       const producers = (await new Promise<Array<{id: string; kind: string; userId: string; isScreenShare?: boolean}>>((resolve) => {
         socket?.emit("get-producers", { roomId: params.id }, resolve);
       }));
-      console.log("Available producers:", producers);
+      console.log(`✅ [VIEWER] Got producers (${(performance.now() - t4).toFixed(0)}ms):`, producers);
 
       if (!producers || producers.length === 0) {
-        console.log("⏳ No producers yet, waiting for stream to start...");
+        console.log('⏳ [VIEWER] No producers yet, waiting for stream to start...');
         initRef.current = false;
         setIsLoading(false);
         toast("Waiting for stream to start...", { icon: "⏳", position: "bottom-left" });
@@ -457,10 +480,10 @@ const WatchPage = () => {
       // Filter out screen share producers - only consume camera/mic initially
       const cameraProducers = producers.filter((p) => !p.isScreenShare);
       
-      console.log("Camera producers to consume:", cameraProducers);
+      console.log('📹 [VIEWER] Camera producers to consume:', cameraProducers);
       
       if (cameraProducers.length === 0) {
-        console.log("⏳ No camera producers yet, waiting for stream to start...");
+        console.log('⏳ [VIEWER] No camera producers yet, waiting for stream to start...');
         initRef.current = false;
         setIsLoading(false);
         toast("Waiting for stream to start...", { icon: "⏳", position: "bottom-left" });
@@ -468,10 +491,13 @@ const WatchPage = () => {
       }
 
       const stream = new MediaStream();
+      console.log('🎵 [VIEWER] Created new MediaStream');
 
       // Consume audio FIRST (only camera audio)
       const audioProducer = cameraProducers.find((p) => p.kind === "audio");
       if (audioProducer) {
+        const t5 = performance.now();
+        console.log('🎵 [VIEWER] Consuming audio producer:', audioProducer.id);
         const audioConsumer = (await new Promise<{
           id: string;
           producerId: string;
@@ -488,16 +514,19 @@ const WatchPage = () => {
             resolve
           );
         }));
-        console.log("Audio consumer created:", audioConsumer);
+        console.log(`✅ [VIEWER] Audio consumer created (${(performance.now() - t5).toFixed(0)}ms):`, audioConsumer);
 
         if (audioConsumer?.id) {
+          const t6 = performance.now();
           const consumer = await recvTransport.consume({
             id: audioConsumer.id,
             producerId: audioConsumer.producerId,
             kind: audioConsumer.kind as types.MediaKind,
             rtpParameters: audioConsumer.rtpParameters,
           });
+          console.log(`✅ [VIEWER] Audio consumer transport consume (${(performance.now() - t6).toFixed(0)}ms)`);
 
+          const t7 = performance.now();
           await new Promise((resolve) => {
             socket?.emit(
               "resume-consumer",
@@ -508,10 +537,11 @@ const WatchPage = () => {
               resolve
             );
           });
+          console.log(`✅ [VIEWER] Audio consumer resumed (${(performance.now() - t7).toFixed(0)}ms)`);
 
           stream.addTrack(consumer.track);
           setConsumedProducers((prev) => new Set(prev).add(audioProducer.id));
-          console.log("Audio track added to stream");
+          console.log('🎵 [VIEWER] Audio track added to stream');
         }
       }
 
@@ -521,6 +551,8 @@ const WatchPage = () => {
         throw new Error("No camera video producer found");
       }
 
+      const t8 = performance.now();
+      console.log('📹 [VIEWER] Consuming video producer:', videoProducer.id);
       const videoConsumer = (await new Promise((resolve) => {
         socket?.emit(
           "consume",
@@ -532,17 +564,20 @@ const WatchPage = () => {
           resolve
         );
       })) as any;
-      console.log("Video consumer created:", videoConsumer);
+      console.log(`✅ [VIEWER] Video consumer created (${(performance.now() - t8).toFixed(0)}ms):`, videoConsumer);
 
       if (videoConsumer?.id) {
+        const t9 = performance.now();
         const consumer = await recvTransport.consume({
           id: videoConsumer.id,
           producerId: videoConsumer.producerId,
           kind: videoConsumer.kind,
           rtpParameters: videoConsumer.rtpParameters,
         });
+        console.log(`✅ [VIEWER] Video consumer transport consume (${(performance.now() - t9).toFixed(0)}ms)`);
 
         // Resume consumer to start receiving media
+        const t10 = performance.now();
         await new Promise((resolve) => {
           socket?.emit(
             "resume-consumer",
@@ -553,55 +588,59 @@ const WatchPage = () => {
             resolve
           );
         });
+        console.log(`✅ [VIEWER] Video consumer resumed (${(performance.now() - t10).toFixed(0)}ms)`);
 
         stream.addTrack(consumer.track);
         setConsumedProducers((prev) => new Set(prev).add(videoProducer.id));
-        console.log("Video track added to stream");
+        console.log('📹 [VIEWER] Video track added to stream');
       }
 
       if (videoRef.current) {
         const video = videoRef.current;
+        const t11 = performance.now();
         video.srcObject = stream;
-        console.log(
-          "Stream set to video element, tracks:",
-          stream.getTracks().length
-        );
+        console.log(`✅ [VIEWER] Stream set to video element (${(performance.now() - t11).toFixed(0)}ms), tracks:`, stream.getTracks().length);
 
         stream.getTracks().forEach((track) => {
-          console.log(
-            `Track ${track.kind}: enabled=${track.enabled}, muted=${track.muted}, readyState=${track.readyState}`
-          );
+          console.log(`🎬 [VIEWER] Track ${track.kind}: enabled=${track.enabled}, muted=${track.muted}, readyState=${track.readyState}`);
         });
 
         const playVideo = async () => {
           try {
+            const playStart = performance.now();
             await video.play();
-            console.log("Video playback started");
+            console.log(`✅ [VIEWER] Video playback started (${(performance.now() - playStart).toFixed(0)}ms)`);
             setIsLoading(false);
             toast.success("Connected to stream", { position: "bottom-left" });
           } catch (e) {
-            console.error("Play failed:", e);
+            console.error('❌ [VIEWER] Play failed:', e);
             setIsLoading(false);
           }
         };
 
         // Wait for video to be ready before playing
         video.onloadedmetadata = () => {
-          console.log('Video metadata loaded, starting playback');
+          console.log('📺 [VIEWER] Video metadata loaded, starting playback at:', new Date().toISOString());
           playVideo();
         };
         
         // Also try immediate playback as fallback
-        setTimeout(() => playVideo(), 100);
+        setTimeout(() => {
+          console.log('⏰ [VIEWER] Fallback playback attempt at:', new Date().toISOString());
+          playVideo();
+        }, 100);
         
         // Store camera stream for PiP use
         cameraStreamRef.current = stream;
         setCameraStream(stream);
+        console.log('📹 [VIEWER] Camera stream stored for PiP');
       } else {
         throw new Error("Video element not found");
       }
+      
+      console.log(`🎉 [VIEWER] Total initialization time: ${(performance.now() - startTime).toFixed(0)}ms`);
     } catch (error) {
-      console.error("Failed to initialize viewer:", error);
+      console.error('❌ [VIEWER] Failed to initialize viewer:', error);
       setIsLoading(false);
       initRef.current = false;
       toast.error("Failed to connect to stream", { position: "bottom-left" });
