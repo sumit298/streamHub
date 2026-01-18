@@ -618,17 +618,9 @@ const WatchPage = () => {
           }
         };
 
-        // Wait for video to be ready before playing
-        video.onloadedmetadata = () => {
-          console.log('📺 [VIEWER] Video metadata loaded, starting playback at:', new Date().toISOString());
-          playVideo();
-        };
-        
-        // Also try immediate playback as fallback
-        setTimeout(() => {
-          console.log('⏰ [VIEWER] Fallback playback attempt at:', new Date().toISOString());
-          playVideo();
-        }, 100);
+        // Force immediate playback - don't wait for metadata
+        console.log('🚀 [VIEWER] Starting immediate playback at:', new Date().toISOString());
+        playVideo();
         
         // Store camera stream for PiP use
         cameraStreamRef.current = stream;
