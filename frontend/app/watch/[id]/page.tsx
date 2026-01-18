@@ -585,8 +585,14 @@ const WatchPage = () => {
           }
         };
 
-        // Force immediate playback without waiting for loadeddata
-        playVideo();
+        // Wait for video to be ready before playing
+        video.onloadedmetadata = () => {
+          console.log('Video metadata loaded, starting playback');
+          playVideo();
+        };
+        
+        // Also try immediate playback as fallback
+        setTimeout(() => playVideo(), 100);
         
         // Store camera stream for PiP use
         cameraStreamRef.current = stream;
@@ -747,6 +753,7 @@ const WatchPage = () => {
                   ref={screenVideoRef}
                   autoPlay
                   playsInline
+                  muted={isMuted}
                   className="w-full h-full object-contain"
                 />
                 <div className="absolute bottom-4 left-4 bg-gray-750 px-3 py-2 rounded-lg flex items-center gap-2">
@@ -790,7 +797,6 @@ const WatchPage = () => {
                   autoPlay
                   playsInline
                   muted={isMuted}
-                  controls
                   className="w-full h-full object-cover"
                 />
                 {isLoading && (
