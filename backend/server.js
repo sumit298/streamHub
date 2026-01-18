@@ -11,21 +11,6 @@ const https = require("https");
 const fs = require("fs");
 const os = require("os");
 
-// Auto-detect local IP in development if not set
-if (!process.env.ANNOUNCED_IP && process.env.NODE_ENV === "development") {
-  const nets = os.networkInterfaces();
-  for (const name of Object.keys(nets)) {
-    for (const net of nets[name]) {
-      if (net.family === "IPv4" && !net.internal) {
-        process.env.ANNOUNCED_IP = net.address;
-        console.log(`🌐 Auto-detected ANNOUNCED_IP: ${net.address}`);
-        break;
-      }
-    }
-    if (process.env.ANNOUNCED_IP) break;
-  }
-}
-
 const MediaService = require("./src/services/MediaService");
 const MessageQueue = require("./src/services/MessageQueue");
 const CacheService = require("./src/services/CacheService");
@@ -36,6 +21,21 @@ const { specs, swaggerUi } = require("./swagger");
 const cookieParser = require("cookie-parser");
 const logger = require("./src/utils/logger");
 const requestMiddleware = require("./src/middleware/middleware.requestId");
+
+// Auto-detect local IP in development if not set
+if (!process.env.ANNOUNCED_IP && process.env.NODE_ENV === "development") {
+  const nets = os.networkInterfaces();
+  for (const name of Object.keys(nets)) {
+    for (const net of nets[name]) {
+      if (net.family === "IPv4" && !net.internal) {
+        process.env.ANNOUNCED_IP = net.address;
+        logger.info(`🌐 Auto-detected ANNOUNCED_IP: ${net.address}`);
+        break;
+      }
+    }
+    if (process.env.ANNOUNCED_IP) break;
+  }
+}
 
 //metrics - later
 
@@ -91,8 +91,6 @@ app.use(morgan("dev"));
 app.use(express.json({ limit: "10mb" }));
 app.use(cookieParser());
 
-// Serve test frontend
-app.use("/test", express.static("test-frontend"));
 
 // Rate Limiter
 const generateLimiter = rateLimit({
@@ -101,15 +99,14 @@ const generateLimiter = rateLimit({
   message: "Too many requests from this ip",
 });
 
-// Temporarily disable rate limiting for testing
-// const authLimiter = rateLimit({
-//     windowMs: 15 * 60 * 1000,
-//     max: 5,
-//     message: "Too much authentication requests"
-// })
-
-// app.use('/api', generateLimiter);
-// app.use('/api/auth', authLimiter);
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  message: "Too many authentication requests"
+});
+// 
+app.use('/api', generateLimiter);
+app.use('/api/auth', authLimiter);
 
 // Swagger Documentation
 app.use(
@@ -186,7 +183,7 @@ async function initializeServices() {
     // await messageQueue.connect();
 
     cacheService = new CacheService(logger);
-    // await cacheService.connect();
+    await cacheService.connect();
 
     // metricsService = new MetricsService();
     streamService = new StreamService(
@@ -204,7 +201,8 @@ async function initializeServices() {
       require("./src/routes/routes.stream")(
         streamService,
         logger,
-        AuthMiddleWare
+        AuthMiddleWare,
+        cacheService
       )
     );
     app.use(
@@ -345,15 +343,15 @@ io.on("connection", (socket) => {
       });
       const viewerCount = uniqueUsers.size - 1; // Subtract streamer
 
-      console.log(`📊 Room ${data.streamId} has ${roomSockets.length} sockets, ${uniqueUsers.size} unique users`);
-      console.log(
+      logger.debug(`📊 Room ${data.streamId} has ${roomSockets.length} sockets, ${uniqueUsers.size} unique users`);
+      logger.debug(
         `📊 Socket IDs in room:`,
         roomSockets.map((s) => `${s.id} (user: ${s.userId})`)
       );
 
       // Broadcast viewer count to all in room
       io.to(`room:${data.streamId}`).emit("viewer-count", viewerCount);
-      console.log(
+      logger.debug(
         `📊 Emitted viewer-count: ${viewerCount} to room:${data.streamId}`
       );
 

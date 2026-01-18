@@ -52,12 +52,20 @@ export const CreateStreamDialog = ({ open, onOpenChange }: CreateStreamDialogPro
             return;
         }
 
+        // Generate thumbnail URL before creating stream
+        let thumbnailUrl = thumbnail;
+        if (!thumbnailUrl) {
+            // Use timestamp as seed for consistent random image
+            const seed = Date.now();
+            thumbnailUrl = `https://picsum.photos/seed/${seed}/400/225`;
+        }
+
         // Here you would typically create the stream with all data
         const streamData = {
             title,
             category: category.toLowerCase(),
             description,
-            thumbnail: thumbnail || `https://picsum.photos/400/225?random=${Date.now()}`,
+            thumbnail: thumbnailUrl,
             tags: tags.split(',').map(tag => tag.trim()).filter(tag => tag.length > 0),
             isPending: true
         };

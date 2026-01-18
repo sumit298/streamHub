@@ -361,6 +361,34 @@ class CacheService {
         }
     }
 
+    async get(key) {
+        try {
+            const data = await this.client.get(key);
+            return data ? JSON.parse(data) : null;
+        } catch (error) {
+            this.logger.error(`Error getting cache key: ${key}`, { error });
+            return null;
+        }
+    }
+
+    async set(key, value, ttl = 3600) {
+        try {
+            await this.client.setex(key, ttl, JSON.stringify(value));
+            this.logger.debug(`Cache set: ${key} (Ttl: ${ttl}s)`);
+        } catch (error) {
+            this.logger.error(`Error setting cache key: ${key}`, { error });
+        }
+    }
+
+    async del(key) {
+        try {
+            await this.client.del(key);
+            this.logger.debug(`Cache deleted: ${key}`);
+        } catch (error) {
+            this.logger.error(`Error deleting cache key ${key}:`, { error });
+        }
+    }
+
 }
 
 module.exports = CacheService;
