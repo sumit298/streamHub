@@ -2,7 +2,7 @@ const express = require("express");
 const { body, param, query, validationResult } = require("express-validator");
 const rateLimit = require("express-rate-limit");
 
-module.exports = (streamService, logger, AuthMiddleWare) => {
+module.exports = (streamService, logger, AuthMiddleWare, cacheService) => {
   const router = express.Router();
 
   // Rate limiting for stream operations
@@ -159,6 +159,15 @@ module.exports = (streamService, logger, AuthMiddleWare) => {
           filter,
         } = req.query;
 
+        const cacheKey = "streams:active";
+        if (!search && offset == 0 && limit == 20) {
+          const cached = await cacheService.get(cacheKey);
+          if (cached) {
+            logger.info("Serving active streams from cache");
+            return res.json({ ...cached, cached: true });
+          }
+        }
+
         let streams;
 
         if (search) {
@@ -196,11 +205,11 @@ module.exports = (streamService, logger, AuthMiddleWare) => {
         //   return false;
         // });
 
-        res.json({
+        const response = {
           success: true,
           streams: streams.streams,
           total: streams.total,
-          hasMore: (parseInt(offset) + streams.streams.length) < streams.total,
+          hasMore: parseInt(offset) + streams.streams.length < streams.total,
           pagination: {
             limit: parseInt(limit),
             offset: parseInt(offset),
@@ -208,8 +217,14 @@ module.exports = (streamService, logger, AuthMiddleWare) => {
             currentPage: Math.floor(parseInt(offset) / parseInt(limit)) + 1,
             totalPages: Math.ceil(streams.total / parseInt(limit)),
           },
-          
-          
+        };
+        if (!search && offset == 0 && limit == 20) {
+          await cacheService.set(cacheKey, response, 300);
+        }
+
+        res.json({
+          ...response,
+          cached: false,
         });
       } catch (error) {
         logger.error("Get streams error:", error);
@@ -219,7 +234,7 @@ module.exports = (streamService, logger, AuthMiddleWare) => {
             process.env.NODE_ENV === "development" ? error.message : undefined,
         });
       }
-    }
+    },
   );
 
   // POST /api/streams - Create a new stream
@@ -241,7 +256,7 @@ module.exports = (streamService, logger, AuthMiddleWare) => {
 
         // Check if user already has an active stream
         const userActiveStreams = await streamService.getUserActiveStreams(
-          req.userId
+          req.userId,
         );
         if (userActiveStreams.length > 0) {
           return res.status(409).json({
@@ -257,11 +272,17 @@ module.exports = (streamService, logger, AuthMiddleWare) => {
           isPrivate: req.body.isPrivate || false,
           chatEnabled: req.body.chatEnabled !== false,
           recordingEnabled: req.body.recordingEnabled || false,
-          tags: Array.isArray(req.body.tags) && req.body.tags.length > 0 ? req.body.tags : [],
+          tags:
+            Array.isArray(req.body.tags) && req.body.tags.length > 0
+              ? req.body.tags
+              : [],
           thumbnail: req.body.thumbnail || null,
         };
 
         const stream = await streamService.createStream(req.userId, streamData);
+
+        // invalidate streams cache
+        await cacheService.del("streams:active");
 
         logger.info(`Stream created: ${stream.id} by user ${req.userId}`);
 
@@ -283,7 +304,7 @@ module.exports = (streamService, logger, AuthMiddleWare) => {
             process.env.NODE_ENV === "development" ? error.message : undefined,
         });
       }
-    }
+    },
   );
 
   // GET /api/streams/:id - Get specific stream details (PUBLIC - no auth required for testing)
@@ -303,8 +324,16 @@ module.exports = (streamService, logger, AuthMiddleWare) => {
         }
 
         const streamId = req.params.id;
+        // try cache 
+        const cacheKey = `stream:${streamId}`;
+        const cached = await cacheService.get(cacheKey);
+        if (cached) {
+          logger.info(`Serving stream ${streamId} from cache`);
+          return res.json({ ...cached, cached: true });
+        }
+
+
         const streamInfo = await streamService.getStreamInfo(streamId);
-        // console.log("stream Info",streamInfo)
 
         if (!streamInfo) {
           return res.status(404).json({
@@ -312,12 +341,16 @@ module.exports = (streamService, logger, AuthMiddleWare) => {
           });
         }
 
-        // TODO: Re-enable auth checks after testing
-        // For now, allow public access to all streams
-
-        res.json({
+        const response = {
           success: true,
           stream: streamInfo,
+
+        };
+
+        await cacheService.set(cacheKey, response, 600);
+
+        res.json({
+          ...response, cached: false
         });
       } catch (error) {
         logger.error("Get stream error:", error);
@@ -327,7 +360,7 @@ module.exports = (streamService, logger, AuthMiddleWare) => {
             process.env.NODE_ENV === "development" ? error.message : undefined,
         });
       }
-    }
+    },
   );
 
   // POST /api/streams/:id/end - End the stream
@@ -374,9 +407,9 @@ module.exports = (streamService, logger, AuthMiddleWare) => {
         const result = await streamService.endStream(streamId, req.userId);
 
         // Notify all viewers that stream has ended
-        req.app.get('io').to(`room:${streamId}`).emit('stream-ended', {
+        req.app.get("io").to(`room:${streamId}`).emit("stream-ended", {
           streamId,
-          message: 'Stream has ended'
+          message: "Stream has ended",
         });
 
         logger.info(`Stream ended: ${streamId} by user ${req.userId}`);
@@ -394,7 +427,7 @@ module.exports = (streamService, logger, AuthMiddleWare) => {
             process.env.NODE_ENV === "development" ? error.message : undefined,
         });
       }
-    }
+    },
   );
 
   // PATCH /api/streams/:id - Update stream details
@@ -442,8 +475,13 @@ module.exports = (streamService, logger, AuthMiddleWare) => {
 
         const updatedStream = await streamService.updateStream(
           streamId,
-          updateData
+          updateData,
         );
+
+        // Invalidate cache
+        await cacheService.del(`stream:${streamId}`);
+        await cacheService.del("streams:active");
+
 
         res.json({
           success: true,
@@ -458,7 +496,7 @@ module.exports = (streamService, logger, AuthMiddleWare) => {
             process.env.NODE_ENV === "development" ? error.message : undefined,
         });
       }
-    }
+    },
   );
 
   // DELETE /api/streams/:id - End/delete a stream
@@ -497,6 +535,9 @@ module.exports = (streamService, logger, AuthMiddleWare) => {
 
         await streamService.deleteStream(streamId);
 
+        await cacheService.del(`stream:${streamId}`);
+        await cacheService.del("streams:active");
+
         logger.info(`Stream deleted: ${streamId} by user ${req.userId}`);
 
         res.json({
@@ -507,7 +548,7 @@ module.exports = (streamService, logger, AuthMiddleWare) => {
         logger.error("Delete stream error:", error);
         res.status(500).json({ error: "Failed to delete stream" });
       }
-    }
+    },
   );
 
   // POST /api/streams/:id/join - Join a stream (for viewers)
@@ -550,7 +591,7 @@ module.exports = (streamService, logger, AuthMiddleWare) => {
             process.env.NODE_ENV === "development" ? error.message : undefined,
         });
       }
-    }
+    },
   );
 
   // GET /api/streams/:id/stats - Get stream analytics
@@ -603,7 +644,7 @@ module.exports = (streamService, logger, AuthMiddleWare) => {
             process.env.NODE_ENV === "development" ? error.message : undefined,
         });
       }
-    }
+    },
   );
 
   // GET /api/streams/user/:userId - Get streams by user
@@ -655,7 +696,7 @@ module.exports = (streamService, logger, AuthMiddleWare) => {
             process.env.NODE_ENV === "development" ? error.message : undefined,
         });
       }
-    }
+    },
   );
 
   return router;

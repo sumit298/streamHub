@@ -55,7 +55,7 @@ class AuthMiddleWare {
         }
       }
     } catch (error) {
-      console.error("Authentication error:", error);
+      logger.error("Authentication error:", error);
       return res.status(500).json({ error: "Authentication service error." });
     }
   }
@@ -97,13 +97,13 @@ class AuthMiddleWare {
 
             next();
           } catch (dbError) {
-            console.error("Socket auth database error:", dbError);
+            logger.error("Socket auth database error:", dbError);
             return next(new Error("Authentication failed"));
           }
         }
       );
     } catch (error) {
-      console.error("Socket authentication error:", error);
+      logger.error("Socket authentication error:", error);
       return next(new Error("Authentication failed"));
     }
   }

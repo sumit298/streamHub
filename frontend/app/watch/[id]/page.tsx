@@ -830,8 +830,8 @@ const WatchPage = () => {
           </div>
 
           {/* Sidebar - Chat - Hidden on mobile */}
-          <div className="hidden lg:flex w-80 flex-col p-4">
-            <div className="flex-1 bg-gray-800 rounded-xl border border-gray-700">
+          <div className="hidden lg:flex w-80 flex-col p-4 max-h-full">
+            <div className="flex-1 bg-gray-800 rounded-xl border border-gray-700 overflow-hidden">
               <ChatPanel
                 socket={socket}
                 streamId={params.id as string}
