@@ -1,5 +1,6 @@
 const jwt = require("jsonwebtoken");
 const { User } = require("../models");
+const logger = require("../utils/logger");
 
 class AuthMiddleWare {
   static async authenticate(req, res, next) {

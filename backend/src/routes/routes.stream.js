@@ -406,6 +406,10 @@ module.exports = (streamService, logger, AuthMiddleWare, cacheService) => {
 
         const result = await streamService.endStream(streamId, req.userId);
 
+        // Invalidate caches
+        await cacheService.del(`stream:${streamId}`);
+        await cacheService.del("streams:active");
+
         // Notify all viewers that stream has ended
         req.app.get("io").to(`room:${streamId}`).emit("stream-ended", {
           streamId,
