@@ -6,6 +6,8 @@ import { io, Socket } from "socket.io-client";
 import toast from "react-hot-toast";
 import { useAuth } from "@/lib/AuthContext";
 import ChatPanel from "@/components/ChatPanel";
+import BottomControlBar from "@/components/BottomControlBar";
+import ViewerStats from "@/components/ViewerStats";
 
 const StreamsPage = () => {
   const params = useParams();
@@ -42,6 +44,51 @@ const StreamsPage = () => {
     audio: types.Producer | null;
   } | null>(null);
   const [sendTransport, setSendTransport] = useState<types.Transport | null>(null); //store transport for reuse
+  const [isMobile, setIsMobile] = useState(false);
+  const [showEndStreamModal, setShowEndStreamModal] = useState(false);
+  const [availableDevices, setAvailableDevices] = useState<{
+    cameras: MediaDeviceInfo[];
+    microphones: MediaDeviceInfo[];
+  }>({ cameras: [], microphones: [] });
+  const [selectedDevices, setSelectedDevices] = useState<{
+    cameraId: string;
+    microphoneId: string;
+  }>({ cameraId: '', microphoneId: '' });
+  const [streamInfo, setStreamInfo] = useState<{
+    title?: string;
+    category?: string;
+  } | null>(null);
+
+  useEffect(() => {
+    // Detect mobile device
+    const checkMobile = () => {
+      const userAgent = navigator.userAgent.toLowerCase();
+      const isMobileDevice = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(userAgent);
+      setIsMobile(isMobileDevice);
+    };
+    checkMobile();
+
+    // Fetch stream info
+    const fetchStreamInfo = async () => {
+      try {
+        const response = await fetch(
+          `${
+            process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001"
+          }/api/streams/${params.id}`,
+          {
+            credentials: "include",
+          }
+        );
+        if (response.ok) {
+          const data = await response.json();
+          setStreamInfo(data.stream);
+        }
+      } catch (error) {
+        console.error("Failed to fetch stream info:", error);
+      }
+    };
+    fetchStreamInfo();
+  }, [params.id]);
 
   useEffect(() => {
     const newSocket = io(
@@ -122,14 +169,14 @@ const StreamsPage = () => {
 
   const toggleMute = () => {
     if (stream) {
-      stream.getAudioTracks()[0].enabled = !isMuted;
+      stream.getAudioTracks()[0].enabled = isMuted;
       setIsMuted(!isMuted);
     }
   };
 
   const toggleCamera = () => {
     if (stream) {
-      stream.getVideoTracks()[0].enabled = !isCameraOff;
+      stream.getVideoTracks()[0].enabled = isCameraOff;
       setIsCameraOff(!isCameraOff);
     }
   };
@@ -166,14 +213,15 @@ const StreamsPage = () => {
       setDevice(newDevice);
       setConnectionStatus("connected");
       setConnectionTested(true);
-      toast.success("Connection test successful! You can now go live.");
+      toast.success("Connection test successful! You can now go live.", { position: "bottom-left" });
     } catch (error: any) {
       console.error("MediaSoup initialization failed:", error);
       setConnectionStatus("failed");
       setConnectionTested(false);
       toast.error(
         error.message ||
-          "Connection test failed. Please check your network and try again."
+          "Connection test failed. Please check your network and try again.",
+        { position: "bottom-left" }
       );
     } finally {
       setIsTestingConnection(false);
@@ -193,20 +241,109 @@ const StreamsPage = () => {
       if (videoRef.current) {
         videoRef.current.srcObject = mediaStream;
       }
+
+      // Get available devices
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const cameras = devices.filter(device => device.kind === 'videoinput');
+      const microphones = devices.filter(device => device.kind === 'audioinput');
+      
+      console.log('Available cameras:', cameras);
+      console.log('Available microphones:', microphones);
+      
+      setAvailableDevices({ cameras, microphones });
+      
+      // Set default selected devices
+      const videoTrack = mediaStream.getVideoTracks()[0];
+      const audioTrack = mediaStream.getAudioTracks()[0];
+      setSelectedDevices({
+        cameraId: videoTrack.getSettings().deviceId || cameras[0]?.deviceId || '',
+        microphoneId: audioTrack.getSettings().deviceId || microphones[0]?.deviceId || '',
+      });
     } catch (error) {
       console.error("Permission denied:", error);
-      // Handle specific permission errors
+    }
+  };
+
+  const changeCamera = async (deviceId: string) => {
+    if (!stream) return;
+    
+    try {
+      const audioTrack = stream.getAudioTracks()[0];
+      const audioEnabled = audioTrack?.enabled ?? true;
+      
+      const newStream = await navigator.mediaDevices.getUserMedia({
+        video: { deviceId: { exact: deviceId } },
+        audio: { deviceId: { exact: selectedDevices.microphoneId } },
+      });
+      
+      // Restore audio state
+      const newAudioTrack = newStream.getAudioTracks()[0];
+      if (newAudioTrack) {
+        newAudioTrack.enabled = audioEnabled;
+      }
+      
+      // Stop old tracks
+      stream.getTracks().forEach(track => track.stop());
+      
+      setStream(newStream);
+      setSelectedDevices(prev => ({ ...prev, cameraId: deviceId }));
+      
+      if (videoRef.current) {
+        videoRef.current.srcObject = newStream;
+      }
+    } catch (error) {
+      console.error("Failed to change camera:", error);
+      toast.error("Failed to change camera", { position: "bottom-left" });
+    }
+  };
+
+  const changeMicrophone = async (deviceId: string) => {
+    if (!stream) return;
+    
+    try {
+      const videoTrack = stream.getVideoTracks()[0];
+      const audioTrack = stream.getAudioTracks()[0];
+      const videoEnabled = videoTrack?.enabled ?? true;
+      const audioEnabled = audioTrack?.enabled ?? true;
+      
+      const newStream = await navigator.mediaDevices.getUserMedia({
+        video: { deviceId: { exact: selectedDevices.cameraId } },
+        audio: { deviceId: { exact: deviceId } },
+      });
+      
+      // Restore track states
+      const newVideoTrack = newStream.getVideoTracks()[0];
+      const newAudioTrack = newStream.getAudioTracks()[0];
+      if (newVideoTrack) {
+        newVideoTrack.enabled = videoEnabled;
+      }
+      if (newAudioTrack) {
+        newAudioTrack.enabled = audioEnabled;
+      }
+      
+      // Stop old tracks
+      stream.getTracks().forEach(track => track.stop());
+      
+      setStream(newStream);
+      setSelectedDevices(prev => ({ ...prev, microphoneId: deviceId }));
+      
+      if (videoRef.current) {
+        videoRef.current.srcObject = newStream;
+      }
+    } catch (error) {
+      console.error("Failed to change microphone:", error);
+      toast.error("Failed to change microphone", { position: "bottom-left" });
     }
   };
 
   const startStream = async () => {
     if (!stream || !device || !socket) {
-      toast.error("Please enable camera and test connection first");
+      toast.error("Please enable camera and test connection first", { position: "bottom-left" });
       return;
     }
 
     if (!connectionTested || connectionStatus !== "connected") {
-      toast.error("Please test connection before going live");
+      toast.error("Please test connection before going live", { position: "bottom-left" });
       return;
     }
 
@@ -311,7 +448,7 @@ const StreamsPage = () => {
         if (state === "connected") {
           console.log("✅ Transport fully connected, stream is live!");
           setStreamingStatus("live");
-          toast.success("Stream is now live!");
+          toast.success("Stream is now live!", { position: "bottom-left" });
         } else if (state === "connecting") {
           setStreamingStatus("connecting");
         } else if (state === "failed" || state === "closed") {
@@ -319,7 +456,7 @@ const StreamsPage = () => {
           setStreamingStatus("failed");
           setConnectionStatus("failed");
           setConnectionTested(false);
-          toast.error("Stream connection lost. Ending stream...");
+          toast.error("Stream connection lost. Ending stream...", { position: "bottom-left" });
           setIsStreaming(false);
         }
       });
@@ -355,17 +492,18 @@ const StreamsPage = () => {
       }
 
       setIsStreaming(true);
-      toast.success("Stream started successfully");
+      toast.success("Stream started successfully", { position: "bottom-left" });
     } catch (error) {
       console.error("Failed to start stream", error);
       setConnectionStatus("failed");
       setConnectionTested(false);
       setIsStreaming(false);
-      toast.error("Failed to start stream");
+      toast.error("Failed to start stream", { position: "bottom-left" });
     }
   };
 
   const stopStream = async () => {
+    setShowEndStreamModal(false);
     try {
       if (producer) {
         producer.video?.close();
@@ -402,21 +540,22 @@ const StreamsPage = () => {
           : duration;
         setDuration(finalDurationSeconds);
         toast.success(
-          `Stream ended. Duration: ${formatDuration(finalDurationSeconds)}`
+          `Stream ended. Duration: ${formatDuration(finalDurationSeconds)}`,
+          { position: "bottom-left" }
         );
       } else {
         // Fallback: use current duration state
-        toast.success(`Stream ended. Duration: ${formatDuration(duration)}`);
+        toast.success(`Stream ended. Duration: ${formatDuration(duration)}`, { position: "bottom-left" });
       }
     } catch (error) {
       console.error("Failed to stop stream:", error);
-      toast.error("Failed to end stream");
+      toast.error("Failed to end stream", { position: "bottom-left" });
     }
   };
 
   const startScreenShare = async () => {
     if (!sendTransport || !isStreaming) {
-      toast.error("Please start streaming first");
+      toast.error("Please start streaming first", { position: "bottom-left" });
       return;
     }
 
@@ -456,13 +595,16 @@ const StreamsPage = () => {
         console.log('Screen share track ended');
         stopScreenShare();
       };
-      toast.success("Screen sharing started");
+      toast.success("Screen sharing started", { position: "bottom-left" });
     } catch (error: any) {
-      console.error("Screen share failed:", error);
+      console.log("Screen share cancelled or failed:", error.name);
       if (error.name === "NotAllowedError") {
-        toast.error("Screen sharing permission denied");
-      } else {
-        toast.error("Failed to start screen sharing");
+        toast.error("Screen sharing permission denied", { position: "bottom-left" });
+      } else if (error.name === "NotFoundError") {
+        toast.error("No screen available to share", { position: "bottom-left" });
+      } else if (error.name !== "AbortError") {
+        // AbortError means user cancelled, don't show error for that
+        toast.error("Failed to start screen sharing", { position: "bottom-left" });
       }
     }
   };
@@ -486,7 +628,7 @@ const StreamsPage = () => {
     }
 
     setIsScreenSharing(false);
-    toast.success("Screen sharing stopped");
+    toast.success("Screen sharing stopped", { position: "bottom-left" });
   };
 
   useEffect(() => {
@@ -498,52 +640,95 @@ const StreamsPage = () => {
   const copyStreamLink = () => {
     const link = `${window.location.origin}/watch/${params.id}`;
     navigator.clipboard.writeText(link);
-    toast.success("Stream link copied to clipboard");
+    toast.success("Stream link copied to clipboard", { position: "bottom-left" });
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="fixed inset-0 bg-gray-800">
+      {/* End Stream Confirmation Modal */}
+      {showEndStreamModal && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center">
+          <div className="bg-gray-800 rounded-xl p-8 max-w-md text-center border border-gray-700">
+            <div className="w-16 h-16 bg-red-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
+              <svg
+                className="w-8 h-8 text-red-500"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                />
+              </svg>
+            </div>
+            <h2 className="text-2xl font-bold mb-2 text-white">End Stream?</h2>
+            <p className="text-gray-400 mb-6">
+              Are you sure you want to end this stream? This action cannot be undone.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowEndStreamModal(false)}
+                className="flex-1 bg-gray-700 hover:bg-gray-600 text-white px-6 py-3 rounded-xl font-semibold transition"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={stopStream}
+                className="flex-1 bg-red-650 hover:bg-red-650/80 text-white px-6 py-3 rounded-xl font-semibold transition"
+              >
+                End Stream
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
-      <div className="bg-card border-b border-gray-700 sticky top-0 z-10">
+      <div className="bg-gray-800 border-b border-gray-700 sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-4">
             <a
               href="/dashboard"
-              className="text-gray-900 hover:text-gray-400 transition"
+              className="text-white hover:text-gray-400 transition flex items-center gap-2"
             >
               ← Back
             </a>
             <div>
-              <h1 className="text-lg font-semibold">Stream Studio</h1>
+              <h1 className="text-lg font-semibold text-white">{streamInfo?.title || "Stream Studio"}</h1>
               <p className="text-xs text-gray-400">ID: {params.id}</p>
             </div>
           </div>
           <div className="flex items-center gap-4">
             {isStreaming && (
-              <>
-                <div className="flex items-center gap-3 text-sm">
-                  <span className="flex items-center gap-1.5 px-3 py-1.5 bg-red-600/20 text-red-500 rounded-full font-medium">
-                    <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>
-                    LIVE
-                  </span>
-                  <span className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-200 rounded-full">
+              <ViewerStats 
+                viewerCount={viewerCount}
+                duration={formatDuration(duration)}
+                isLive={isStreaming}
+              />
+            )}
+          </div>
+        </div>
+      </div>
+
+      <div className="h-[calc(100vh-64px)] flex flex-col">
+        <div className="flex flex-1 overflow-hidden">
+          {/* Main Video Area */}
+          <div className="flex-1 flex flex-col p-4">
+            <div className="flex-1 bg-gray-800 rounded-xl overflow-hidden relative border border-gray-700">
+              <video
+                ref={videoRef}
+                autoPlay
+                muted
+                className="w-full h-full object-cover flip"
+              />
+              {!permissions.camera && (
+                <div className="absolute inset-0 flex items-center justify-center bg-gray-800">
+                  <div className="text-center">
                     <svg
-                      className="w-4 h-4"
-                      fill="currentColor"
-                      viewBox="0 0 20 20"
-                    >
-                      <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
-                      <path
-                        fillRule="evenodd"
-                        d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z"
-                        clipRule="evenodd"
-                      />
-                    </svg>
-                    {viewerCount}
-                  </span>
-                  <span className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-200 rounded-full">
-                    <svg
-                      className="w-4 h-4"
+                      className="w-16 h-16 mx-auto mb-4 text-gray-600"
                       fill="none"
                       stroke="currentColor"
                       viewBox="0 0 24 24"
@@ -552,66 +737,211 @@ const StreamsPage = () => {
                         strokeLinecap="round"
                         strokeLinejoin="round"
                         strokeWidth={2}
-                        d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                        d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
                       />
                     </svg>
-                    {formatDuration(duration)}
+                    <p className="text-gray-400 mb-4">
+                      Camera preview will appear here
+                    </p>
+                  </div>
+                </div>
+              )}
+              {isStreaming && (
+                <div className="absolute top-4 left-4 bg-red-600 text-white px-3 py-1.5 rounded-full text-sm font-semibold flex items-center gap-2">
+                  <span className="w-2 h-2 bg-white rounded-full animate-pulse"></span>
+                  LIVE
+                </div>
+              )}
+            </div>
+
+            {/* Bottom Controls */}
+            <div className="mt-4">
+              {!permissions.camera ? (
+                <div className="bg-gray-800 rounded-xl p-6 border border-gray-700">
+                  <button
+                    onClick={requestPermissions}
+                    className="w-full bg-purple-350 hover:bg-purple-350/80 text-white px-6 py-3 rounded-xl font-semibold transition flex items-center justify-center gap-2"
+                  >
+                    <svg
+                      className="w-5 h-5"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
+                      />
+                    </svg>
+                    Enable Camera & Microphone
+                  </button>
+                </div>
+              ) : !isStreaming ? (
+                <div className="bg-gray-800 rounded-xl p-4 border border-gray-700 space-y-4">
+                  {/* Device Selection */}
+                  {availableDevices.cameras.length > 0 && (
+                    <div>
+                      <label className="text-xs text-gray-400 mb-1 block">
+                        Camera
+                      </label>
+                      <select
+                        value={selectedDevices.cameraId}
+                        onChange={(e) => changeCamera(e.target.value)}
+                        className="w-full bg-gray-700 text-white px-3 py-2 rounded-lg text-sm border border-gray-600 focus:outline-none focus:border-purple-350"
+                      >
+                        {availableDevices.cameras.map((device) => (
+                          <option key={device.deviceId} value={device.deviceId}>
+                            {device.label || `Camera ${device.deviceId.slice(0, 5)}`}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+                  {availableDevices.microphones.length > 0 && (
+                    <div>
+                      <label className="text-xs text-gray-400 mb-1 block">
+                        Microphone
+                      </label>
+                      <select
+                        value={selectedDevices.microphoneId}
+                        onChange={(e) => changeMicrophone(e.target.value)}
+                        className="w-full bg-gray-700 text-white px-3 py-2 rounded-lg text-sm border border-gray-600 focus:outline-none focus:border-purple-350"
+                      >
+                        {availableDevices.microphones.map((device) => (
+                          <option key={device.deviceId} value={device.deviceId}>
+                            {device.label || `Microphone ${device.deviceId.slice(0, 5)}`}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+                  <button
+                    onClick={startStream}
+                    disabled={
+                      !connectionTested || connectionStatus !== "connected"
+                    }
+                    className="w-full bg-green-150 hover:bg-green-600 text-white px-4 py-2.5 rounded-lg font-semibold transition flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                    title={
+                      !connectionTested ? "Please test connection first" : ""
+                    }
+                  >
+                    <svg
+                      className="w-5 h-5"
+                      fill="currentColor"
+                      viewBox="0 0 20 20"
+                    >
+                      <path
+                        fillRule="evenodd"
+                        d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z"
+                        clipRule="evenodd"
+                      />
+                    </svg>
+                    {!connectionTested ? "Test Connection First" : "Go Live"}
+                  </button>
+                </div>
+              ) : (
+                <BottomControlBar
+                  isMuted={isMuted}
+                  isCameraOff={isCameraOff}
+                  isScreenSharing={isScreenSharing}
+                  isStreaming={isStreaming}
+                  onToggleMute={toggleMute}
+                  onToggleCamera={toggleCamera}
+                  onToggleScreenShare={isMobile ? undefined : (isScreenSharing ? stopScreenShare : startScreenShare)}
+                  onEndStream={() => setShowEndStreamModal(true)}
+                  showScreenShare={!isMobile}
+                />
+              )}
+            </div>
+          </div>
+
+          {/* Sidebar - Hidden on mobile */}
+          <div className="hidden lg:flex w-80 flex-col p-4 space-y-4 overflow-y-auto">
+            {/* Chat */}
+            <div className="flex-1 bg-gray-800 rounded-xl border border-gray-700 min-h-[400px]">
+              <ChatPanel
+                socket={socket}
+                streamId={params.id as string}
+                username={user?.username || "Streamer"}
+              />
+            </div>
+
+            {/* Connection Status */}
+            <div className="bg-gray-800 rounded-xl p-4 border border-gray-700">
+              <h3 className="font-semibold mb-3 flex items-center gap-2 text-white">
+                <svg
+                  className="w-5 h-5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M13 10V3L4 14h7v7l9-11h-7z"
+                  />
+                </svg>
+                Connection
+              </h3>
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <span
+                    className={`w-3 h-3 rounded-full ${
+                      connectionStatus === "connected"
+                        ? "bg-green-500"
+                        : connectionStatus === "connecting" || isTestingConnection
+                        ? "bg-yellow-500 animate-pulse"
+                        : connectionStatus === "failed"
+                        ? "bg-red-500"
+                        : "bg-gray-500"
+                    }`}
+                  ></span>
+                  <span className="text-sm capitalize text-white">
+                    {isTestingConnection
+                      ? "Testing..."
+                      : connectionStatus === "connected"
+                      ? "Connected"
+                      : connectionStatus === "connecting"
+                      ? "Connecting..."
+                      : connectionStatus === "failed"
+                      ? "Failed"
+                      : "Disconnected"}
                   </span>
                 </div>
-              </>
-            )}
-          </div>
-        </div>
-      </div>
-
-      <div className="max-w-7xl mx-auto p-4 grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {/* Main Video Area */}
-        <div className="lg:col-span-2 space-y-4">
-          <div className="aspect-video bg-black rounded-lg overflow-hidden relative">
-            <video
-              ref={videoRef}
-              autoPlay
-              muted
-              className="w-full h-full object-cover"
-            />
-            {!permissions.camera && (
-              <div className="absolute inset-0 flex items-center justify-center bg-gray-900">
-                <div className="text-center">
-                  <svg
-                    className="w-16 h-16 mx-auto mb-4 text-gray-600"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
-                    />
-                  </svg>
-                  <p className="text-gray-400 mb-4">
-                    Camera preview will appear here
-                  </p>
-                </div>
+                {connectionStatus === "failed" && (
+                  <div className="text-xs text-red-400 bg-red-500/10 p-2 rounded">
+                    Connection test failed. Please check your network and try
+                    again.
+                  </div>
+                )}
+                {connectionTested &&
+                  connectionStatus === "connected" &&
+                  !isStreaming && (
+                    <div className="text-xs text-green-400 bg-green-500/10 p-2 rounded">
+                      ✓ Ready to go live!
+                    </div>
+                  )}
+                {permissions.camera &&
+                  !connectionTested &&
+                  connectionStatus !== "connecting" && (
+                    <button
+                      onClick={initializeMediaSoup}
+                      disabled={isTestingConnection}
+                      className="w-full bg-purple-350 hover:bg-purple-350/80 text-white px-3 py-2 rounded-xl text-sm font-medium transition disabled:opacity-50"
+                    >
+                      {isTestingConnection ? "Testing..." : "Test Connection"}
+                    </button>
+                  )}
               </div>
-            )}
-            {isStreaming && (
-              <div className="absolute top-4 left-4 bg-red-600 text-white px-3 py-1.5 rounded-full text-sm font-semibold flex items-center gap-2">
-                <span className="w-2 h-2 bg-white rounded-full animate-pulse"></span>
-                LIVE
-              </div>
-            )}
-          </div>
+            </div>
 
-          {/* Controls */}
-          <div className="bg-card rounded-lg p-4">
-            <div className="flex flex-wrap gap-3">
-              {!permissions.camera ? (
-                <button
-                  onClick={requestPermissions}
-                  className="flex-1 bg-primary hover:bg-primary/80 text-white px-6 py-3 rounded-lg font-semibold transition flex items-center justify-center gap-2"
-                >
+            {/* Device Selection */}
+            {permissions.camera && !isStreaming && (
+              <div className="bg-gray-800 rounded-xl p-4 border border-gray-700">
+                <h3 className="font-semibold mb-3 flex items-center gap-2 text-white">
                   <svg
                     className="w-5 h-5"
                     fill="none"
@@ -622,254 +952,95 @@ const StreamsPage = () => {
                       strokeLinecap="round"
                       strokeLinejoin="round"
                       strokeWidth={2}
-                      d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
+                      d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"
                     />
                   </svg>
-                  Enable Camera & Microphone
-                </button>
-              ) : (
-                <>
-                  {!isStreaming ? (
-                    <button
-                      onClick={startStream}
-                      disabled={
-                        !connectionTested || connectionStatus !== "connected"
-                      }
-                      className="flex-1 bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg font-semibold transition flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                      title={
-                        !connectionTested ? "Please test connection first" : ""
-                      }
-                    >
-                      <svg
-                        className="w-5 h-5"
-                        fill="currentColor"
-                        viewBox="0 0 20 20"
+                  Devices
+                </h3>
+                <div className="space-y-3">
+                  {availableDevices.cameras.length > 0 && (
+                    <div>
+                      <label className="text-xs text-gray-400 mb-1 block">
+                        Camera
+                      </label>
+                      <select
+                        value={selectedDevices.cameraId}
+                        onChange={(e) => changeCamera(e.target.value)}
+                        className="w-full bg-gray-700 text-white px-3 py-2 rounded-lg text-sm border border-gray-600 focus:outline-none focus:border-purple-350"
                       >
-                        <path
-                          fillRule="evenodd"
-                          d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z"
-                          clipRule="evenodd"
-                        />
-                      </svg>
-                      {!connectionTested ? "Test Connection First" : "Go Live"}
-                    </button>
-                  ) : (
-                    <>
-                      <button
-                        onClick={toggleMute}
-                        className={`px-4 py-3 rounded-lg font-medium transition ${
-                          isMuted
-                            ? "bg-red-600 hover:bg-red-700 text-white"
-                            : "bg-gray-700 hover:bg-gray-600 text-white"
-                        }`}
-                      >
-                        {isMuted ? "🔇" : "🔊"}
-                      </button>
-                      <button
-                        onClick={toggleCamera}
-                        className={`px-4 py-3 rounded-lg font-medium transition ${
-                          isCameraOff
-                            ? "bg-red-600 hover:bg-red-700 text-white"
-                            : "bg-gray-700 hover:bg-gray-600 text-white"
-                        }`}
-                      >
-                        {isCameraOff ? "📷" : "📹"}
-                      </button>
-                      <button
-                        onClick={
-                          isScreenSharing ? stopScreenShare : startScreenShare
-                        }
-                        className={`px-4 py-3 rounded-lg font-medium transition ${
-                          isScreenSharing
-                            ? "bg-blue-600 hover:bg-blue-700 text-white"
-                            : "bg-gray-700 hover:bg-gray-600 text-white"
-                        }`}
-                        title={
-                          isScreenSharing
-                            ? "Stop screen sharing"
-                            : "Share screen"
-                        }
-                      >
-                        {isScreenSharing ? "🖥️✓" : "🖥️"}
-                      </button>
-
-                      <button
-                        onClick={stopStream}
-                        className="flex-1 bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded-lg font-semibold transition flex items-center justify-center gap-2"
-                      >
-                        <svg
-                          className="w-5 h-5"
-                          fill="currentColor"
-                          viewBox="0 0 20 20"
-                        >
-                          <path
-                            fillRule="evenodd"
-                            d="M10 18a8 8 0 100-16 8 8 0 000 16zM8 7a1 1 0 00-1 1v4a1 1 0 001 1h4a1 1 0 001-1V8a1 1 0 00-1-1H8z"
-                            clipRule="evenodd"
-                          />
-                        </svg>
-                        End Stream
-                      </button>
-                    </>
+                        {availableDevices.cameras.map((device) => (
+                          <option key={device.deviceId} value={device.deviceId}>
+                            {device.label || `Camera ${device.deviceId.slice(0, 5)}`}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
                   )}
-                </>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Sidebar */}
-        <div className="space-y-4">
-          {/* Chat */}
-          <div className="bg-card rounded-lg h-[400px]">
-            <ChatPanel
-              socket={socket}
-              streamId={params.id as string}
-              username={user?.username || "Streamer"}
-            />
-          </div>
-
-          {/* Connection Status */}
-          <div className="bg-card rounded-lg p-4">
-            <h3 className="font-semibold mb-3 flex items-center gap-2">
-              <svg
-                className="w-5 h-5"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M13 10V3L4 14h7v7l9-11h-7z"
-                />
-              </svg>
-              Connection Status
-            </h3>
-            <div className="space-y-3">
-              <div className="flex items-center gap-2">
-                <span
-                  className={`w-3 h-3 rounded-full ${
-                    connectionStatus === "connected"
-                      ? "bg-green-500"
-                      : connectionStatus === "connecting" || isTestingConnection
-                      ? "bg-yellow-500 animate-pulse"
-                      : connectionStatus === "failed"
-                      ? "bg-red-500"
-                      : "bg-gray-500"
-                  }`}
-                ></span>
-                <span className="text-sm capitalize">
-                  {isTestingConnection
-                    ? "Testing..."
-                    : connectionStatus === "connected"
-                    ? "Connected"
-                    : connectionStatus === "connecting"
-                    ? "Connecting..."
-                    : connectionStatus === "failed"
-                    ? "Failed"
-                    : "Disconnected"}
-                </span>
-              </div>
-              {connectionStatus === "failed" && (
-                <div className="text-xs text-red-400 bg-red-500/10 p-2 rounded">
-                  Connection test failed. Please check your network and try
-                  again.
+                  {availableDevices.microphones.length > 0 && (
+                    <div>
+                      <label className="text-xs text-gray-400 mb-1 block">
+                        Microphone
+                      </label>
+                      <select
+                        value={selectedDevices.microphoneId}
+                        onChange={(e) => changeMicrophone(e.target.value)}
+                        className="w-full bg-gray-700 text-white px-3 py-2 rounded-lg text-sm border border-gray-600 focus:outline-none focus:border-purple-350"
+                      >
+                        {availableDevices.microphones.map((device) => (
+                          <option key={device.deviceId} value={device.deviceId}>
+                            {device.label || `Microphone ${device.deviceId.slice(0, 5)}`}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+                  {availableDevices.cameras.length === 0 && availableDevices.microphones.length === 0 && (
+                    <p className="text-xs text-gray-400">
+                      No devices detected
+                    </p>
+                  )}
                 </div>
-              )}
-              {connectionTested &&
-                connectionStatus === "connected" &&
-                !isStreaming && (
-                  <div className="text-xs text-green-400 bg-green-500/10 p-2 rounded">
-                    ✓ Ready to go live!
-                  </div>
-                )}
-              {permissions.camera &&
-                !connectionTested &&
-                connectionStatus !== "connecting" && (
-                  <button
-                    onClick={initializeMediaSoup}
-                    disabled={isTestingConnection}
-                    className="w-full bg-primary hover:bg-primary/80 text-white px-3 py-2 rounded text-sm font-medium transition disabled:opacity-50"
-                  >
-                    {isTestingConnection ? "Testing..." : "Test Connection"}
-                  </button>
-                )}
+              </div>
+            )}
+
+            {/* Share Stream */}
+            <div className="bg-gray-800 rounded-xl p-4 border border-gray-700">
+              <h3 className="font-semibold mb-3 flex items-center gap-2 text-white">
+                <svg
+                  className="w-5 h-5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"
+                  />
+                </svg>
+                Share
+              </h3>
+              <button
+                onClick={copyStreamLink}
+                className="w-full bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-xl transition flex items-center justify-center gap-2"
+              >
+                <svg
+                  className="w-4 h-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+                  />
+                </svg>
+                Copy Link
+              </button>
             </div>
-          </div>
-
-          {/* Share Stream */}
-          <div className="bg-card rounded-lg p-4">
-            <h3 className="font-semibold mb-3 flex items-center gap-2">
-              <svg
-                className="w-5 h-5"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"
-                />
-              </svg>
-              Share Stream
-            </h3>
-            <button
-              onClick={copyStreamLink}
-              className="w-full bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-lg transition flex items-center justify-center gap-2"
-            >
-              <svg
-                className="w-4 h-4"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
-                />
-              </svg>
-              Copy Link
-            </button>
-          </div>
-
-          {/* Quick Tips */}
-          <div className="bg-card rounded-lg p-4">
-            <h3 className="font-semibold mb-3 flex items-center gap-2">
-              <svg
-                className="w-5 h-5"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                />
-              </svg>
-              Quick Tips
-            </h3>
-            <ul className="text-sm text-gray-400 space-y-2">
-              <li className="flex items-start gap-2">
-                <span className="text-primary mt-0.5">•</span>
-                <span>Test your camera and mic before going live</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="text-primary mt-0.5">•</span>
-                <span>Share your stream link with viewers</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="text-primary mt-0.5">•</span>
-                <span>Monitor viewer count in real-time</span>
-              </li>
-            </ul>
           </div>
         </div>
       </div>
