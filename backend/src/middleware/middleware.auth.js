@@ -63,10 +63,13 @@ class AuthMiddleWare {
 
   static socketAuth(socket, next) {
     try {
-      const token = socket.request.headers.cookie
+      // Try cookie first (web), then auth query param (mobile)
+      const cookieToken = socket.request.headers.cookie
         ?.split(";")
         .find((c) => c.trim().startsWith("token="))
         ?.split("=")[1];
+      
+      const token = cookieToken || socket.handshake.auth.token;
 
       // Allow anonymous viewers (no token)
       if (!token) {

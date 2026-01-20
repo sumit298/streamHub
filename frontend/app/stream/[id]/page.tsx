@@ -196,7 +196,7 @@ const StreamsPage = () => {
           () => reject(new Error("Connection timeout - server not responding")),
           10000
         );
-        socket?.emit("get-router-capabilities", (response: any) => {
+        socket?.emit("get-router-capabilities", { roomId: params.id }, (response: any) => {
           clearTimeout(timeout);
           if (!response) {
             reject(new Error("No response from server"));

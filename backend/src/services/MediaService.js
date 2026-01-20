@@ -196,8 +196,6 @@ class MediaService {
         preferUdp: true,
         initialAvailableOutgoingBitrate: 1000000,
         maxSctpMessageSize: 262144,
-        // Reduce ICE gathering timeout
-        iceConsentTimeout: 5,
         appData: { userId, direction },
       };
 
@@ -360,6 +358,7 @@ class MediaService {
     if (!consumer) throw new Error("Consumer not found");
 
     await consumer.resume();
+    await consumer.requestKeyFrame();
     this.logger.info(`Consumer resumed: ${consumerId} for user ${userId}`);
   }
 

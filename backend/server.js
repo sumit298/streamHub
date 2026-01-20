@@ -97,14 +97,22 @@ const generateLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 100,
   message: "Too many requests from this ip",
+  skip: (req) => {
+    // Skip rate limiting for frequently-called authenticated endpoints
+    return req.path === '/auth/me' || req.path === '/auth/refresh-token';
+  }
 });
 
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 10,
-  message: "Too many authentication requests"
+  max: 20, // Increased from 10 to 20 for /me endpoint
+  message: "Too many authentication requests",
+  skip: (req) => {
+    // Skip rate limiting for /me and /refresh-token endpoints
+    return req.path === '/me' || req.path === '/refresh-token';
+  }
 });
-// 
+
 app.use('/api', generateLimiter);
 app.use('/api/auth', authLimiter);
 
@@ -378,17 +386,16 @@ io.on("connection", (socket) => {
   });
 
   //webrtc signaling with enhanced error handling
-  socket.on("get-router-capabilities", (callback) => {
+  socket.on("get-router-capabilities", ({ roomId }, callback) => {
     try {
-      const capabilities = mediaService.getRouterCapabilities();
-      callback?.(capabilities);
-    } catch (error) {
-      logger.error("Get router capabilities error", error);
-      callback?.({
-        error: `Failed to get router capabilities ${error.message}`,
-      });
+      const room = mediaService.rooms.get(roomId);
+      if (!room) throw new Error("Room not found");
+      if (callback) callback(room.router.rtpCapabilities);
+    } catch (err) {
+      if (callback) callback({ error: err.message });
     }
   });
+
 
   socket.on("create-transport", async (data, callback) => {
     try {
