@@ -34,6 +34,7 @@ export const CreateStreamDialog = ({ open, onOpenChange }: CreateStreamDialogPro
     const [description, setDescription] = useState("");
     const [thumbnail, setThumbnail] = useState("");
     const [tags, setTags] = useState("");
+    const [isCreating, setIsCreating] = useState(false);
     const router = useRouter();
     //   const { toast } = useToast();
 
@@ -42,6 +43,8 @@ export const CreateStreamDialog = ({ open, onOpenChange }: CreateStreamDialogPro
     // console.log(user)
 
     const handleCreateStream = async () => {
+        if (isCreating) return;
+        
         if (!title.trim()) {
             toast.error("Please enter a stream title");
             return;
@@ -51,6 +54,8 @@ export const CreateStreamDialog = ({ open, onOpenChange }: CreateStreamDialogPro
             toast.error("Please select a category");
             return;
         }
+
+        setIsCreating(true);
 
         // Generate thumbnail URL before creating stream
         let thumbnailUrl = thumbnail;
@@ -85,6 +90,7 @@ export const CreateStreamDialog = ({ open, onOpenChange }: CreateStreamDialogPro
             const result = await response.json();
             console.log(result);
             if(response.ok){
+                toast.success(`Stream "${title}" created successfully!`);
                 setTitle("");
                 setCategory("")
                 setDescription("")
@@ -102,9 +108,9 @@ export const CreateStreamDialog = ({ open, onOpenChange }: CreateStreamDialogPro
         } catch (error) {
             console.error("Create stream error:", error);
             toast.error("Failed to create stream");
+        } finally {
+            setIsCreating(false);
         }
-
-        toast.success(`Stream "${title}" created successfully!`);
     };
 
 
@@ -175,11 +181,11 @@ export const CreateStreamDialog = ({ open, onOpenChange }: CreateStreamDialogPro
                     </div>
                 </div>
                 <DialogFooter>
-                    <Button variant="outline" className="cursor-pointer" onClick={() => onOpenChange(false)}>
+                    <Button variant="outline" className="cursor-pointer" onClick={() => onOpenChange(false)} disabled={isCreating}>
                         Cancel
                     </Button>
-                    <Button variant="default" className="cursor-pointer" onClick={handleCreateStream}>
-                        Create Stream
+                    <Button variant="default" className="cursor-pointer" onClick={handleCreateStream} disabled={isCreating}>
+                        {isCreating ? "Creating..." : "Create Stream"}
                     </Button>
                 </DialogFooter>
             </DialogContent>

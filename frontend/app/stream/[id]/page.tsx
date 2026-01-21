@@ -46,6 +46,8 @@ const StreamsPage = () => {
   const [sendTransport, setSendTransport] = useState<types.Transport | null>(null); //store transport for reuse
   const [isMobile, setIsMobile] = useState(false);
   const [showEndStreamModal, setShowEndStreamModal] = useState(false);
+  const [isStarting, setIsStarting] = useState(false);
+  const [isStopping, setIsStopping] = useState(false);
   const [availableDevices, setAvailableDevices] = useState<{
     cameras: MediaDeviceInfo[];
     microphones: MediaDeviceInfo[];
@@ -337,6 +339,8 @@ const StreamsPage = () => {
   };
 
   const startStream = async () => {
+    if (isStarting) return;
+    
     if (!stream || !device || !socket) {
       toast.error("Please enable camera and test connection first", { position: "bottom-left" });
       return;
@@ -346,6 +350,8 @@ const StreamsPage = () => {
       toast.error("Please test connection before going live", { position: "bottom-left" });
       return;
     }
+
+    setIsStarting(true);
 
     try {
       const transportInfo = (await new Promise((resolve, reject) => {
@@ -499,11 +505,17 @@ const StreamsPage = () => {
       setConnectionTested(false);
       setIsStreaming(false);
       toast.error("Failed to start stream", { position: "bottom-left" });
+    } finally {
+      setIsStarting(false);
     }
   };
 
   const stopStream = async () => {
+    if (isStopping) return;
+    
     setShowEndStreamModal(false);
+    setIsStopping(true);
+    
     try {
       if (producer) {
         producer.video?.close();
@@ -550,6 +562,8 @@ const StreamsPage = () => {
     } catch (error) {
       console.error("Failed to stop stream:", error);
       toast.error("Failed to end stream", { position: "bottom-left" });
+    } finally {
+      setIsStopping(false);
     }
   };
 
@@ -677,9 +691,10 @@ const StreamsPage = () => {
               </button>
               <button
                 onClick={stopStream}
-                className="flex-1 bg-red-650 hover:bg-red-650/80 text-white px-6 py-3 rounded-xl font-semibold transition"
+                disabled={isStopping}
+                className="flex-1 bg-red-650 hover:bg-red-650/80 text-white px-6 py-3 rounded-xl font-semibold transition disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                End Stream
+                {isStopping ? "Ending..." : "End Stream"}
               </button>
             </div>
           </div>
@@ -838,7 +853,7 @@ const StreamsPage = () => {
                         clipRule="evenodd"
                       />
                     </svg>
-                    {!connectionTested ? "Test Connection First" : "Go Live"}
+                    {!connectionTested ? "Test Connection First" : isStarting ? "Starting..." : "Go Live"}
                   </button>
                 </div>
               ) : (
