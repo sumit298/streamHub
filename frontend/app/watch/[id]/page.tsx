@@ -976,21 +976,14 @@ const WatchPage = () => {
       )}
 
       {/* Header - Hidden, only show meeting code */}
-      <div className="absolute top-4 left-4 z-20">
-        {/* <div className="bg-black/50 backdrop-blur-sm px-4 py-2 rounded-lg flex items-center gap-2">
-          <span className="text-white text-sm font-mono">{params.id}</span>
-          <button
-            onClick={() => {
-              navigator.clipboard.writeText(params.id as string);
-              toast.success("Stream ID copied");
-            }}
-            className="text-white/70 hover:text-white"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-            </svg>
-          </button>
-        </div> */}
+      <div className="absolute top-4 left-4 z-20 flex items-center gap-3">
+        {/* Stream Timer */}
+        <div className="bg-white/10 backdrop-blur-md px-4 py-2 rounded-lg flex items-center gap-2 border border-white/20">
+          <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <span className="text-white text-sm font-medium">{formatDuration(duration)}</span>
+        </div>
       </div>
 
       {/* Viewer count and participants - Top Right */}

@@ -702,9 +702,9 @@ const StreamsPage = () => {
         </div>
       )}
 
-      {/* Mobile Chat Modal */}
-      <div className={`fixed inset-0 bg-black/90 backdrop-blur-sm z-50 flex items-end md:items-center md:justify-end transition-opacity duration-300 lg:hidden ${showMobileChat ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}>
-        <div className={`bg-gray-900 w-full md:w-96 h-[80vh] md:h-[90vh] md:m-4 md:rounded-2xl flex flex-col transition-transform duration-300 ${showMobileChat ? 'translate-y-0' : 'translate-y-full md:translate-y-0 md:translate-x-full'}`}>
+      {/* Chat Sidebar - Mobile */}
+      <div className={`fixed top-0 right-0 h-full w-80 bg-gray-900 shadow-2xl z-40 transition-transform duration-300 lg:hidden ${showMobileChat ? 'translate-x-0' : 'translate-x-full'}`}>
+        <div className="h-full flex flex-col">
           <div className="flex items-center justify-between p-4 border-b border-gray-700">
             <h3 className="text-lg font-semibold text-white">Chat</h3>
             <button
