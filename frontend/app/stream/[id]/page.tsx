@@ -60,6 +60,7 @@ const StreamsPage = () => {
     title?: string;
     category?: string;
   } | null>(null);
+  const [showMobileChat, setShowMobileChat] = useState(false);
 
   useEffect(() => {
     // Detect mobile device
@@ -658,7 +659,7 @@ const StreamsPage = () => {
   };
 
   return (
-    <div className="fixed inset-0 bg-gray-800">
+    <div className="fixed inset-0 bg-black">
       {/* End Stream Confirmation Modal */}
       {showEndStreamModal && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center">
@@ -701,8 +702,32 @@ const StreamsPage = () => {
         </div>
       )}
 
+      {/* Mobile Chat Modal */}
+      <div className={`fixed inset-0 bg-black/90 backdrop-blur-sm z-50 flex items-end md:items-center md:justify-end transition-opacity duration-300 lg:hidden ${showMobileChat ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}>
+        <div className={`bg-gray-900 w-full md:w-96 h-[80vh] md:h-[90vh] md:m-4 md:rounded-2xl flex flex-col transition-transform duration-300 ${showMobileChat ? 'translate-y-0' : 'translate-y-full md:translate-y-0 md:translate-x-full'}`}>
+          <div className="flex items-center justify-between p-4 border-b border-gray-700">
+            <h3 className="text-lg font-semibold text-white">Chat</h3>
+            <button
+              onClick={() => setShowMobileChat(false)}
+              className="text-white hover:text-gray-400 transition"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+          <div className="flex-1 overflow-hidden">
+            <ChatPanel
+              socket={socket}
+              streamId={params.id as string}
+              username={user?.username || "Streamer"}
+            />
+          </div>
+        </div>
+      </div>
+
       {/* Header */}
-      <div className="bg-gray-800 border-b border-gray-700 sticky top-0 z-10">
+      <div className="bg-black/90 backdrop-blur-sm sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-4">
             <a
@@ -724,6 +749,14 @@ const StreamsPage = () => {
                 isLive={isStreaming}
               />
             )}
+            <button 
+              onClick={() => setShowMobileChat(true)}
+              className="lg:hidden bg-gray-700 hover:bg-gray-600 p-2 rounded-lg transition"
+            >
+              <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+              </svg>
+            </button>
           </div>
         </div>
       </div>
@@ -732,7 +765,7 @@ const StreamsPage = () => {
         <div className="flex flex-1 overflow-hidden">
           {/* Main Video Area */}
           <div className="flex-1 flex flex-col p-4">
-            <div className="flex-1 bg-gray-800 rounded-xl overflow-hidden relative border border-gray-700">
+            <div className="flex-1 bg-black rounded-2xl overflow-hidden relative">
               <video
                 ref={videoRef}
                 autoPlay
@@ -740,7 +773,7 @@ const StreamsPage = () => {
                 className="w-full h-full object-cover flip"
               />
               {!permissions.camera && (
-                <div className="absolute inset-0 flex items-center justify-center bg-gray-800">
+                <div className="absolute inset-0 flex items-center justify-center bg-gray-900">
                   <div className="text-center">
                     <svg
                       className="w-16 h-16 mx-auto mb-4 text-gray-600"
@@ -772,7 +805,7 @@ const StreamsPage = () => {
             {/* Bottom Controls */}
             <div className="mt-4">
               {!permissions.camera ? (
-                <div className="bg-gray-800 rounded-xl p-6 border border-gray-700">
+                <div className="bg-gray-900/50 backdrop-blur-sm rounded-2xl p-6">
                   <button
                     onClick={requestPermissions}
                     className="w-full bg-purple-350 hover:bg-purple-350/80 text-white px-6 py-3 rounded-xl font-semibold transition flex items-center justify-center gap-2"
@@ -794,7 +827,7 @@ const StreamsPage = () => {
                   </button>
                 </div>
               ) : !isStreaming ? (
-                <div className="bg-gray-800 rounded-xl p-4 border border-gray-700 space-y-4">
+                <div className="bg-gray-900/50 backdrop-blur-sm rounded-2xl p-4 space-y-4">
                   {/* Device Selection */}
                   {availableDevices.cameras.length > 0 && (
                     <div>
@@ -875,7 +908,7 @@ const StreamsPage = () => {
           {/* Sidebar - Hidden on mobile */}
           <div className="hidden lg:flex w-80 flex-col p-4 space-y-4 overflow-y-auto">
             {/* Chat */}
-            <div className="flex-1 bg-gray-800 rounded-xl border border-gray-700 min-h-[400px]">
+            <div className="flex-1 bg-gray-900/50 backdrop-blur-sm rounded-2xl min-h-[400px]">
               <ChatPanel
                 socket={socket}
                 streamId={params.id as string}
@@ -884,7 +917,7 @@ const StreamsPage = () => {
             </div>
 
             {/* Connection Status */}
-            <div className="bg-gray-800 rounded-xl p-4 border border-gray-700">
+            <div className="bg-gray-900/50 backdrop-blur-sm rounded-2xl p-4">
               <h3 className="font-semibold mb-3 flex items-center gap-2 text-white">
                 <svg
                   className="w-5 h-5"
@@ -954,7 +987,7 @@ const StreamsPage = () => {
             </div>
 
             {/* Share Stream */}
-            <div className="bg-gray-800 rounded-xl p-4 border border-gray-700">
+            <div className="bg-gray-900/50 backdrop-blur-sm rounded-2xl p-4">
               <h3 className="font-semibold mb-3 flex items-center gap-2 text-white">
                 <svg
                   className="w-5 h-5"

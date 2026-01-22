@@ -24,7 +24,7 @@ export default function BottomControlBar({
   showScreenShare = true,
 }: BottomControlBarProps) {
   return (
-    <div className="bg-gray-800 rounded-lg p-4">
+    <div className="bg-black/90 backdrop-blur-sm rounded-2xl p-4">
       <div className="flex items-center justify-center gap-3">
         {isStreaming && (
           <>

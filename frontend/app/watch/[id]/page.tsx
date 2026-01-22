@@ -38,13 +38,19 @@ const WatchPage = () => {
   const [consumedProducers, setConsumedProducers] = useState<Set<string>>(
     new Set(),
   );
+  
+  // Sync state to ref
+  useEffect(() => {
+    consumedProducersRef.current = consumedProducers;
+  }, [consumedProducers]);
   const screenProducerIds = useRef<Set<string>>(new Set());
+  const consumedProducersRef = useRef<Set<string>>(new Set());
   const [pipPosition, setPipPosition] = useState({ x: 16, y: 16 });
   const [isDragging, setIsDragging] = useState(false);
   const dragStart = useRef({ x: 0, y: 0 });
   const videoContainerRef = useRef<HTMLDivElement>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [showMobileChat, setShowMobileChat] = useState(false);
+  const [showMobileChat, setShowMobileChat] = useState(true);
 
   const toggleMute = () => {
     const newMutedState = !isMuted;
@@ -370,14 +376,20 @@ const WatchPage = () => {
         return;
       }
 
-      if (consumedProducers.has(data.producerId)) {
-        console.log("Already consumed this producer");
+      if (consumedProducersRef.current.has(data.producerId)) {
+        console.log("Already consumed this producer:", data.producerId);
         return;
       }
 
-      const consumer = await consumeProducer(data.producerId, data.kind);
-      if (!consumer) return;
+      console.log("🎬 [HANDLER] Attempting to consume screen producer:", data.producerId);
 
+      const consumer = await consumeProducer(data.producerId, data.kind);
+      if (!consumer) {
+        console.error("❌ [HANDLER] Failed to consume producer:", data.producerId);
+        return;
+      }
+
+      console.log("✅ [HANDLER] Successfully consumed producer:", data.producerId);
       setConsumedProducers((prev) => new Set(prev).add(data.producerId));
 
       if (data.kind === "video") {
@@ -386,7 +398,8 @@ const WatchPage = () => {
         setScreenStream(stream);
         if (screenVideoRef.current) {
           screenVideoRef.current.srcObject = stream;
-          screenVideoRef.current
+          screenVideoRef.current.muted = isMuted;
+          await screenVideoRef.current
             .play()
             .catch((e) => console.error("Play failed:", e));
         }
@@ -658,33 +671,64 @@ const WatchPage = () => {
       }
 
       const screenProducers = producers.filter(
-        (p) => p.isScreenShare === true && p.kind === "video",
+        (p) => p.isScreenShare === true,
       );
 
-      for (const producer of screenProducers) {
-        if (consumedProducers.has(producer.id)) continue;
+      console.log("🖥️ [VIEWER] Screen producers found:", screenProducers);
 
-        console.log(
-          "🖥️ [VIEWER] Consuming existing screen producer:",
-          producer.id,
-        );
+      // Consume screen video first
+      const screenVideoProducer = screenProducers.find((p) => p.kind === "video");
+      if (screenVideoProducer) {
+        if (!consumedProducers.has(screenVideoProducer.id)) {
+          console.log(
+            "🖥️ [VIEWER] Consuming existing screen VIDEO producer:",
+            screenVideoProducer.id,
+          );
 
-        const consumer = await consumeProducer(producer.id, producer.kind);
-        if (!consumer) continue;
+          const consumer = await consumeProducer(screenVideoProducer.id, screenVideoProducer.kind);
+          if (consumer) {
+            screenProducerIds.current.add(screenVideoProducer.id);
+            setConsumedProducers((prev) => new Set(prev).add(screenVideoProducer.id));
 
-        screenProducerIds.current.add(producer.id);
-        setConsumedProducers((prev) => new Set(prev).add(producer.id));
+            const stream = new MediaStream([consumer.track]);
+            setScreenStream(stream);
 
-        const stream = new MediaStream([consumer.track]);
-        setScreenStream(stream);
+            if (screenVideoRef.current) {
+              screenVideoRef.current.srcObject = stream;
+              screenVideoRef.current.muted = isMuted;
+              await screenVideoRef.current.play().catch(console.error);
+            }
 
-        if (screenVideoRef.current) {
-          screenVideoRef.current.srcObject = stream;
-          screenVideoRef.current.muted = isMuted;
-          await screenVideoRef.current.play().catch(console.error);
+            toast.success("Screen sharing started", { position: "bottom-left" });
+          }
         }
+      }
 
-        toast.success("Screen sharing started", { position: "bottom-left" });
+      // Then consume screen audio if available
+      const screenAudioProducer = screenProducers.find((p) => p.kind === "audio");
+      if (screenAudioProducer) {
+        if (!consumedProducers.has(screenAudioProducer.id)) {
+          console.log(
+            "🖥️ [VIEWER] Consuming existing screen AUDIO producer:",
+            screenAudioProducer.id,
+          );
+
+          const consumer = await consumeProducer(screenAudioProducer.id, screenAudioProducer.kind);
+          if (consumer) {
+            screenProducerIds.current.add(screenAudioProducer.id);
+            setConsumedProducers((prev) => new Set(prev).add(screenAudioProducer.id));
+
+            // Add audio track to existing screen stream
+            setScreenStream((prev) => {
+              if (prev && screenVideoRef.current) {
+                prev.addTrack(consumer.track);
+                screenVideoRef.current.srcObject = new MediaStream(prev.getTracks());
+                console.log("🔊 [VIEWER] Screen audio track added to stream");
+              }
+              return prev;
+            });
+          }
+        }
       }
 
       // Filter out screen share producers - only consume camera/mic initially
@@ -897,7 +941,7 @@ const WatchPage = () => {
   };
 
   return (
-    <div className="fixed inset-0 bg-gray-800">
+    <div className="fixed inset-0 bg-black">
       {/* Stream Ended Overlay */}
       {streamEnded && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center">
@@ -931,106 +975,74 @@ const WatchPage = () => {
         </div>
       )}
 
-      {/* Header */}
-      <div className="bg-gray-800 border-b border-gray-700 z-10">
-        <div className="max-w-7xl mx-auto px-4 py-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4 flex-1">
-              <button
-                onClick={leaveStream}
-                className="text-white hover:text-gray-400 transition flex items-center gap-2"
-              >
-                <svg
-                  className="w-5 h-5"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M10 19l-7-7m0 0l7-7m-7 7h18"
-                  />
-                </svg>
-                Leave
-              </button>
-              <div className="border-l border-gray-700 h-8"></div>
-              <div>
-                <h1 className="text-lg font-bold text-white">
-                  {streamInfo?.title || "Loading..."}
-                </h1>
-                <div className="flex items-center gap-2 text-sm text-gray-400 mt-1">
-                  <span className="px-2 py-0.5 bg-gray-700 rounded capitalize text-xs">
-                    {streamInfo?.category}
-                  </span>
-                  {streamInfo?.tags && streamInfo.tags.length > 0 && (
-                    <div className="flex gap-1">
-                      {streamInfo.tags
-                        .slice(0, 3)
-                        .map((tag: string, idx: number) => (
-                          <span
-                            key={idx}
-                            className="px-2 py-0.5 bg-purple-350/20 text-purple-350 rounded text-xs"
-                          >
-                            {tag}
-                          </span>
-                        ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-            <div className="flex items-center gap-3">
-              <span className="flex items-center gap-1.5 px-3 py-1.5 bg-red-600/20 text-red-500 rounded-full font-medium text-sm">
-                <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>
-                LIVE
-              </span>
-              <span className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-750 text-white rounded-full text-sm">
-                <svg
-                  className="w-4 h-4"
-                  fill="currentColor"
-                  viewBox="0 0 20 20"
-                >
-                  <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
-                  <path
-                    fillRule="evenodd"
-                    d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z"
-                    clipRule="evenodd"
-                  />
-                </svg>
-                {viewerCount}
-              </span>
-              <span className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-750 text-white rounded-full text-sm">
-                <svg
-                  className="w-4 h-4"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                  />
-                </svg>
-                {formatDuration(duration)}
-              </span>
-            </div>
+      {/* Header - Hidden, only show meeting code */}
+      <div className="absolute top-4 left-4 z-20">
+        {/* <div className="bg-black/50 backdrop-blur-sm px-4 py-2 rounded-lg flex items-center gap-2">
+          <span className="text-white text-sm font-mono">{params.id}</span>
+          <button
+            onClick={() => {
+              navigator.clipboard.writeText(params.id as string);
+              toast.success("Stream ID copied");
+            }}
+            className="text-white/70 hover:text-white"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+            </svg>
+          </button>
+        </div> */}
+      </div>
+
+      {/* Viewer count and participants - Top Right */}
+      <div className="absolute top-4 right-4 z-20 flex items-center gap-2">
+        <button 
+          onClick={() => setShowMobileChat(true)}
+          className="bg-black/50 backdrop-blur-sm p-3 rounded-lg hover:bg-black/70 transition"
+        >
+          <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+          </svg>
+        </button>
+        <button className="bg-black/50 backdrop-blur-sm px-4 py-3 rounded-lg hover:bg-black/70 transition flex items-center gap-2">
+          <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20">
+            <path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z" />
+          </svg>
+          <span className="text-white font-medium">{viewerCount}</span>
+        </button>
+      </div>
+
+      {/* Chat Sidebar */}
+      <div className={`fixed top-0 right-0 h-full w-80 bg-gray-900 shadow-2xl z-40 transition-transform duration-300 ${showMobileChat ? 'translate-x-0' : 'translate-x-full'}`}>
+        <div className="h-full flex flex-col">
+          <div className="flex items-center justify-between p-4 border-b border-gray-700">
+            <h3 className="text-lg font-semibold text-white">Chat</h3>
+            <button
+              onClick={() => setShowMobileChat(false)}
+              className="text-white hover:text-gray-400 transition"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+          <div className="flex-1 overflow-hidden">
+            <ChatPanel
+              socket={socket}
+              streamId={params.id as string}
+              username={user?.username || "Anonymous"}
+            />
           </div>
         </div>
       </div>
 
-      <div className="h-[calc(100vh-120px)] flex flex-col">
-        <div className="flex flex-1 overflow-hidden">
-          {/* Main Video Area */}
-          <div className="flex-1 flex flex-col p-4">
-            {screenStream && screenProducerIds.current.size > 0 ? (
+      <div className="h-screen flex">
+        {/* Main Video Area - Full Screen */}
+        <div className="flex-1 relative">
+          {screenStream && screenProducerIds.current.size > 0 ? (
               /* Screen Share with Camera PiP */
               <div
                 ref={videoContainerRef}
-                className="flex-1 bg-gray-800 rounded-xl overflow-hidden relative border border-gray-700"
+                className="w-full h-full bg-black relative"
               >
                 {/* Screen Share - Main */}
                 <video
@@ -1100,7 +1112,7 @@ const WatchPage = () => {
               /* Camera - Full View */
               <div
                 ref={videoContainerRef}
-                className="flex-1 bg-gray-800 rounded-xl overflow-hidden relative border border-gray-700"
+                className="w-full h-full bg-black relative"
               >
                 <video
                   ref={videoRef}
@@ -1120,7 +1132,7 @@ const WatchPage = () => {
                     </div>
                   </div>
                 )}
-                {!isLoading && isMuted && (
+                {/* {!isLoading && isMuted && (
                   <button
                     onClick={toggleMute}
                     className="absolute bottom-4 right-4 bg-white hover:bg-gray-100 text-black px-4 py-2 rounded-xl font-semibold transition flex items-center gap-2 shadow-lg"
@@ -1138,89 +1150,23 @@ const WatchPage = () => {
                     </svg>
                     Click to Unmute
                   </button>
-                )}
+                )} */}
               </div>
             )}
           </div>
 
-          {/* Sidebar - Chat - Hidden on mobile */}
-          <div className="hidden lg:flex w-80 flex-col p-4 max-h-full">
-            <div className="flex-1 bg-gray-800 rounded-xl border border-gray-700 overflow-hidden">
-              <ChatPanel
-                socket={socket}
-                streamId={params.id as string}
-                username={user?.username || "Anonymous"}
-              />
-            </div>
-          </div>
+          {/* Chat Sidebar - Hidden by default, toggle with button */}
         </div>
 
-        {/* Mobile Chat Button - Only visible on mobile */}
-        <button
-          onClick={() => setShowMobileChat(true)}
-          className="lg:hidden fixed bottom-20 right-4 bg-purple-350 hover:bg-purple-350/80 text-white p-4 rounded-full shadow-lg z-20 transition"
-          title="Open Chat"
-        >
-          <svg
-            className="w-6 h-6"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
-            />
-          </svg>
-        </button>
-
-        {/* Mobile Chat Modal */}
-        {showMobileChat && (
-          <div className="lg:hidden fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-end">
-            <div className="bg-gray-800 w-full h-[80vh] rounded-t-2xl border-t border-gray-700 flex flex-col">
-              <div className="flex items-center justify-between p-4 border-b border-gray-700">
-                <h3 className="text-lg font-semibold text-white">Chat</h3>
-                <button
-                  onClick={() => setShowMobileChat(false)}
-                  className="text-white hover:text-gray-400 transition"
-                >
-                  <svg
-                    className="w-6 h-6"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M6 18L18 6M6 6l12 12"
-                    />
-                  </svg>
-                </button>
-              </div>
-              <div className="flex-1 overflow-hidden">
-                <ChatPanel
-                  socket={socket}
-                  streamId={params.id as string}
-                  username={user?.username || "Anonymous"}
-                />
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Bottom Control Bar */}
-        <div className="bg-gray-800 border-t border-gray-700 px-4 py-2">
-          <div className="max-w-7xl mx-auto flex items-center justify-center gap-3">
+        {/* Bottom Control Bar - Floating */}
+        <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 z-30">
+          <div className="bg-black/80 backdrop-blur-lg rounded-full px-6 py-3 flex items-center gap-4 shadow-2xl">
             <button
               onClick={toggleMute}
-              className={`p-2 rounded-full transition ${
+              className={`p-3 rounded-full transition-all ${
                 isMuted
-                  ? "bg-red-650 hover:bg-red-650/80"
-                  : "bg-gray-700 hover:bg-gray-600"
+                  ? "bg-red-600 hover:bg-red-700"
+                  : "bg-white/20 hover:bg-white/30"
               }`}
               title={isMuted ? "Unmute" : "Mute"}
             >
@@ -1252,7 +1198,7 @@ const WatchPage = () => {
             </button>
             <button
               onClick={toggleFullscreen}
-              className="p-2 rounded-full bg-gray-700 hover:bg-gray-600 transition"
+              className="p-3 rounded-full bg-white/20 hover:bg-white/30 transition-all"
               title={isFullscreen ? "Exit Fullscreen" : "Fullscreen"}
             >
               {isFullscreen ? (
@@ -1285,10 +1231,30 @@ const WatchPage = () => {
                 </svg>
               )}
             </button>
+            <button
+              onClick={leaveStream}
+              className="p-3 rounded-full bg-red-600 hover:bg-red-700 transition-all"
+              title="Leave Stream"
+            >
+              <svg
+                className="w-6 h-6 text-white"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
+                />
+              </svg>
+            </button>
           </div>
         </div>
       </div>
-    </div>
+    // </div>
+
   );
 };
 

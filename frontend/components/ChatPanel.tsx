@@ -10,6 +10,37 @@ interface Message {
   username: string
 }
 
+// Generate consistent color for username
+const getUsernameColor = (username: string) => {
+  const colors = [
+    'text-red-400',
+    'text-blue-400',
+    'text-green-400',
+    'text-yellow-400',
+    'text-purple-400',
+    'text-pink-400',
+    'text-indigo-400',
+    'text-cyan-400',
+    'text-orange-400',
+    'text-teal-400',
+  ];
+  
+  let hash = 0;
+  for (let i = 0; i < username.length; i++) {
+    hash = username.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  
+  return colors[Math.abs(hash) % colors.length];
+};
+
+// Format timestamp
+const formatTime = (timestamp: string) => {
+  const date = new Date(timestamp);
+  const hours = date.getHours().toString().padStart(2, '0');
+  const minutes = date.getMinutes().toString().padStart(2, '0');
+  return `${hours}:${minutes}`;
+};
+
 export default function ChatPanel({ 
   socket, 
   streamId, 
@@ -57,7 +88,7 @@ export default function ChatPanel({
   };
 
   return (
-    <div className="flex flex-col h-full bg-gray-750 rounded-lg">
+    <div className="flex flex-col h-full bg-gray-900/50 backdrop-blur-sm rounded-2xl">
       <div className="p-4 border-b border-gray-700">
         <h3 className="font-semibold text-white">Live Chat</h3>
       </div>
@@ -65,7 +96,12 @@ export default function ChatPanel({
       <div className="flex-1 overflow-y-auto p-4 space-y-3">
         {messages.map((msg) => (
           <div key={msg.id} className="flex flex-col">
-            <span className="text-xs text-gray-400 mb-1">{msg.username || 'Anonymous'}</span>
+            <div className="flex items-center gap-2 mb-1">
+              <span className={`text-xs font-semibold ${getUsernameColor(msg.username || 'Anonymous')}`}>
+                {msg.username || 'Anonymous'}
+              </span>
+              <span className="text-xs text-gray-500">{formatTime(msg.timestamp)}</span>
+            </div>
             <div className="bg-gray-700 rounded-lg px-3 py-2">
               <span className="text-sm text-white">{msg.content}</span>
             </div>

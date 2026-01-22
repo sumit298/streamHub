@@ -17,14 +17,14 @@ export default function ControlButton({
   disabled = false,
   className = '',
 }: ControlButtonProps) {
-  const baseStyles = "rounded-full min-w-auto w-12 h-12 flex items-center justify-center transition-all duration-200";
+  const baseStyles = "rounded-full min-w-auto w-12 h-12 flex items-center justify-center transition-all duration-200 shadow-lg";
   
   const variantStyles = {
     default: isActive 
-      ? "bg-white text-gray-800" 
-      : "bg-gray-750 text-white hover:bg-gray-700",
-    danger: "bg-red-650 text-white hover:bg-red-700",
-    success: "bg-green-150 text-white hover:bg-green-600",
+      ? "bg-white text-gray-900 hover:bg-gray-100" 
+      : "bg-gray-700/80 text-white hover:bg-gray-600",
+    danger: "bg-red-600 text-white hover:bg-red-700",
+    success: "bg-green-600 text-white hover:bg-green-700",
   };
 
   return (
