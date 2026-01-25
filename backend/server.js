@@ -21,6 +21,7 @@ const { specs, swaggerUi } = require("./swagger");
 const cookieParser = require("cookie-parser");
 const logger = require("./src/utils/logger");
 const requestMiddleware = require("./src/middleware/middleware.requestId");
+const { updateViewerStats, incrementChatMessages } = require("./src/utils/streamStats");
 
 // Auto-detect local IP in development if not set
 if (!process.env.ANNOUNCED_IP && process.env.NODE_ENV === "development") {
@@ -95,7 +96,7 @@ app.use(cookieParser());
 // Rate Limiter
 const generateLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 100,
+  max: 1000,
   message: "Too many requests from this ip",
   skip: (req) => {
     // Skip rate limiting for frequently-called authenticated endpoints
@@ -363,6 +364,11 @@ io.on("connection", (socket) => {
         `📊 Emitted viewer-count: ${viewerCount} to room:${data.streamId}`
       );
 
+      // Update DB stats in background
+      updateViewerStats(data.streamId, viewerCount).catch(err =>
+        logger.error('Failed to update viewer stats:', err)
+      );
+
       socket.to(`room:${data.streamId}`).emit("viewer-joined", {
         userId: socket.userId,
         viewers: viewerCount,
@@ -603,6 +609,11 @@ io.on("connection", (socket) => {
         socket.user?.username || "Anonymous"
       );
 
+      // Increment chat message count in DB
+      incrementChatMessages(data.roomId).catch(err =>
+        logger.error('Failed to increment chat messages:', err)
+      );
+
       io.to(`room:${data.roomId}`).emit("new-message", message);
       if (callback) callback?.({ success: true, message });
     } catch (error) {
@@ -648,6 +659,11 @@ io.on("connection", (socket) => {
           });
           const finalCount = Math.max(0, uniqueUsers.size - 1); // Subtract streamer
           io.to(roomId).emit("viewer-count", finalCount);
+          
+          // Update DB stats in background
+          updateViewerStats(streamId, finalCount).catch(err =>
+            logger.error('Failed to update viewer stats on disconnect:', err)
+          );
           // io.emit("viewer-count", { streamId, count: finalCount });
 
           socket.to(roomId).emit("viewer-left", {

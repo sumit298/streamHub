@@ -6,6 +6,20 @@ import { api, useAuth } from "@/lib/AuthContext";
 import { io, Socket } from "socket.io-client";
 import { useRouter } from "next/navigation";
 
+const getCategoryColor = (category: string) => {
+  const colors: Record<string, string> = {
+    gaming: "bg-purple-500/20 text-purple-300 border-purple-500/30",
+    music: "bg-pink-500/20 text-pink-300 border-pink-500/30",
+    art: "bg-blue-500/20 text-blue-300 border-blue-500/30",
+    technology: "bg-cyan-500/20 text-cyan-300 border-cyan-500/30",
+    education: "bg-green-500/20 text-green-300 border-green-500/30",
+    entertainment: "bg-yellow-500/20 text-yellow-300 border-yellow-500/30",
+    sports: "bg-orange-500/20 text-orange-300 border-orange-500/30",
+    general: "bg-gray-500/20 text-gray-300 border-gray-500/30",
+  };
+  return colors[category?.toLowerCase()] || colors.general;
+};
+
 const BrowsePage = () => {
   const [allStreams, setAllStreams] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -173,7 +187,7 @@ const BrowsePage = () => {
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Search streams by title, category, or streamer..."
-                  className="w-full px-4 py-3 pl-12 pr-24 bg-card border border-gray-700 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent text-text-primary placeholder-gray-500"
+                  className="w-full px-4 py-3 pl-12 pr-24 bg-card border border-gray-700 rounded-lg focus:ring-2 focus:ring-gray-500 focus:border-transparent text-text-primary placeholder-gray-500"
                 />
                 <svg
                   className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400"
@@ -203,14 +217,14 @@ const BrowsePage = () => {
                 <button
                   type="submit"
                   disabled={isSearching}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 px-4 py-1.5 bg-primary text-white rounded-md hover:bg-primary/80 disabled:opacity-50 transition"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 px-4 py-1.5 bg-gray-700 text-white rounded-md hover:bg-gray-600 disabled:opacity-50 transition"
                 >
                   {isSearching ? "..." : "Search"}
                 </button>
               </div>
               {searchQuery && (
                 <p className="mt-2 text-sm text-gray-400">
-                  Searching for: <span className="text-primary font-medium">{searchQuery}</span>
+                  Searching for: <span className="text-gray-300 font-medium">{searchQuery}</span>
                 </p>
               )}
             </form>
@@ -221,7 +235,7 @@ const BrowsePage = () => {
                 disabled={loading}
                 className={`pb-3 px-4 font-medium transition disabled:opacity-50 disabled:cursor-not-allowed ${
                   filter === "all"
-                    ? "text-primary border-b-2 border-primary"
+                    ? "text-gray-300 border-b-2 border-gray-300"
                     : "text-gray-400 hover:text-gray-300"
                 }`}
               >
@@ -232,7 +246,7 @@ const BrowsePage = () => {
                 disabled={loading}
                 className={`pb-3 px-4 font-medium transition disabled:opacity-50 disabled:cursor-not-allowed ${
                   filter === "my"
-                    ? "text-primary border-b-2 border-primary"
+                    ? "text-gray-300 border-b-2 border-gray-300"
                     : "text-gray-400 hover:text-gray-300"
                 }`}
               >
@@ -243,7 +257,7 @@ const BrowsePage = () => {
                 disabled={loading}
                 className={`pb-3 px-4 font-medium transition disabled:opacity-50 disabled:cursor-not-allowed ${
                   filter === "community"
-                    ? "text-primary border-b-2 border-primary"
+                    ? "text-gray-300 border-b-2 border-gray-300"
                     : "text-gray-400 hover:text-gray-300"
                 }`}
               >
@@ -257,7 +271,7 @@ const BrowsePage = () => {
                 <p className="text-red-500 text-lg">{error}</p>
                 <button
                   onClick={() => fetchStreams(currentPage)}
-                  className="mt-4 px-4 py-2 bg-primary text-white rounded hover:bg-primary/80"
+                  className="mt-4 px-4 py-2 bg-gray-700 text-white rounded hover:bg-gray-600"
                 >
                   Retry
                 </button>
@@ -283,7 +297,7 @@ const BrowsePage = () => {
                   <div
                     key={stream._id}
                     onClick={() => stream.isLive && router.push(`/watch/${stream.id}`)}
-                    className={`bg-card rounded-lg overflow-hidden hover:scale-105 transition border ${stream.userId === user?.id ? 'border-primary' : 'border-gray-700'} ${
+                    className={`bg-card rounded-lg overflow-hidden hover:scale-105 transition border ${stream.userId === user?.id ? 'border-gray-600' : 'border-gray-700'} ${
                       stream.isLive
                         ? "cursor-pointer"
                         : "cursor-default opacity-75"
@@ -330,18 +344,17 @@ const BrowsePage = () => {
                             <path fillRule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clipRule="evenodd" />
                           </svg>
                           {stream.isLive
-                            ? viewerCounts[stream.id] ?? stream.viewerCount ?? 0
-                            : stream.totalViews || 0}{" "}
-                          {stream.isLive ? "watching" : "views"}
+                            ? `${viewerCounts[stream.id] ?? stream.stats?.viewers ?? 0} watching`
+                            : `${stream.stats?.maxViewers ?? 0} views`}
                         </span>
-                        <span className="px-2 py-0.5 bg-gray-700/50 rounded text-xs capitalize">
+                        <span className={`px-2 py-0.5 rounded text-xs capitalize border ${getCategoryColor(stream.category)}`}>
                           {stream.category}
                         </span>
                       </div>
                       {stream.tags && stream.tags.length > 0 && (
                         <div className="flex flex-wrap gap-1.5 mt-2">
                           {stream.tags.slice(0, 3).map((tag: string, idx: number) => (
-                            <span key={idx} className="px-2 py-0.5 bg-primary/20 text-primary text-xs rounded">
+                            <span key={idx} className="px-2 py-0.5 bg-gray-700/50 text-gray-300 text-xs rounded">
                               {tag}
                             </span>
                           ))}
