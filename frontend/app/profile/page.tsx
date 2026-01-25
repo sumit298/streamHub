@@ -6,7 +6,7 @@ import { useAuth, api } from "@/lib/AuthContext"
 import { useRouter } from "next/navigation"
 
 const Profile = () => {
-    const { user } = useAuth();
+    const { user, logout } = useAuth();
     const router = useRouter();
     const [profile, setProfile] = useState<any>(null);
     const [loading, setLoading] = useState(true);
@@ -41,7 +41,7 @@ const Profile = () => {
                                 <p className="text-red-500 text-lg">{error}</p>
                                 <button
                                     onClick={fetchProfile}
-                                    className="mt-4 px-4 py-2 bg-primary text-white rounded hover:bg-primary/80"
+                                    className="mt-4 px-4 py-2 bg-gray-700 text-white rounded hover:bg-gray-600"
                                 >
                                     Retry
                                 </button>
@@ -59,15 +59,24 @@ const Profile = () => {
                             <>
                                 <div className="bg-card rounded-lg p-8 mb-6">
                                     <div className="flex items-center gap-6 mb-6">
-                                        <div className="w-24 h-24 bg-primary rounded-full flex items-center justify-center text-4xl font-bold text-white">
+                                        <div className="w-24 h-24 bg-gray-700 rounded-full flex items-center justify-center text-4xl font-bold text-white">
                                             {profile.username?.charAt(0).toUpperCase()}
                                         </div>
-                                        <div>
+                                        <div className="flex-1">
                                             <h1 className="text-3xl font-bold text-text-primary mb-2">
                                                 {profile.username}
                                             </h1>
                                             <p className="text-gray-400">{profile.email}</p>
                                         </div>
+                                        <button
+                                            onClick={() => {
+                                                logout();
+                                                router.push('/login');
+                                            }}
+                                            className="px-6 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition"
+                                        >
+                                            Logout
+                                        </button>
                                     </div>
                                 </div>
 

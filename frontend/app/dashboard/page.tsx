@@ -6,6 +6,20 @@ import { useAuth, api } from "@/lib/AuthContext";
 import { io, Socket } from "socket.io-client";
 import { useRouter } from "next/navigation";
 
+const getCategoryColor = (category: string) => {
+  const colors: Record<string, string> = {
+    gaming: "bg-purple-500/20 text-purple-300 border-purple-500/30",
+    music: "bg-pink-500/20 text-pink-300 border-pink-500/30",
+    art: "bg-blue-500/20 text-blue-300 border-blue-500/30",
+    technology: "bg-cyan-500/20 text-cyan-300 border-cyan-500/30",
+    education: "bg-green-500/20 text-green-300 border-green-500/30",
+    entertainment: "bg-yellow-500/20 text-yellow-300 border-yellow-500/30",
+    sports: "bg-orange-500/20 text-orange-300 border-orange-500/30",
+    general: "bg-gray-500/20 text-gray-300 border-gray-500/30",
+  };
+  return colors[category?.toLowerCase()] || colors.general;
+};
+
 const Dashboard = () => {
   const [streams, setStreams] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -80,25 +94,14 @@ const Dashboard = () => {
         <Sidebar />
         <main className="flex-1">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-            {/* Hero Section */}
-            <div className="mb-12">
-              <div className="bg-linear-to-r from-accent-purple to-accent-pink rounded-2xl p-8 md:p-12 text-white mb-8">
-                <h1 className="text-4xl md:text-5xl font-bold mb-4">
-                  Welcome back, {user?.username || "User"}!
-                </h1>
-                <p className="text-lg text-white/90 mb-6 max-w-2xl">
-                  Discover amazing live streams, connect with creators, and join
-                  a vibrant community of viewers and streamers.
-                </p>
-                <div className="flex gap-4">
-                  <button
-                    onClick={handleLogout}
-                    className="bg-red-500 text-white px-6 py-3 rounded-lg font-semibold hover:bg-red-600 transition"
-                  >
-                    Logout
-                  </button>
-                </div>
-              </div>
+            {/* Header */}
+            <div className="mb-8">
+              <h1 className="text-3xl font-bold text-text-primary mb-2">
+                Welcome back, {user?.username || "User"}!
+              </h1>
+              <p className="text-gray-400">
+                Discover live streams and connect with creators
+              </p>
             </div>
 
             {/* Live & Pending Streams */}
@@ -109,7 +112,7 @@ const Dashboard = () => {
                 </h2>
                 <a
                   href="/browse"
-                  className="text-primary hover:underline font-medium"
+                  className="text-emerald-400 hover:text-white hover:underline font-medium"
                 >
                   Browse all streams
                 </a>
@@ -119,7 +122,7 @@ const Dashboard = () => {
                   <p className="text-red-500 text-lg">{error}</p>
                   <button
                     onClick={fetchStreams}
-                    className="mt-4 px-4 py-2 bg-primary text-white rounded hover:bg-primary/80"
+                    className="mt-4 px-4 py-2 bg-emerald-600 text-white rounded hover:bg-emerald-700"
                   >
                     Retry
                   </button>
@@ -178,7 +181,7 @@ const Dashboard = () => {
                           role="button"
                           tabIndex={0}
                           aria-label={`${stream.isLive ? 'Watch' : 'View'} stream: ${stream.title}`}
-                          className="bg-card rounded-lg overflow-hidden hover:scale-105 transition cursor-pointer border-2 border-primary"
+                          className="bg-card rounded-lg overflow-hidden hover:scale-105 transition cursor-pointer border-2 border-emerald-600 hover:border-emerald-500"
                         >
                           <div className="aspect-video bg-black relative">
                             {stream.thumbnail ? (
@@ -215,15 +218,19 @@ const Dashboard = () => {
                                   <>
                                     👁️{" "}
                                     {viewerCounts[stream.id] ??
-                                      stream.viewerCount ??
+                                      stream.stats?.viewers ??
                                       0}{" "}
-                                    viewers
+                                    watching
                                   </>
-                                ) : (
+                                ) : stream.isPending ? (
                                   <>📝 Ready to start</>
+                                ) : (
+                                  <>
+                                    👁️ {stream.stats?.maxViewers ?? 0} views
+                                  </>
                                 )}
                               </p>
-                              <p className="text-xs text-gray-500">
+                              <p className={`text-xs px-2 py-0.5 rounded capitalize border ${getCategoryColor(stream.category)}`}>
                                 {stream.category}
                               </p>
                             </div>

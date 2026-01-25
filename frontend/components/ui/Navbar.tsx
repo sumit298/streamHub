@@ -21,7 +21,7 @@ export const Navbar = () => {
         <div className="flex justify-between items-center h-16">
           {/* Logo */}
           <Link href="/dashboard" className="flex items-center">
-            <div className="text-2xl font-bold bg-linear-to-r from-accent-purple to-accent-pink bg-clip-text text-transparent">
+            <div className="text-2xl font-bold text-white">
               StreamHub
             </div>
           </Link>
@@ -41,7 +41,7 @@ export const Navbar = () => {
             <Link
               href="/profile"
               title={user?.username || "Profile"}
-              className="w-9 h-9 bg-linear-to-br from-accent-purple to-accent-pink rounded-full flex items-center justify-center text-white font-semibold text-sm hover:shadow-md transition-shadow"
+              className="w-9 h-9 bg-gray-700 rounded-full flex items-center justify-center text-white font-semibold text-sm hover:bg-gray-600 transition"
             >
               {getInitials(user?.username)}
             </Link>

@@ -125,7 +125,7 @@ const Register = () => {
     return (
         <div className="flex items-center justify-center flex-col h-screen bg-linear-to-br from-accent-purple/10 via-background to-accent-pink/10">
             <div className="flex items-center flex-col justify-center mb-4">
-                <h1 className="text-4xl md:text-4xl font-bold bg-linear-to-r from-accent-purple to-accent-pink bg-clip-text text-transparent ">
+                <h1 className="text-4xl md:text-4xl font-bold text-white">
                     StreamHub
                 </h1>
                 <span className="text-sm text-gray-600">
@@ -133,7 +133,7 @@ const Register = () => {
                 </span>
             </div>
 
-            <div className="rounded-md border p-6 mx-4 mt-4 w-full sm:w-96 md:w-1/2 lg:w-1/3 shadow-lg max-w-md">
+            <div className="rounded-md border border-white/10 p-6 mx-4 mt-4 w-full sm:w-96 md:w-1/2 lg:w-1/3 shadow-lg max-w-md bg-white/5 backdrop-blur-xl">
                 <div className="mb-7">
                     <p className="text-2xl font-bold">Get Started</p>
                     <span className="text-sm text-gray-600">
@@ -243,7 +243,7 @@ const Register = () => {
                 </div>
 
                 <Button
-                    className="w-full bg-linear-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 font-semibold"
+                    className="w-full bg-emerald-600 hover:bg-emerald-700 font-semibold"
                     onClick={handleSubmit}
                     disabled={
                         isLoading ||
@@ -258,7 +258,7 @@ const Register = () => {
                     <p className="text-sm mt-3">
                         Already have an account?{" "}
                         <Link
-                            className="text-accent-purple font-semibold cursor-pointer"
+                            className="text-emerald-500 font-semibold cursor-pointer"
                             href="/login"
                         >
                             Sign in

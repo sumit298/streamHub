@@ -808,7 +808,7 @@ const StreamsPage = () => {
                 <div className="bg-gray-900/50 backdrop-blur-sm rounded-2xl p-6">
                   <button
                     onClick={requestPermissions}
-                    className="w-full bg-purple-350 hover:bg-purple-350/80 text-white px-6 py-3 rounded-xl font-semibold transition flex items-center justify-center gap-2"
+                    className="w-full bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-3 rounded-xl font-semibold transition flex items-center justify-center gap-2"
                   >
                     <svg
                       className="w-5 h-5"
@@ -837,7 +837,7 @@ const StreamsPage = () => {
                       <select
                         value={selectedDevices.cameraId}
                         onChange={(e) => changeCamera(e.target.value)}
-                        className="w-full bg-gray-700 text-white px-3 py-2 rounded-lg text-sm border border-gray-600 focus:outline-none focus:border-purple-350"
+                        className="w-full bg-gray-700 text-white px-3 py-2 rounded-lg text-sm border border-gray-600 focus:outline-none focus:border-emerald-500"
                       >
                         {availableDevices.cameras.map((device) => (
                           <option key={device.deviceId} value={device.deviceId}>
@@ -855,7 +855,7 @@ const StreamsPage = () => {
                       <select
                         value={selectedDevices.microphoneId}
                         onChange={(e) => changeMicrophone(e.target.value)}
-                        className="w-full bg-gray-700 text-white px-3 py-2 rounded-lg text-sm border border-gray-600 focus:outline-none focus:border-purple-350"
+                        className="w-full bg-gray-700 text-white px-3 py-2 rounded-lg text-sm border border-gray-600 focus:outline-none focus:border-emerald-500"
                       >
                         {availableDevices.microphones.map((device) => (
                           <option key={device.deviceId} value={device.deviceId}>
@@ -870,7 +870,7 @@ const StreamsPage = () => {
                     disabled={
                       !connectionTested || connectionStatus !== "connected"
                     }
-                    className="w-full bg-green-150 hover:bg-green-600 text-white px-4 py-2.5 rounded-lg font-semibold transition flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="w-full bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 rounded-lg font-semibold transition flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                     title={
                       !connectionTested ? "Please test connection first" : ""
                     }
@@ -978,7 +978,7 @@ const StreamsPage = () => {
                     <button
                       onClick={initializeMediaSoup}
                       disabled={isTestingConnection}
-                      className="w-full bg-purple-350 hover:bg-purple-350/80 text-white px-3 py-2 rounded-xl text-sm font-medium transition disabled:opacity-50"
+                      className="w-full bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2 rounded-xl text-sm font-medium transition disabled:opacity-50"
                     >
                       {isTestingConnection ? "Testing..." : "Test Connection"}
                     </button>

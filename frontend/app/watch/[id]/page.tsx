@@ -967,7 +967,7 @@ const WatchPage = () => {
             </p>
             <button
               onClick={() => (window.location.href = "/dashboard")}
-              className="bg-purple-350 hover:bg-purple-350/80 text-white px-6 py-3 rounded-xl font-semibold transition w-full"
+              className="bg-gray-700 hover:bg-gray-600 text-white px-6 py-3 rounded-xl font-semibold transition w-full"
             >
               Back to Dashboard
             </button>
@@ -1117,7 +1117,7 @@ const WatchPage = () => {
                 {isLoading && (
                   <div className="absolute inset-0 flex items-center justify-center bg-gray-800">
                     <div className="text-center">
-                      <div className="w-16 h-16 border-4 border-purple-350 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                      <div className="w-16 h-16 border-4 border-gray-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
                       <p className="text-white font-medium">
                         Connecting to stream...
                       </p>

@@ -306,6 +306,7 @@ class StreamService {
             ...streamUpdate,
             endedAt: new Date(),
             duration: streamUpdate.duration,
+            'stats.viewers': 0, // Reset current viewers to 0 when stream ends
           }
         );
       } catch (dbError) {
