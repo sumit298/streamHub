@@ -19,9 +19,9 @@ export const metadata: Metadata = {
   title: "StreamHub",
   description: "A video streaming platform",
   icons: {
-    icon: "/favicon.svg",
+    icon: "/streamHub2.png",
     shortcut: "/favicon.ico",
-    apple: "/apple-touch-icon.png",
+    apple: "/apple-touch-icon.png"
   },
   openGraph: {
     title: "StreamHub - Live Streaming Platform",
