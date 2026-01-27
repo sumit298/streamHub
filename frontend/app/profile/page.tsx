@@ -9,20 +9,36 @@ const Profile = () => {
     const { user, logout } = useAuth();
     const router = useRouter();
     const [profile, setProfile] = useState<any>(null);
+    const [stats, setStats] = useState<any>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
     const fetchProfile = async () => {
         try {
             setError(null);
-            const { data } = await api.get('/api/auth/me');
-            setProfile(data.user);
+            const [profileRes, statsRes] = await Promise.all([
+                api.get('/api/auth/me'),
+                api.get('/api/auth/me/stats')
+            ]);
+            setProfile(profileRes.data.user);
+            setStats(statsRes.data.stats);
         } catch (error) {
             console.error('Failed to fetch profile:', error);
             setError('Failed to load profile');
         } finally {
             setLoading(false);
         }
+    };
+
+    const formatDuration = (ms: number) => {
+        const hours = Math.floor(ms / 3600000);
+        const minutes = Math.floor((ms % 3600000) / 60000);
+        if (hours > 0) return `${hours}h ${minutes}m`;
+        return `${minutes}m`;
+    };
+
+    const getAvatarUrl = (username: string) => {
+        return `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(username)}`;
     };
 
     useEffect(() => {
@@ -35,7 +51,7 @@ const Profile = () => {
             <div className="flex">
                 <Sidebar />
                 <main className="flex-1">
-                    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+                    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
                         {error ? (
                             <div className="text-center py-12">
                                 <p className="text-red-500 text-lg">{error}</p>
@@ -49,19 +65,22 @@ const Profile = () => {
                         ) : loading ? (
                             <div className="animate-pulse space-y-6">
                                 <div className="h-32 bg-gray-700 rounded-lg" />
-                                <div className="space-y-3">
-                                    <div className="h-4 bg-gray-700 rounded w-1/4" />
-                                    <div className="h-4 bg-gray-700 rounded w-1/2" />
-                                    <div className="h-4 bg-gray-700 rounded w-1/3" />
+                                <div className="grid grid-cols-4 gap-4">
+                                    <div className="h-24 bg-gray-700 rounded-lg" />
+                                    <div className="h-24 bg-gray-700 rounded-lg" />
+                                    <div className="h-24 bg-gray-700 rounded-lg" />
+                                    <div className="h-24 bg-gray-700 rounded-lg" />
                                 </div>
                             </div>
                         ) : profile ? (
                             <>
                                 <div className="bg-card rounded-lg p-8 mb-6">
                                     <div className="flex items-center gap-6 mb-6">
-                                        <div className="w-24 h-24 bg-gray-700 rounded-full flex items-center justify-center text-4xl font-bold text-white">
-                                            {profile.username?.charAt(0).toUpperCase()}
-                                        </div>
+                                        <img 
+                                            src={getAvatarUrl(profile.username)} 
+                                            alt={profile.username}
+                                            className="w-24 h-24 rounded-full bg-gray-700"
+                                        />
                                         <div className="flex-1">
                                             <h1 className="text-3xl font-bold text-text-primary mb-2">
                                                 {profile.username}
@@ -79,6 +98,27 @@ const Profile = () => {
                                         </button>
                                     </div>
                                 </div>
+
+                                {stats && (
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                                        <div className="bg-card rounded-lg p-6 border border-gray-700">
+                                            <div className="text-3xl font-bold text-emerald-400 mb-1">{stats.totalStreams}</div>
+                                            <div className="text-sm text-gray-400">Total Streams</div>
+                                        </div>
+                                        <div className="bg-card rounded-lg p-6 border border-gray-700">
+                                            <div className="text-3xl font-bold text-blue-400 mb-1">{stats.totalViews}</div>
+                                            <div className="text-sm text-gray-400">Total Views</div>
+                                        </div>
+                                        <div className="bg-card rounded-lg p-6 border border-gray-700">
+                                            <div className="text-3xl font-bold text-purple-400 mb-1">{formatDuration(stats.totalStreamTime)}</div>
+                                            <div className="text-sm text-gray-400">Time Streamed</div>
+                                        </div>
+                                        <div className="bg-card rounded-lg p-6 border border-gray-700">
+                                            <div className="text-3xl font-bold text-pink-400 mb-1">{stats.totalChatMessages}</div>
+                                            <div className="text-sm text-gray-400">Chat Messages</div>
+                                        </div>
+                                    </div>
+                                )}
 
                                 <div className="bg-card rounded-lg p-8">
                                     <h2 className="text-xl font-bold text-text-primary mb-4">Account Information</h2>
