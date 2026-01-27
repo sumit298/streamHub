@@ -3,6 +3,7 @@ const rateLimit = require("express-rate-limit");
 const { body, validationResult } = require("express-validator");
 const { User } = require("../models");
 const AuthMiddleWare = require("../middleware/middleware.auth.js");
+const Stream = require('../models/Stream.js')
 
 module.exports = (logger) => {
   const router = express.Router();
@@ -363,6 +364,44 @@ module.exports = (logger) => {
       }
     }
   );
+
+  router.get("/me/stats", AuthMiddleWare.authenticate, async (req, res) => {
+    try {
+      const streams = await Stream.find({ userId: req.userId});
+
+      // calculate stats 
+      const totalStreams = streams.length;
+      const totalViews = streams.reduce((sum, s)=> sum + (s.stats?.maxViewers || 0), 0);
+      const totalStreamTime = streams.reduce((sum, s) => sum + (s.duration || 0), 0);
+      const totalChatMessages = streams.reduce((sum, s)=> sum + (s.stats?.chatMessages || 0), 0);
+
+      const recentStreams = streams.sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt)).slice(0,10).map(s => ({
+        id: s.id,
+        title: s.title,
+        category: s.category,
+        views: s.stats?.maxViewers || 0,
+        duration: s.duration || 0,
+        chatMessages: s.stats?.chatMessages || 0,
+        createdAt: s.createdAt,
+        isLive: s.isLive,
+      }));
+
+      res.json({
+        success: true,
+        stats: {
+          totalStreams,
+          totalViews,
+          totalStreamTime,
+          totalChatMessages,
+          
+        }, 
+        recentStreams
+      })
+    } catch (error) {
+      logger.error("Get user stats error", error)
+      res.status(500).json({ error: "Unable to fetch user stats"})
+    }
+  })
 
   router.post("/logout", AuthMiddleWare.authenticate, async (req, res) => {
     // In a more complex system, you might invalidate the token here
