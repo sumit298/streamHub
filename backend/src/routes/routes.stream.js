@@ -396,7 +396,7 @@ module.exports = (streamService, logger, AuthMiddleWare, cacheService) => {
 
         // check ownership
         if (
-          streamInfo.userId.toString() !== req.userId.toString() &&
+          streamInfo.userId._id.toString() !== req.userId.toString() &&
           req.user.role !== "admin"
         ) {
           return res.status(403).json({
@@ -460,7 +460,7 @@ module.exports = (streamService, logger, AuthMiddleWare, cacheService) => {
 
         // Check ownership
         if (
-          streamInfo.userId.toString() !== req.userId.toString() &&
+          streamInfo.userId._id.toString() !== req.userId.toString() &&
           req.user.role !== "admin"
         ) {
           return res.status(403).json({
@@ -529,7 +529,7 @@ module.exports = (streamService, logger, AuthMiddleWare, cacheService) => {
 
         // Check ownership
         if (
-          streamInfo.userId.toString() !== req.userId.toString() &&
+          streamInfo.userId._id.toString() !== req.userId.toString() &&
           req.user.role !== "admin"
         ) {
           return res.status(403).json({
@@ -625,7 +625,7 @@ module.exports = (streamService, logger, AuthMiddleWare, cacheService) => {
 
         // Only stream owner or admins can view detailed stats
         if (
-          streamInfo.userId.toString() !== req.userId.toString() &&
+          streamInfo.userId._id.toString() !== req.userId.toString() &&
           req.user.role !== "admin"
         ) {
           return res.status(403).json({

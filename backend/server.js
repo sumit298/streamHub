@@ -22,6 +22,8 @@ const cookieParser = require("cookie-parser");
 const logger = require("./src/utils/logger");
 const requestMiddleware = require("./src/middleware/middleware.requestId");
 const { updateViewerStats, incrementChatMessages } = require("./src/utils/streamStats");
+const followRoutes = require('./src/routes/routes.follow');
+const { Stream } = require("./src/models");
 
 // Auto-detect local IP in development if not set
 if (!process.env.ANNOUNCED_IP && process.env.NODE_ENV === "development") {
@@ -116,6 +118,7 @@ const authLimiter = rateLimit({
 
 app.use('/api', generateLimiter);
 app.use('/api/auth', authLimiter);
+app.use('/api/users', followRoutes(logger))
 
 // Swagger Documentation
 app.use(
@@ -269,6 +272,9 @@ const activeConnections = new Map();
 
 io.on("connection", (socket) => {
   logger.info(`Client connected: ${socket.id}, User: ${socket.userId}`);
+
+  socket.join(`user-${socket.userId}`)
+
   activeConnections.set(socket.id, {
     userId: socket.userId,
     connectedAt: Date.now(),
@@ -295,6 +301,30 @@ io.on("connection", (socket) => {
       if (callback) callback?.({ error: error.message });
     }
   });
+
+  // when a stream goes live, notify followers
+  socket.on('stream-started', async ({streamId})=> {
+    try {
+      const stream = await Stream.findById(streamId).populate('userId');
+      if(!stream) return;
+
+      const Follow = require('./src/models/Follow');
+      const followers = await Follow.find({followingId: stream.userId._id});
+
+      // Emit to all followers
+      followers.forEach((follow)=> {
+        io.to(`user-${follow.followerId}`).emit('streamer-live', {
+          streamerId: stream.userId._id,
+          streamerName: stream.userId.username,
+          streamId: stream._id,
+          streamTitle: stream.title,  
+          category: stream.category
+        });
+      })
+    } catch (error) {
+      logger.error('Stream notification error: ', error)
+    }
+  })
 
   socket.on("join-stream", async (data, callback) => {
     try {
