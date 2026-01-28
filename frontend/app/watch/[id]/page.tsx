@@ -27,6 +27,12 @@ const WatchPage = () => {
     category?: string;
     tags?: string[];
     description?: string;
+    userId?: {
+      _id: string;
+      username: string;
+      email: string;
+      avatar?: string;
+    };
   } | null>(null);
   const [isMuted, setIsMuted] = useState(true);
   const [streamStartTime, setStreamStartTime] = useState<number | null>(null);
