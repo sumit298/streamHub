@@ -374,7 +374,7 @@ class StreamService {
 
   async getStreamInfo(streamId) {
     try {
-      const streamDoc = await Stream.findOne({ id: streamId });
+      const streamDoc = await Stream.findOne({ id: streamId }).populate("userId", "username _id email avatar");
       if (!streamDoc) {
         return null;
       }

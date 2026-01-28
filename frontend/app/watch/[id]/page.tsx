@@ -6,6 +6,8 @@ import { io, Socket } from "socket.io-client";
 import toast from "react-hot-toast";
 import { api, useAuth } from "@/lib/AuthContext";
 import ChatPanel from "@/components/ChatPanel";
+import { FollowButton } from "@/components/FollowButton";
+import { getAvatarUrl } from "@/lib/avatar";
 
 const WatchPage = () => {
   const params = useParams();
@@ -38,7 +40,8 @@ const WatchPage = () => {
   const [consumedProducers, setConsumedProducers] = useState<Set<string>>(
     new Set(),
   );
-  
+  const [streamerInfo, setStreamerInfo] = useState<any>(null);
+
   // Sync state to ref
   useEffect(() => {
     consumedProducersRef.current = consumedProducers;
@@ -91,6 +94,12 @@ const WatchPage = () => {
       setIsFullscreen(false);
     }
   };
+
+  useEffect(() => {
+    if (streamInfo?.userId) {
+      setStreamerInfo(streamInfo.userId);
+    }
+  }, [streamInfo]);
 
   useEffect(() => {
     const handleFullscreenChange = () => {
@@ -381,15 +390,24 @@ const WatchPage = () => {
         return;
       }
 
-      console.log("🎬 [HANDLER] Attempting to consume screen producer:", data.producerId);
+      console.log(
+        "🎬 [HANDLER] Attempting to consume screen producer:",
+        data.producerId,
+      );
 
       const consumer = await consumeProducer(data.producerId, data.kind);
       if (!consumer) {
-        console.error("❌ [HANDLER] Failed to consume producer:", data.producerId);
+        console.error(
+          "❌ [HANDLER] Failed to consume producer:",
+          data.producerId,
+        );
         return;
       }
 
-      console.log("✅ [HANDLER] Successfully consumed producer:", data.producerId);
+      console.log(
+        "✅ [HANDLER] Successfully consumed producer:",
+        data.producerId,
+      );
       setConsumedProducers((prev) => new Set(prev).add(data.producerId));
 
       if (data.kind === "video") {
@@ -480,6 +498,9 @@ const WatchPage = () => {
     try {
       const { data } = await api.get(`/api/streams/${params.id}`);
       setStreamInfo(data.stream);
+      setStreamerInfo(data.stream.userId);
+      console.log('🔍 Stream data received:', data.stream);
+    console.log('🔍 userId field:', data.stream.userId);
     } catch (error) {
       console.error("Failed to fetch stream info:", error);
       toast.error("Stream not found", { position: "bottom-left" });
@@ -670,14 +691,14 @@ const WatchPage = () => {
         return;
       }
 
-      const screenProducers = producers.filter(
-        (p) => p.isScreenShare === true,
-      );
+      const screenProducers = producers.filter((p) => p.isScreenShare === true);
 
       console.log("🖥️ [VIEWER] Screen producers found:", screenProducers);
 
       // Consume screen video first
-      const screenVideoProducer = screenProducers.find((p) => p.kind === "video");
+      const screenVideoProducer = screenProducers.find(
+        (p) => p.kind === "video",
+      );
       if (screenVideoProducer) {
         if (!consumedProducers.has(screenVideoProducer.id)) {
           console.log(
@@ -685,10 +706,15 @@ const WatchPage = () => {
             screenVideoProducer.id,
           );
 
-          const consumer = await consumeProducer(screenVideoProducer.id, screenVideoProducer.kind);
+          const consumer = await consumeProducer(
+            screenVideoProducer.id,
+            screenVideoProducer.kind,
+          );
           if (consumer) {
             screenProducerIds.current.add(screenVideoProducer.id);
-            setConsumedProducers((prev) => new Set(prev).add(screenVideoProducer.id));
+            setConsumedProducers((prev) =>
+              new Set(prev).add(screenVideoProducer.id),
+            );
 
             const stream = new MediaStream([consumer.track]);
             setScreenStream(stream);
@@ -699,13 +725,17 @@ const WatchPage = () => {
               await screenVideoRef.current.play().catch(console.error);
             }
 
-            toast.success("Screen sharing started", { position: "bottom-left" });
+            toast.success("Screen sharing started", {
+              position: "bottom-left",
+            });
           }
         }
       }
 
       // Then consume screen audio if available
-      const screenAudioProducer = screenProducers.find((p) => p.kind === "audio");
+      const screenAudioProducer = screenProducers.find(
+        (p) => p.kind === "audio",
+      );
       if (screenAudioProducer) {
         if (!consumedProducers.has(screenAudioProducer.id)) {
           console.log(
@@ -713,16 +743,23 @@ const WatchPage = () => {
             screenAudioProducer.id,
           );
 
-          const consumer = await consumeProducer(screenAudioProducer.id, screenAudioProducer.kind);
+          const consumer = await consumeProducer(
+            screenAudioProducer.id,
+            screenAudioProducer.kind,
+          );
           if (consumer) {
             screenProducerIds.current.add(screenAudioProducer.id);
-            setConsumedProducers((prev) => new Set(prev).add(screenAudioProducer.id));
+            setConsumedProducers((prev) =>
+              new Set(prev).add(screenAudioProducer.id),
+            );
 
             // Add audio track to existing screen stream
             setScreenStream((prev) => {
               if (prev && screenVideoRef.current) {
                 prev.addTrack(consumer.track);
-                screenVideoRef.current.srcObject = new MediaStream(prev.getTracks());
+                screenVideoRef.current.srcObject = new MediaStream(
+                  prev.getTracks(),
+                );
                 console.log("🔊 [VIEWER] Screen audio track added to stream");
               }
               return prev;
@@ -979,25 +1016,66 @@ const WatchPage = () => {
       <div className="absolute top-4 left-4 z-20 flex items-center gap-3">
         {/* Stream Timer */}
         <div className="bg-white/10 backdrop-blur-md px-4 py-2 rounded-lg flex items-center gap-2 border border-white/20">
-          <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+          <svg
+            className="w-4 h-4 text-white"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+            />
           </svg>
-          <span className="text-white text-sm font-medium">{formatDuration(duration)}</span>
+          <span className="text-white text-sm font-medium">
+            {formatDuration(duration)}
+          </span>
         </div>
+        {streamerInfo && (
+          <div className="bg-white/10 backdrop-blur-md px-3 py-2 rounded-lg flex items-center gap-3 border border-white/20">
+            <div className="flex items-center gap-2">
+              <img
+                src={getAvatarUrl(streamerInfo.username, streamerInfo.avatar)}
+                alt={streamerInfo.username}
+                className="w-8 h-8 rounded-full"
+              />
+              <span className="text-white text-sm font-medium">
+                {streamerInfo.username}
+              </span>
+            </div>
+            <FollowButton userId={streamerInfo._id || streamerInfo.id}/>
+          </div>
+        )}
       </div>
 
       {/* Viewer count and participants - Top Right */}
       <div className="absolute top-4 right-4 z-20 flex items-center gap-2">
-        <button 
+        <button
           onClick={() => setShowMobileChat(true)}
           className="bg-black/50 backdrop-blur-sm p-3 rounded-lg hover:bg-black/70 transition"
         >
-          <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+          <svg
+            className="w-5 h-5 text-white"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+            />
           </svg>
         </button>
         <button className="bg-black/50 backdrop-blur-sm px-4 py-3 rounded-lg hover:bg-black/70 transition flex items-center gap-2">
-          <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20">
+          <svg
+            className="w-5 h-5 text-white"
+            fill="currentColor"
+            viewBox="0 0 20 20"
+          >
             <path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z" />
           </svg>
           <span className="text-white font-medium">{viewerCount}</span>
@@ -1005,7 +1083,9 @@ const WatchPage = () => {
       </div>
 
       {/* Chat Sidebar */}
-      <div className={`fixed top-0 right-0 h-full w-80 bg-gray-900 shadow-2xl z-40 transition-transform duration-300 ${showMobileChat ? 'translate-x-0' : 'translate-x-full'}`}>
+      <div
+        className={`fixed top-0 right-0 h-full w-80 bg-gray-900 shadow-2xl z-40 transition-transform duration-300 ${showMobileChat ? "translate-x-0" : "translate-x-full"}`}
+      >
         <div className="h-full flex flex-col">
           <div className="flex items-center justify-between p-4 border-b border-gray-700">
             <h3 className="text-lg font-semibold text-white">Chat</h3>
@@ -1013,8 +1093,18 @@ const WatchPage = () => {
               onClick={() => setShowMobileChat(false)}
               className="text-white hover:text-gray-400 transition"
             >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              <svg
+                className="w-6 h-6"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M6 18L18 6M6 6l12 12"
+                />
               </svg>
             </button>
           </div>
@@ -1032,100 +1122,100 @@ const WatchPage = () => {
         {/* Main Video Area - Full Screen */}
         <div className="flex-1 relative">
           {screenStream && screenProducerIds.current.size > 0 ? (
-              /* Screen Share with Camera PiP */
-              <div
-                ref={videoContainerRef}
-                className="w-full h-full bg-black relative"
-              >
-                {/* Screen Share - Main */}
-                <video
-                  ref={screenVideoRef}
-                  autoPlay
-                  playsInline
-                  muted={isMuted}
-                  className="w-full h-full object-contain"
-                />
-                <div className="absolute bottom-4 left-4 bg-gray-750 px-3 py-2 rounded-lg flex items-center gap-2">
-                  <svg
-                    className="w-5 h-5 text-white"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
-                    />
-                  </svg>
-                  <span className="text-sm text-white font-medium">
-                    Screen Share
-                  </span>
-                </div>
-
-                {/* Camera - Picture in Picture */}
-                <div
-                  className={`absolute w-64 h-36 bg-gray-800 rounded-lg overflow-hidden border-2 border-gray-700 shadow-xl cursor-move ${!cameraStreamRef.current ? "hidden" : ""}`}
-                  style={{
-                    left: `${pipPosition.x}px`,
-                    top: `${pipPosition.y}px`,
-                  }}
-                  onMouseDown={handlePipMouseDown}
+            /* Screen Share with Camera PiP */
+            <div
+              ref={videoContainerRef}
+              className="w-full h-full bg-black relative"
+            >
+              {/* Screen Share - Main */}
+              <video
+                ref={screenVideoRef}
+                autoPlay
+                playsInline
+                muted={isMuted}
+                className="w-full h-full object-contain"
+              />
+              <div className="absolute bottom-4 left-4 bg-gray-750 px-3 py-2 rounded-lg flex items-center gap-2">
+                <svg
+                  className="w-5 h-5 text-white"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
                 >
-                  <video
-                    ref={pipVideoRef}
-                    // autoPlay
-                    playsInline
-                    muted={isMuted}
-                    className="w-full h-full object-cover"
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
                   />
-                  {!isLoading && isMuted && (
-                    <button
-                      onClick={toggleMute}
-                      className="absolute bottom-2 right-2 bg-white hover:bg-gray-100 text-black p-2 rounded-lg font-semibold transition shadow-lg"
-                      title="Unmute"
-                    >
-                      <svg
-                        className="w-4 h-4"
-                        fill="currentColor"
-                        viewBox="0 0 20 20"
-                      >
-                        <path
-                          fillRule="evenodd"
-                          d="M9.383 3.076A1 1 0 0110 4v12a1 1 0 01-1.707.707L4.586 13H2a1 1 0 01-1-1V8a1 1 0 011-1h2.586l3.707-3.707a1 1 0 011.09-.217zM12.293 7.293a1 1 0 011.414 0L15 8.586l1.293-1.293a1 1 0 111.414 1.414L16.414 10l1.293 1.293a1 1 0 01-1.414 1.414L15 11.414l-1.293 1.293a1 1 0 01-1.414-1.414L13.586 10l-1.293-1.293a1 1 0 010-1.414z"
-                          clipRule="evenodd"
-                        />
-                      </svg>
-                    </button>
-                  )}
-                </div>
+                </svg>
+                <span className="text-sm text-white font-medium">
+                  Screen Share
+                </span>
               </div>
-            ) : (
-              /* Camera - Full View */
+
+              {/* Camera - Picture in Picture */}
               <div
-                ref={videoContainerRef}
-                className="w-full h-full bg-black relative"
+                className={`absolute w-64 h-36 bg-gray-800 rounded-lg overflow-hidden border-2 border-gray-700 shadow-xl cursor-move ${!cameraStreamRef.current ? "hidden" : ""}`}
+                style={{
+                  left: `${pipPosition.x}px`,
+                  top: `${pipPosition.y}px`,
+                }}
+                onMouseDown={handlePipMouseDown}
               >
                 <video
-                  ref={videoRef}
+                  ref={pipVideoRef}
                   // autoPlay
                   playsInline
                   muted={isMuted}
                   className="w-full h-full object-cover"
                 />
-                {isLoading && (
-                  <div className="absolute inset-0 flex items-center justify-center bg-gray-800">
-                    <div className="text-center">
-                      <div className="w-16 h-16 border-4 border-gray-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-                      <p className="text-white font-medium">
-                        Connecting to stream...
-                      </p>
-                      <p className="text-gray-400 text-sm mt-2">Please wait</p>
-                    </div>
-                  </div>
+                {!isLoading && isMuted && (
+                  <button
+                    onClick={toggleMute}
+                    className="absolute bottom-2 right-2 bg-white hover:bg-gray-100 text-black p-2 rounded-lg font-semibold transition shadow-lg"
+                    title="Unmute"
+                  >
+                    <svg
+                      className="w-4 h-4"
+                      fill="currentColor"
+                      viewBox="0 0 20 20"
+                    >
+                      <path
+                        fillRule="evenodd"
+                        d="M9.383 3.076A1 1 0 0110 4v12a1 1 0 01-1.707.707L4.586 13H2a1 1 0 01-1-1V8a1 1 0 011-1h2.586l3.707-3.707a1 1 0 011.09-.217zM12.293 7.293a1 1 0 011.414 0L15 8.586l1.293-1.293a1 1 0 111.414 1.414L16.414 10l1.293 1.293a1 1 0 01-1.414 1.414L15 11.414l-1.293 1.293a1 1 0 01-1.414-1.414L13.586 10l-1.293-1.293a1 1 0 010-1.414z"
+                        clipRule="evenodd"
+                      />
+                    </svg>
+                  </button>
                 )}
-                {/* {!isLoading && isMuted && (
+              </div>
+            </div>
+          ) : (
+            /* Camera - Full View */
+            <div
+              ref={videoContainerRef}
+              className="w-full h-full bg-black relative"
+            >
+              <video
+                ref={videoRef}
+                // autoPlay
+                playsInline
+                muted={isMuted}
+                className="w-full h-full object-cover"
+              />
+              {isLoading && (
+                <div className="absolute inset-0 flex items-center justify-center bg-gray-800">
+                  <div className="text-center">
+                    <div className="w-16 h-16 border-4 border-gray-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                    <p className="text-white font-medium">
+                      Connecting to stream...
+                    </p>
+                    <p className="text-gray-400 text-sm mt-2">Please wait</p>
+                  </div>
+                </div>
+              )}
+              {/* {!isLoading && isMuted && (
                   <button
                     onClick={toggleMute}
                     className="absolute bottom-4 right-4 bg-white hover:bg-gray-100 text-black px-4 py-2 rounded-xl font-semibold transition flex items-center gap-2 shadow-lg"
@@ -1144,91 +1234,57 @@ const WatchPage = () => {
                     Click to Unmute
                   </button>
                 )} */}
-              </div>
-            )}
-          </div>
-
-          {/* Chat Sidebar - Hidden by default, toggle with button */}
+            </div>
+          )}
         </div>
 
-        {/* Bottom Control Bar - Floating */}
-        <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 z-30">
-          <div className="bg-black/80 backdrop-blur-lg rounded-full px-6 py-3 flex items-center gap-4 shadow-2xl">
-            <button
-              onClick={toggleMute}
-              className={`p-3 rounded-full transition-all ${
-                isMuted
-                  ? "bg-red-600 hover:bg-red-700"
-                  : "bg-white/20 hover:bg-white/30"
-              }`}
-              title={isMuted ? "Unmute" : "Mute"}
-            >
-              {isMuted ? (
-                <svg
-                  className="w-6 h-6 text-white"
-                  fill="currentColor"
-                  viewBox="0 0 20 20"
-                >
-                  <path
-                    fillRule="evenodd"
-                    d="M9.383 3.076A1 1 0 0110 4v12a1 1 0 01-1.707.707L4.586 13H2a1 1 0 01-1-1V8a1 1 0 011-1h2.586l3.707-3.707a1 1 0 011.09-.217zM12.293 7.293a1 1 0 011.414 0L15 8.586l1.293-1.293a1 1 0 111.414 1.414L16.414 10l1.293 1.293a1 1 0 01-1.414 1.414L15 11.414l-1.293 1.293a1 1 0 01-1.414-1.414L13.586 10l-1.293-1.293a1 1 0 010-1.414z"
-                    clipRule="evenodd"
-                  />
-                </svg>
-              ) : (
-                <svg
-                  className="w-6 h-6 text-white"
-                  fill="currentColor"
-                  viewBox="0 0 20 20"
-                >
-                  <path
-                    fillRule="evenodd"
-                    d="M9.383 3.076A1 1 0 0110 4v12a1 1 0 01-1.707.707L4.586 13H2a1 1 0 01-1-1V8a1 1 0 011-1h2.586l3.707-3.707a1 1 0 011.09-.217zM14.657 2.929a1 1 0 011.414 0A9.972 9.972 0 0119 10a9.972 9.972 0 01-2.929 7.071 1 1 0 01-1.414-1.414A7.971 7.971 0 0017 10c0-2.21-.894-4.208-2.343-5.657a1 1 0 010-1.414zm-2.829 2.828a1 1 0 011.415 0A5.983 5.983 0 0115 10a5.984 5.984 0 01-1.757 4.243 1 1 0 01-1.415-1.415A3.984 3.984 0 0013 10a3.983 3.983 0 00-1.172-2.828 1 1 0 010-1.415z"
-                    clipRule="evenodd"
-                  />
-                </svg>
-              )}
-            </button>
-            <button
-              onClick={toggleFullscreen}
-              className="p-3 rounded-full bg-white/20 hover:bg-white/30 transition-all"
-              title={isFullscreen ? "Exit Fullscreen" : "Fullscreen"}
-            >
-              {isFullscreen ? (
-                <svg
-                  className="w-6 h-6 text-white"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M6 18L18 6M6 6l12 12"
-                  />
-                </svg>
-              ) : (
-                <svg
-                  className="w-6 h-6 text-white"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"
-                  />
-                </svg>
-              )}
-            </button>
-            <button
-              onClick={leaveStream}
-              className="p-3 rounded-full bg-red-600 hover:bg-red-700 transition-all"
-              title="Leave Stream"
-            >
+        {/* Chat Sidebar - Hidden by default, toggle with button */}
+      </div>
+
+      {/* Bottom Control Bar - Floating */}
+      <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 z-30">
+        <div className="bg-black/80 backdrop-blur-lg rounded-full px-6 py-3 flex items-center gap-4 shadow-2xl">
+          <button
+            onClick={toggleMute}
+            className={`p-3 rounded-full transition-all ${
+              isMuted
+                ? "bg-red-600 hover:bg-red-700"
+                : "bg-white/20 hover:bg-white/30"
+            }`}
+            title={isMuted ? "Unmute" : "Mute"}
+          >
+            {isMuted ? (
+              <svg
+                className="w-6 h-6 text-white"
+                fill="currentColor"
+                viewBox="0 0 20 20"
+              >
+                <path
+                  fillRule="evenodd"
+                  d="M9.383 3.076A1 1 0 0110 4v12a1 1 0 01-1.707.707L4.586 13H2a1 1 0 01-1-1V8a1 1 0 011-1h2.586l3.707-3.707a1 1 0 011.09-.217zM12.293 7.293a1 1 0 011.414 0L15 8.586l1.293-1.293a1 1 0 111.414 1.414L16.414 10l1.293 1.293a1 1 0 01-1.414 1.414L15 11.414l-1.293 1.293a1 1 0 01-1.414-1.414L13.586 10l-1.293-1.293a1 1 0 010-1.414z"
+                  clipRule="evenodd"
+                />
+              </svg>
+            ) : (
+              <svg
+                className="w-6 h-6 text-white"
+                fill="currentColor"
+                viewBox="0 0 20 20"
+              >
+                <path
+                  fillRule="evenodd"
+                  d="M9.383 3.076A1 1 0 0110 4v12a1 1 0 01-1.707.707L4.586 13H2a1 1 0 01-1-1V8a1 1 0 011-1h2.586l3.707-3.707a1 1 0 011.09-.217zM14.657 2.929a1 1 0 011.414 0A9.972 9.972 0 0119 10a9.972 9.972 0 01-2.929 7.071 1 1 0 01-1.414-1.414A7.971 7.971 0 0017 10c0-2.21-.894-4.208-2.343-5.657a1 1 0 010-1.414zm-2.829 2.828a1 1 0 011.415 0A5.983 5.983 0 0115 10a5.984 5.984 0 01-1.757 4.243 1 1 0 01-1.415-1.415A3.984 3.984 0 0013 10a3.983 3.983 0 00-1.172-2.828 1 1 0 010-1.415z"
+                  clipRule="evenodd"
+                />
+              </svg>
+            )}
+          </button>
+          <button
+            onClick={toggleFullscreen}
+            className="p-3 rounded-full bg-white/20 hover:bg-white/30 transition-all"
+            title={isFullscreen ? "Exit Fullscreen" : "Fullscreen"}
+          >
+            {isFullscreen ? (
               <svg
                 className="w-6 h-6 text-white"
                 fill="none"
@@ -1239,15 +1295,48 @@ const WatchPage = () => {
                   strokeLinecap="round"
                   strokeLinejoin="round"
                   strokeWidth={2}
-                  d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
+                  d="M6 18L18 6M6 6l12 12"
                 />
               </svg>
-            </button>
-          </div>
+            ) : (
+              <svg
+                className="w-6 h-6 text-white"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"
+                />
+              </svg>
+            )}
+          </button>
+          <button
+            onClick={leaveStream}
+            className="p-3 rounded-full bg-red-600 hover:bg-red-700 transition-all"
+            title="Leave Stream"
+          >
+            <svg
+              className="w-6 h-6 text-white"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
+              />
+            </svg>
+          </button>
         </div>
       </div>
+    </div>
     // </div>
-
   );
 };
 

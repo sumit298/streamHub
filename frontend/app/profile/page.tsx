@@ -4,6 +4,7 @@ import { Navbar } from "@/components/ui/Navbar"
 import { useEffect, useState } from "react"
 import { useAuth, api } from "@/lib/AuthContext"
 import { useRouter } from "next/navigation"
+import { getAvatarUrl } from "@/lib/avatar"
 
 const Profile = () => {
     const { user, logout } = useAuth();
@@ -35,10 +36,6 @@ const Profile = () => {
         const minutes = Math.floor((ms % 3600000) / 60000);
         if (hours > 0) return `${hours}h ${minutes}m`;
         return `${minutes}m`;
-    };
-
-    const getAvatarUrl = (username: string) => {
-        return `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(username)}`;
     };
 
     useEffect(() => {
@@ -77,7 +74,7 @@ const Profile = () => {
                                 <div className="bg-card rounded-lg p-8 mb-6">
                                     <div className="flex items-center gap-6 mb-6">
                                         <img 
-                                            src={getAvatarUrl(profile.username)} 
+                                            src={getAvatarUrl(profile.username, profile.avatar)} 
                                             alt={profile.username}
                                             className="w-24 h-24 rounded-full bg-gray-700"
                                         />
@@ -100,7 +97,7 @@ const Profile = () => {
                                 </div>
 
                                 {stats && (
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4 mb-6">
                                         <div className="bg-card rounded-lg p-6 border border-gray-700">
                                             <div className="text-3xl font-bold text-emerald-400 mb-1">{stats.totalStreams}</div>
                                             <div className="text-sm text-gray-400">Total Streams</div>
@@ -116,6 +113,14 @@ const Profile = () => {
                                         <div className="bg-card rounded-lg p-6 border border-gray-700">
                                             <div className="text-3xl font-bold text-pink-400 mb-1">{stats.totalChatMessages}</div>
                                             <div className="text-sm text-gray-400">Chat Messages</div>
+                                        </div>
+                                        <div className="bg-card rounded-lg p-6 border border-gray-700">
+                                            <div className="text-3xl font-bold text-cyan-400 mb-1">{profile.stats?.followers || 0}</div>
+                                            <div className="text-sm text-gray-400">Followers</div>
+                                        </div>
+                                        <div className="bg-card rounded-lg p-6 border border-gray-700">
+                                            <div className="text-3xl font-bold text-orange-400 mb-1">{profile.stats?.following || 0}</div>
+                                            <div className="text-sm text-gray-400">Following</div>
                                         </div>
                                     </div>
                                 )}

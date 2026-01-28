@@ -130,7 +130,13 @@ module.exports = (logger) => {
         });
       }
 
-      const user = new User({ username, email, password, role });
+      const user = new User({ 
+        username, 
+        email, 
+        password, 
+        role,
+        avatar: `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(username)}`
+      });
 
       await user.save();
 

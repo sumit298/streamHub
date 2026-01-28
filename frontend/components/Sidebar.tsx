@@ -7,6 +7,7 @@ const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: Home },
   { name: "Browse", href: "/browse", icon: Compass },
   { name: "Profile", href: "/profile", icon: User },
+  { name: "Following", href: "/following", icon: TrendingUp }
 ];
 
 export const Sidebar = () => {
