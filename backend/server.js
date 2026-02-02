@@ -21,9 +21,14 @@ const { specs, swaggerUi } = require("./swagger");
 const cookieParser = require("cookie-parser");
 const logger = require("./src/utils/logger");
 const requestMiddleware = require("./src/middleware/middleware.requestId");
-const { updateViewerStats, incrementChatMessages } = require("./src/utils/streamStats");
+const {
+  updateViewerStats,
+  incrementChatMessages,
+} = require("./src/utils/streamStats");
 const followRoutes = require('./src/routes/routes.follow');
-const { Stream } = require("./src/models");
+const { Stream, Follow } = require("./src/models");
+const Notification = require("./src/models/Notification");
+const NotificationRouter = require("./src/routes/routes.notification");
 
 // Auto-detect local IP in development if not set
 if (!process.env.ANNOUNCED_IP && process.env.NODE_ENV === "development") {
@@ -87,13 +92,12 @@ app.use(
       process.env.CLIENT_URL ||
       "http://localhost:3000",
     credentials: true,
-  })
+  }),
 );
 app.use(requestMiddleware);
 app.use(morgan("dev"));
 app.use(express.json({ limit: "10mb" }));
 app.use(cookieParser());
-
 
 // Rate Limiter
 const generateLimiter = rateLimit({
@@ -102,8 +106,8 @@ const generateLimiter = rateLimit({
   message: "Too many requests from this ip",
   skip: (req) => {
     // Skip rate limiting for frequently-called authenticated endpoints
-    return req.path === '/auth/me' || req.path === '/auth/refresh-token';
-  }
+    return req.path === "/auth/me" || req.path === "/auth/refresh-token";
+  },
 });
 
 const authLimiter = rateLimit({
@@ -112,8 +116,8 @@ const authLimiter = rateLimit({
   message: "Too many authentication requests",
   skip: (req) => {
     // Skip rate limiting for /me and /refresh-token endpoints
-    return req.path === '/me' || req.path === '/refresh-token';
-  }
+    return req.path === "/me" || req.path === "/refresh-token";
+  },
 });
 
 app.use('/api', generateLimiter);
@@ -128,7 +132,7 @@ app.use(
     explorer: true,
     customCss: ".swagger-ui .topbar { display: none }",
     customSiteTitle: "ILS API Documentation",
-  })
+  }),
 );
 
 /**
@@ -176,14 +180,14 @@ async function initializeServices() {
         maxPoolSize: 10,
         serverSelectionTimeoutMS: 5000,
         socketTimeoutMS: 45000,
-      }
+      },
     );
     logger.info("Database connected", {
       host: mongoose.connection.host,
       name: mongoose.connection.name,
       url: process.env.DATABASE_URL?.replace(
         /\/\/([^:]+):([^@]+)@/,
-        "//$1:****@"
+        "//$1:****@",
       ), // Hide password
     });
 
@@ -202,7 +206,7 @@ async function initializeServices() {
       mediaService,
       messageQueue,
       cacheService,
-      logger
+      logger,
     );
     chatService = new ChatService(messageQueue, cacheService, logger);
 
@@ -214,13 +218,18 @@ async function initializeServices() {
         streamService,
         logger,
         AuthMiddleWare,
-        cacheService
-      )
+        cacheService,
+      ),
     );
     app.use(
       "/api/chat",
       AuthMiddleWare.authenticate,
-      require("./src/routes/routes.chat")(chatService, logger)
+      require("./src/routes/routes.chat")(chatService, logger),
+    );
+    app.use(
+      "/api/notifications",
+      AuthMiddleWare.authenticate,
+      NotificationRouter,
     );
 
     logger.info("All services initialized successfully");
@@ -236,7 +245,7 @@ if (!sigintHandlerRegistered) {
   process.on("SIGINT", async () => {
     if (shuttingDown) return; // Prevent multiple executions
     shuttingDown = true;
-    
+
     logger.info("Shutting down gracefully...");
 
     // Close all active connections
@@ -273,12 +282,15 @@ const activeConnections = new Map();
 io.on("connection", (socket) => {
   logger.info(`Client connected: ${socket.id}, User: ${socket.userId}`);
 
-  socket.join(`user-${socket.userId}`)
+  socket.join(`user-${socket.userId}`);
+  logger.info(`👤 User ${socket.userId} joined room: user-${socket.userId}`);
 
   activeConnections.set(socket.id, {
     userId: socket.userId,
     connectedAt: Date.now(),
   });
+
+  socket.join(`user-${socket.userId}`);
 
   //   metricsService.incrementActiveConnections();
 
@@ -294,6 +306,18 @@ io.on("connection", (socket) => {
 
       logger.info(`Stream created: ${stream.id} by user: ${socket.userId}`);
       //   metricsService.incrementActiveStreams();
+      
+      const followers = await Follow.find({ followingId: socket.userId}).select('followerId');
+      for(const follow of followers){
+        const notification = await Notification.create({
+          userId: follow.followerId,
+          type: 'stream-live',
+          title: "Stream Started",
+          message: `${socket.user.username} is now live`,
+          data: { streamId: stream.id, streamTitle: stream.title}
+        });
+        io.to(`user-${follow.followerId}`).emit("notification", notification)
+      }
 
       if (callback) callback?.({ success: true, stream });
     } catch (error) {
@@ -348,7 +372,7 @@ io.on("connection", (socket) => {
                 isScreenShare: producer.appData?.isScreenShare || false,
               });
               logger.info(
-                `Found existing producer ${producer.id} (${producer.kind}) from ${participantId} ${producer.appData?.isScreenShare ? '[SCREEN]' : '[CAMERA]'}`
+                `Found existing producer ${producer.id} (${producer.kind}) from ${participantId} ${producer.appData?.isScreenShare ? "[SCREEN]" : "[CAMERA]"}`,
               );
             }
           }
@@ -358,18 +382,21 @@ io.on("connection", (socket) => {
       if (existingProducers.length > 0) {
         socket.emit("existing-producers", existingProducers);
         logger.info(
-          `Sent ${existingProducers.length} existing producers to ${socket.userId}`
+          `Sent ${existingProducers.length} existing producers to ${socket.userId}`,
         );
 
         // Send stream start time in background (non-blocking)
-        streamService.getStreamInfo(data.streamId).then(streamInfo => {
-          if (streamInfo?.startedAt) {
-            io.to(`room:${data.streamId}`).emit("stream-start-time", {
-              startTime: new Date(streamInfo.startedAt).getTime(),
-            });
-            logger.info(`Sent stream start time to ${socket.userId}`);
-          }
-        }).catch(err => logger.error('Failed to get stream info:', err));
+        streamService
+          .getStreamInfo(data.streamId)
+          .then((streamInfo) => {
+            if (streamInfo?.startedAt) {
+              io.to(`room:${data.streamId}`).emit("stream-start-time", {
+                startTime: new Date(streamInfo.startedAt).getTime(),
+              });
+              logger.info(`Sent stream start time to ${socket.userId}`);
+            }
+          })
+          .catch((err) => logger.error("Failed to get stream info:", err));
       } else {
         logger.info(`No existing producers found for room ${data.streamId}`);
       }
@@ -377,26 +404,28 @@ io.on("connection", (socket) => {
       // Get actual viewer count from socket room - count unique users
       const roomSockets = await io.in(`room:${data.streamId}`).fetchSockets();
       const uniqueUsers = new Set();
-      roomSockets.forEach(s => {
+      roomSockets.forEach((s) => {
         if (s.userId) uniqueUsers.add(s.userId);
       });
       const viewerCount = uniqueUsers.size - 1; // Subtract streamer
 
-      logger.debug(`📊 Room ${data.streamId} has ${roomSockets.length} sockets, ${uniqueUsers.size} unique users`);
+      logger.debug(
+        `📊 Room ${data.streamId} has ${roomSockets.length} sockets, ${uniqueUsers.size} unique users`,
+      );
       logger.debug(
         `📊 Socket IDs in room:`,
-        roomSockets.map((s) => `${s.id} (user: ${s.userId})`)
+        roomSockets.map((s) => `${s.id} (user: ${s.userId})`),
       );
 
       // Broadcast viewer count to all in room
       io.to(`room:${data.streamId}`).emit("viewer-count", viewerCount);
       logger.debug(
-        `📊 Emitted viewer-count: ${viewerCount} to room:${data.streamId}`
+        `📊 Emitted viewer-count: ${viewerCount} to room:${data.streamId}`,
       );
 
       // Update DB stats in background
-      updateViewerStats(data.streamId, viewerCount).catch(err =>
-        logger.error('Failed to update viewer stats:', err)
+      updateViewerStats(data.streamId, viewerCount).catch((err) =>
+        logger.error("Failed to update viewer stats:", err),
       );
 
       socket.to(`room:${data.streamId}`).emit("viewer-joined", {
@@ -406,13 +435,15 @@ io.on("connection", (socket) => {
 
       socket.emit("stream-joined", { success: true });
       logger.info(
-        `User ${socket.userId} joined stream ${data.streamId}, total viewers: ${viewerCount}`
+        `User ${socket.userId} joined stream ${data.streamId}, total viewers: ${viewerCount}`,
       );
 
       // Update DB in background (non-blocking)
-      streamService.joinStream(socket.userId, data.streamId).catch(err => 
-        logger.error('Background joinStream DB update failed:', err)
-      );
+      streamService
+        .joinStream(socket.userId, data.streamId)
+        .catch((err) =>
+          logger.error("Background joinStream DB update failed:", err),
+        );
 
       if (callback) callback?.({ success: true });
     } catch (error) {
@@ -432,7 +463,6 @@ io.on("connection", (socket) => {
     }
   });
 
-
   socket.on("create-transport", async (data, callback) => {
     try {
       if (!data?.roomId || !data?.direction) {
@@ -446,7 +476,7 @@ io.on("connection", (socket) => {
       const transport = await streamService.createTransport(
         data.roomId,
         socket.userId,
-        data.direction
+        data.direction,
       );
 
       if (data.direction === "send") {
@@ -471,7 +501,7 @@ io.on("connection", (socket) => {
         data.roomId,
         socket.userId,
         data.transportId,
-        data.dtlsParameters
+        data.dtlsParameters,
       );
 
       callback?.({ success: true });
@@ -493,7 +523,7 @@ io.on("connection", (socket) => {
         data.transportId,
         data.rtpParameters,
         data.kind,
-        data.isScreenShare || false
+        data.isScreenShare || false,
       );
 
       socket.to(`room:${data.roomId}`).emit("new-producer", {
@@ -520,7 +550,7 @@ io.on("connection", (socket) => {
         data.roomId,
         socket.userId,
         data.producerId,
-        data.rtpCapabilities
+        data.rtpCapabilities,
       );
 
       callback?.(consumer);
@@ -535,7 +565,7 @@ io.on("connection", (socket) => {
       await streamService.resumeConsumer(
         data.roomId,
         socket.userId,
-        data.consumerId
+        data.consumerId,
       );
       if (callback) callback?.({ success: true });
     } catch (error) {
@@ -563,7 +593,7 @@ io.on("connection", (socket) => {
         }
       }
       logger.info(
-        `Found ${producers.length} existing producers for room ${data.roomId}`
+        `Found ${producers.length} existing producers for room ${data.roomId}`,
       );
       callback?.(producers);
     } catch (error) {
@@ -584,7 +614,9 @@ io.on("connection", (socket) => {
             producer.close();
             participant.producers.delete(producerId);
             socket.to(`room:${roomId}`).emit("producer-closed", { producerId });
-            logger.info(`Producer ${producerId} closed by user ${socket.userId}`);
+            logger.info(
+              `Producer ${producerId} closed by user ${socket.userId}`,
+            );
           }
         }
       }
@@ -611,7 +643,7 @@ io.on("connection", (socket) => {
       // Get current viewer count for this stream - count unique users
       const roomSockets = await io.in(`room:${streamId}`).fetchSockets();
       const uniqueUsers = new Set();
-      roomSockets.forEach(s => {
+      roomSockets.forEach((s) => {
         if (s.userId) uniqueUsers.add(s.userId);
       });
       const viewerCount = uniqueUsers.size - 1; // Subtract streamer
@@ -636,13 +668,31 @@ io.on("connection", (socket) => {
         data.roomId,
         data.content,
         data.type || "text",
-        socket.user?.username || "Anonymous"
+        socket.user?.username || "Anonymous",
       );
 
       // Increment chat message count in DB
-      incrementChatMessages(data.roomId).catch(err =>
-        logger.error('Failed to increment chat messages:', err)
+      incrementChatMessages(data.roomId).catch((err) =>
+        logger.error("Failed to increment chat messages:", err),
       );
+
+      logger.info(`Message mentions: ${JSON.stringify(message.mentions)}`);
+      
+      if (message.mentions?.length > 0) {
+        logger.info(`Processing ${message.mentions.length} mentions`);
+        for (const mentionedUserId of message.mentions) {
+          logger.info(`Creating notification for user: ${mentionedUserId}`);
+          const notification = await Notification.create({
+            userId: mentionedUserId,
+            type: "chat-mention",
+            title: "New Mention",
+            message: `${socket.user.username} mentioned you`,
+            data: { streamId: data.roomId },
+          });
+          logger.info(`Emitting notification to user-${mentionedUserId}`);
+          io.to(`user-${mentionedUserId}`).emit("notification", notification);
+        }
+      }
 
       io.to(`room:${data.roomId}`).emit("new-message", message);
       if (callback) callback?.({ success: true, message });
@@ -677,22 +727,22 @@ io.on("connection", (socket) => {
           await streamService.handleUserDisconnect(streamId, socket.userId);
 
           // Notify viewers about closed producers
-          closedProducers.forEach(producerId => {
+          closedProducers.forEach((producerId) => {
             socket.to(roomId).emit("producer-closed", { producerId });
           });
 
           // Update viewer count after disconnect - count unique users
           const roomSockets = await io.in(roomId).fetchSockets();
           const uniqueUsers = new Set();
-          roomSockets.forEach(s => {
+          roomSockets.forEach((s) => {
             if (s.userId && s.id !== socket.id) uniqueUsers.add(s.userId);
           });
           const finalCount = Math.max(0, uniqueUsers.size - 1); // Subtract streamer
           io.to(roomId).emit("viewer-count", finalCount);
-          
+
           // Update DB stats in background
-          updateViewerStats(streamId, finalCount).catch(err =>
-            logger.error('Failed to update viewer stats on disconnect:', err)
+          updateViewerStats(streamId, finalCount).catch((err) =>
+            logger.error("Failed to update viewer stats on disconnect:", err),
           );
           // io.emit("viewer-count", { streamId, count: finalCount });
 
@@ -702,7 +752,7 @@ io.on("connection", (socket) => {
         } catch (error) {
           logger.error(
             `Error handling disconnect from room ${roomId}: `,
-            error
+            error,
           );
         }
       }

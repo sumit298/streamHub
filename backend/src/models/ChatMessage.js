@@ -25,6 +25,7 @@ const chatMessageSchema = new mongoose.Schema(
       trim: true,
       maxlength: 500,
     },
+    mentions: [{ type: mongoose.Schema.Types.ObjectId, ref: "User"}],
     originalContent: {
       type: String, // Store original before sanitization for moderation
       maxlength: 500,

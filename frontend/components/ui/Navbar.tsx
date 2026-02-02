@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Input } from "./input";
 import { CreateStreamDialog } from "../CreateStreamDialog";
 import { useAuth } from "@/lib/AuthContext";
+import { NotificationBell } from "../NotificationBell";
 
 export const Navbar = () => {
   const [isCreateStreamOpen, setIsCreateStreamOpen] = useState(false);
@@ -36,9 +37,7 @@ export const Navbar = () => {
             >
               Go Live
             </Button>
-            <button className="p-2 hover:bg-surface rounded-lg transition-colors">
-              <Bell className="h-5 w-5 text-text-secondary" />
-            </button>
+            <NotificationBell />
             <Link
               href="/profile"
               title={user?.username || "Profile"}

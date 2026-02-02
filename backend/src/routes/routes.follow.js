@@ -2,6 +2,7 @@ const express = require("express");
 const { Follow, User } = require("../models");
 const AuthMiddleWare = require("../middleware/middleware.auth");
 const Stream = require("../models/Stream");
+const Notification = require("../models/Notification");
 
 module.exports = (logger) => {
   const router = express.Router();
@@ -52,6 +53,23 @@ module.exports = (logger) => {
         await User.findByIdAndUpdate(followerId, {
           $inc: { "stats.following": 1 },
         });
+
+        const notification = await Notification.create({
+          userId,
+          type: "new-follower",
+          title: "New Follower",
+          message: `${req.user.username} started following you`,
+          data: {
+            followerId,
+            followerUsername: req.user.username,
+            followerAvatar: req.user.avatar,
+          },
+        });
+
+        req.app
+          .get("io")
+          .to(`user-${userId}`)
+          .emit("notification", notification);
 
         logger.info(`User ${followerId} followed user ${userId}`);
 

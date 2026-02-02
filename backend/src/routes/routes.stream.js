@@ -598,6 +598,25 @@ module.exports = (streamService, logger, AuthMiddleWare, cacheService) => {
     },
   );
 
+  // GET /api/streams/:id/viewers - Get active viewers in stream
+  router.get(
+    "/:id/viewers",
+    AuthMiddleWare.authenticate,
+    streamQueryLimiter,
+    [param("id").notEmpty().withMessage("Stream ID is required")],
+    async (req, res) => {
+      try {
+        const io = req.app.get("io");
+        const sockets = await io.in(`room:${req.params.id}`).fetchSockets();
+        const viewers = [...new Set(sockets.map(s => s.user).filter(Boolean))];
+        res.json({ viewers });
+      } catch (error) {
+        logger.error("Get viewers error:", error);
+        res.status(500).json({ error: "Failed to fetch viewers" });
+      }
+    },
+  );
+
   // GET /api/streams/:id/stats - Get stream analytics
   router.get(
     "/:id/stats",
