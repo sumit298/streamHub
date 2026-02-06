@@ -1,6 +1,7 @@
 const { v4: uuidv4 } = require("uuid");
-const { ChatMessage } = require("../models");
+const { ChatMessage, User } = require("../models");
 const sanitizeHtml = require("sanitize-html");
+
 
 class ChatService {
   constructor(messageQueue, cacheService, logger) {
@@ -26,6 +27,17 @@ class ChatService {
         throw new Error("Message too long");
       }
 
+      const mentionRegex = /@(\w+)/g;
+      const mentions = [];
+      let match;
+      while((match = mentionRegex.exec(content))!== null){
+        const mentionedUser = await User.findOne({username: match[1]});
+        if(mentionedUser) mentions.push(mentionedUser._id);
+      }
+
+      // Get user avatar
+      const user = await User.findById(userId).select('avatar');
+
       // Check rate limit (disabled for testing)
       if (this.cacheService) {
         // const rateLimitKey = `chat:ratelimit:${userId}`;
@@ -40,7 +52,9 @@ class ChatService {
         id: uuidv4(),
         userId,
         username,
+        avatar: user?.avatar,
         streamId,
+        mentions,
         content: sanitizeHtml(content.trim(), {
           allowedTags: [],
           allowedAttributes: {},
@@ -54,7 +68,7 @@ class ChatService {
 
       // Add to cache (disabled for testing)
       if (this.cacheService) {
-        // await this.cacheService.addChatMessage(streamId, message);
+        await this.cacheService.addChatMessage(streamId, message);
       }
 
       // Save to database
