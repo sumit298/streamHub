@@ -74,7 +74,7 @@ const Profile = () => {
                                 <div className="bg-card rounded-lg p-8 mb-6">
                                     <div className="flex items-center gap-6 mb-6">
                                         <img 
-                                            src={getAvatarUrl(profile.username, profile.avatar)} 
+                                            src={getAvatarUrl(profile.avatar, profile.username)} 
                                             alt={profile.username}
                                             className="w-24 h-24 rounded-full bg-gray-700"
                                         />

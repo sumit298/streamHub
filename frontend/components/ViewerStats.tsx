@@ -7,12 +7,7 @@ interface ViewerStatsProps {
 export default function ViewerStats({ viewerCount, duration, isLive }: ViewerStatsProps) {
   return (
     <div className="flex items-center gap-3 text-sm">
-      {isLive && (
-        <span className="flex items-center gap-1.5 px-3 py-1.5 bg-red-600/20 text-red-500 rounded-full font-medium">
-          <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>
-          LIVE
-        </span>
-      )}
+      
       
       <span className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-750 text-white rounded-full">
         <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">

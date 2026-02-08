@@ -53,13 +53,13 @@ export const FollowButton = ({
     <button
       onClick={handleFollow}
       disabled={loading}
-      className={`px-6 py-2 rounded-lg font-medium transition ${
+      className={`px-3 py-1 rounded-full text-xs font-semibold transition-all ${
         isFollowing
-          ? "bg-gray-600 hover:bg-gray-700 text-white"
+          ? "bg-white/10 hover:bg-white/20 text-white border border-white/20"
           : "bg-purple-600 hover:bg-purple-700 text-white"
-      } disabled:opacity-50`}
+      } disabled:opacity-50 disabled:cursor-not-allowed`}
     >
-      {loading ? "Loading..." : isFollowing ? "Following" : "Follow"}
+      {loading ? "..." : isFollowing ? "Following" : "Follow"}
     </button>
   );
 };

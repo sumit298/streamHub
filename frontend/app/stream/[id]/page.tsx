@@ -71,6 +71,8 @@ const StreamsPage = () => {
     };
     checkMobile();
 
+    
+
     // Fetch stream info
     const fetchStreamInfo = async () => {
       try {
@@ -92,6 +94,19 @@ const StreamsPage = () => {
     };
     fetchStreamInfo();
   }, [params.id]);
+
+  useEffect(() => {
+  if (!isStreaming) return;
+
+  const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+    e.preventDefault();
+    e.returnValue = 'You are currently live. End your stream before leaving.';
+  };
+
+  window.addEventListener('beforeunload', handleBeforeUnload);
+  return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+}, [isStreaming]);
+
 
   useEffect(() => {
     const newSocket = io(
@@ -738,7 +753,7 @@ const StreamsPage = () => {
             </a>
             <div>
               <h1 className="text-lg font-semibold text-white">{streamInfo?.title || "Stream Studio"}</h1>
-              <p className="text-xs text-gray-400">ID: {params.id}</p>
+              <p className="hidden lg:block text-xs text-gray-400">ID: {params.id}</p>
             </div>
           </div>
           <div className="flex items-center gap-4">
@@ -761,11 +776,11 @@ const StreamsPage = () => {
         </div>
       </div>
 
-      <div className="h-[calc(100vh-64px)] flex flex-col">
-        <div className="flex flex-1 overflow-hidden">
+      <div className="h-[calc(100vh-64px)] flex flex-col lg:flex-row overflow-y-auto">
+        <div className="flex flex-1 flex-col lg:flex-row">
           {/* Main Video Area */}
-          <div className="flex-1 flex flex-col p-4">
-            <div className="flex-1 bg-black rounded-2xl overflow-hidden relative">
+          <div className="flex-1 flex flex-col p-3 ">
+            <div className="h-[80vh] lg:flex-1 bg-black rounded-2xl overflow-y-auto relative overflow-scroll">
               <video
                 ref={videoRef}
                 autoPlay
@@ -987,7 +1002,7 @@ const StreamsPage = () => {
             </div>
 
             {/* Share Stream */}
-            <div className="bg-gray-900/50 backdrop-blur-sm rounded-2xl p-4">
+            {/* <div className="bg-gray-900/50 backdrop-blur-sm rounded-2xl p-4">
               <h3 className="font-semibold mb-3 flex items-center gap-2 text-white">
                 <svg
                   className="w-5 h-5"
@@ -1023,7 +1038,7 @@ const StreamsPage = () => {
                 </svg>
                 Copy Link
               </button>
-            </div>
+            </div> */}
           </div>
         </div>
       </div>

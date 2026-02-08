@@ -163,13 +163,11 @@ export default function ChatPanel({
 
   return (
     <div className="flex flex-col h-full bg-gray-900/50 backdrop-blur-sm rounded-2xl">
-      <div className="p-4 border-b border-gray-700">
-        <h3 className="font-semibold text-white">Live Chat</h3>
-      </div>
+      
       
       <div className="flex-1 overflow-y-auto py-2 space-y-1">
         {messages.map((msg) => (
-          <div key={msg.id} className="flex items-center py-1 gap-1 hover:bg-gray-800/50 rounded">
+          <div key={msg.id} className="flex items-start py-1 gap-1 hover:bg-gray-800/50 rounded">
             <span className="text-xs text-gray-500 flex-shrink-0 w-12 text-right">
               {formatTime(msg.timestamp)}
             </span>

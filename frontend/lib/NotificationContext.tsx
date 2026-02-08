@@ -53,29 +53,49 @@ export function NotificationProvider({
           <div
             className={`${
               t.visible ? "animate-slideInRight" : "animate-slideOutRight"
-            } max-w-md w-full bg-gradient-to-r from-gray-800 to-gray-900 shadow-2xl rounded-lg pointer-events-auto flex ring-1 ring-white/10 backdrop-blur-sm`}
+            } max-w-md w-full bg-gradient-to-r from-gray-800 to-gray-900 shadow-2xl rounded-xl pointer-events-auto flex ring-1 ring-white/10 backdrop-blur-sm overflow-hidden`}
           >
             <div className="flex-1 w-0 p-4">
               <div className="flex items-start gap-3">
-                <div className="flex-shrink-0 text-2xl">
-                  {notification.type === "stream-live" && "🔴"}
-                  {notification.type === "chat-mention" && "💬"}
-                  {notification.type === "new-follower" && "👤"}
-                </div>
+                {notification.type === "stream-live" && notification.data?.streamerAvatar ? (
+                  <img
+                    src={notification.data.streamerAvatar.startsWith('http') 
+                      ? notification.data.streamerAvatar 
+                      : `https://api.dicebear.com/7.x/avataaars/svg?seed=${notification.data.streamerUsername}`}
+                    alt={notification.data.streamerUsername}
+                    className="w-10 h-10 rounded-full flex-shrink-0 ring-2 ring-red-500"
+                  />
+                ) : (
+                  <div className="flex-shrink-0 text-2xl">
+                    {notification.type === "stream-live" && "🔴"}
+                    {notification.type === "chat-mention" && "💬"}
+                    {notification.type === "new-follower" && "👤"}
+                  </div>
+                )}
                 <div className="flex-1">
-                  <p className="text-sm font-semibold text-white">
-                    {notification.title}
-                  </p>
-                  <p className="mt-1 text-sm text-gray-300">
+                  <div className="flex items-center gap-2 mb-1">
+                    {notification.type === "stream-live" && (
+                      <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>
+                    )}
+                    <p className="text-sm font-semibold text-white">
+                      {notification.title}
+                    </p>
+                  </div>
+                  <p className="text-sm text-gray-300 line-clamp-2">
                     {notification.message}
                   </p>
+                  {notification.data?.streamCategory && (
+                    <span className="inline-block text-xs bg-purple-500/20 text-purple-300 px-2 py-0.5 rounded-full mt-1">
+                      {notification.data.streamCategory}
+                    </span>
+                  )}
                 </div>
               </div>
             </div>
             <div className="flex border-l border-gray-700">
               <button
                 onClick={() => toast.dismiss(t.id)}
-                className="w-full border border-transparent rounded-none rounded-r-lg p-4 flex items-center justify-center text-sm font-medium text-gray-400 hover:text-white transition-colors"
+                className="w-full border border-transparent rounded-none rounded-r-xl p-4 flex items-center justify-center text-sm font-medium text-gray-400 hover:text-white transition-colors"
               >
                 <X className="h-4 w-4" />
               </button>

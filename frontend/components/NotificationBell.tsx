@@ -4,15 +4,30 @@ import { Bell } from "lucide-react";
 import { useState, useEffect } from "react";
 import { api } from "@/lib/AuthContext";
 import { NotificationPanel } from "./NotificationPanel";
+import { useNotifications } from "@/lib/NotificationContext";
 
 export const NotificationBell = () => {
   const [unreadCount, setUnreadCount] = useState(0);
   const [isOpen, setIsOpen] = useState(false);
   const [shake, setShake] = useState(false);
+  const { socket } = useNotifications();
 
   useEffect(() => {
     fetchUnreadCount();
   }, []);
+
+  useEffect(()=> {
+    if(!socket) return;
+
+    const handleNotification = ()=> {
+      fetchUnreadCount();
+
+    }
+    socket.on("notification", handleNotification);  
+    return () => {
+      socket.off("notification", handleNotification);
+    } 
+  }, [socket])
 
   const fetchUnreadCount = async () => {
     try {
