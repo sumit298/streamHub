@@ -1150,7 +1150,7 @@ const WatchPage = () => {
 
               {/* Camera - Picture in Picture */}
               <div
-                className={`absolute w-40 h-24 md:w-64 md:h-36 bg-gray-800 rounded-lg overflow-hidden border-2 border-gray-700 shadow-xl cursor-move touch-none ${!cameraStreamRef.current ? "hidden" : ""}`}
+                className={`absolute w-32 h-20 landscape:w-40 landscape:h-24 md:w-64 md:h-36 bg-gray-800 rounded-lg overflow-hidden border-2 border-gray-700 shadow-xl cursor-move touch-none ${!cameraStreamRef.current ? "hidden" : ""}`}
 
                 style={{
                   left: `${pipPosition.x}px`,
