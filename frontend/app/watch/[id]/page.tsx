@@ -1079,7 +1079,9 @@ const WatchPage = () => {
                 <span className="text-white text-sm font-medium">
                   {streamerInfo.username}
                 </span>
-                <FollowButton userId={streamerInfo._id || streamerInfo.id}/>
+                <div className="hidden landscape:inline-flex md:inline-flex">
+                  <FollowButton userId={streamerInfo._id || streamerInfo.id}/>
+                </div>
               </div>
             )}
           </div>
