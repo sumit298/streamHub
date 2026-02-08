@@ -1070,7 +1070,7 @@ const WatchPage = () => {
               </span>
             </div>
             {streamerInfo && (
-              <div className="bg-black/60 backdrop-blur-sm p-3 hover:bg-black/70 transition pl-2 pr-1 py-1 rounded-lg flex items-center gap-2 border border-white/20">
+              <div className="hidden landscape:flex md:flex bg-black/60 backdrop-blur-sm p-3 hover:bg-black/70 transition pl-2 pr-1 py-1 rounded-lg items-center gap-2 border border-white/20">
                 <img
                   src={getAvatarUrl(streamerInfo.avatar, streamerInfo.username)}
                   alt={streamerInfo.username}
@@ -1079,9 +1079,7 @@ const WatchPage = () => {
                 <span className="text-white text-sm font-medium">
                   {streamerInfo.username}
                 </span>
-                <div className="hidden landscape:inline-flex md:inline-flex">
-                  <FollowButton userId={streamerInfo._id || streamerInfo.id}/>
-                </div>
+                <FollowButton userId={streamerInfo._id || streamerInfo.id}/>
               </div>
             )}
           </div>
