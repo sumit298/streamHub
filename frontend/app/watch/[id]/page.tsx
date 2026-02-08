@@ -117,38 +117,64 @@ const WatchPage = () => {
       document.removeEventListener("fullscreenchange", handleFullscreenChange);
   }, []);
 
-  const handlePipMouseDown = (e: React.MouseEvent) => {
+  const handlePipStart = (clientX: number, clientY: number) => {
     setIsDragging(true);
     dragStart.current = {
-      x: e.clientX - pipPosition.x,
-      y: e.clientY - pipPosition.y,
+      x: clientX - pipPosition.x,
+      y: clientY - pipPosition.y,
     };
+  }
+
+  const handlePipMouseDown = (e: React.MouseEvent) => {
+   e.preventDefault();
+   handlePipStart(e.clientX, e.clientY)
   };
 
+  const handlePipTouchStart = (e: React.TouchEvent) => {
+    e.preventDefault();
+    const touch = e.touches[0];
+    handlePipStart(touch.clientX, touch.clientY)
+  }
+
   useEffect(() => {
-    const handleMouseMove = (e: MouseEvent) => {
-      if (isDragging) {
-        setPipPosition({
-          x: e.clientX - dragStart.current.x,
-          y: e.clientY - dragStart.current.y,
-        });
-      }
-    };
-
-    const handleMouseUp = () => {
-      setIsDragging(false);
-    };
-
+  const handleMove = (clientX: number, clientY: number) => {
     if (isDragging) {
-      document.addEventListener("mousemove", handleMouseMove);
-      document.addEventListener("mouseup", handleMouseUp);
+      setPipPosition({
+        x: clientX - dragStart.current.x,
+        y: clientY - dragStart.current.y,
+      });
     }
+  };
 
-    return () => {
-      document.removeEventListener("mousemove", handleMouseMove);
-      document.removeEventListener("mouseup", handleMouseUp);
-    };
-  }, [isDragging]);
+  const handleMouseMove = (e: MouseEvent) => {
+    handleMove(e.clientX, e.clientY);
+  };
+
+  const handleTouchMove = (e: TouchEvent) => {
+    if (e.touches.length > 0) {
+      handleMove(e.touches[0].clientX, e.touches[0].clientY);
+    }
+  };
+
+  const handleEnd = () => {
+    setIsDragging(false);
+  };
+
+  if (isDragging) {
+    document.addEventListener("mousemove", handleMouseMove);
+    document.addEventListener("mouseup", handleEnd);
+    document.addEventListener("touchmove", handleTouchMove);
+    document.addEventListener("touchend", handleEnd);
+  }
+
+  return () => {
+    document.removeEventListener("mousemove", handleMouseMove);
+    document.removeEventListener("mouseup", handleEnd);
+    document.removeEventListener("touchmove", handleTouchMove);
+    document.removeEventListener("touchend", handleEnd);
+  };
+}, [isDragging]);
+
 
   useEffect(() => {
     // Reset on mount
@@ -1018,89 +1044,16 @@ const WatchPage = () => {
         </div>
       )}
 
-      {/* Header - Hidden, only show meeting code */}
-      <div className="absolute top-4 left-4 z-20 flex items-center gap-3">
-        {/* Stream Timer */}
-        <div className="bg-white/10 backdrop-blur-md px-4 py-2 rounded-lg flex items-center gap-2 border border-white/20">
-          <svg
-            className="w-4 h-4 text-white"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-            />
-          </svg>
-          <span className="text-white text-sm font-medium">
-            {formatDuration(duration)}
-          </span>
-        </div>
-        {streamerInfo && (
-          <div className="bg-white/10 backdrop-blur-md px-3 py-2 rounded-lg flex items-center gap-3 border border-white/20">
-            <div className="flex items-center gap-2">
-              <img
-                src={getAvatarUrl(streamerInfo.username, streamerInfo.avatar)}
-                alt={streamerInfo.username}
-                className="w-8 h-8 rounded-full"
-              />
-              <span className="text-white text-sm font-medium">
-                {streamerInfo.username}
-              </span>
-            </div>
-            <FollowButton userId={streamerInfo._id || streamerInfo.id}/>
-          </div>
-        )}
-      </div>
-
-      {/* Viewer count and participants - Top Right */}
-      <div className="absolute top-4 right-4 z-20 flex items-center gap-2">
-        <button
-          onClick={() => setShowMobileChat(true)}
-          className="bg-black/50 backdrop-blur-sm p-3 rounded-lg hover:bg-black/70 transition"
-        >
-          <svg
-            className="w-5 h-5 text-white"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
-            />
-          </svg>
-        </button>
-        <button className="bg-black/50 backdrop-blur-sm px-4 py-3 rounded-lg hover:bg-black/70 transition flex items-center gap-2">
-          <svg
-            className="w-5 h-5 text-white"
-            fill="currentColor"
-            viewBox="0 0 20 20"
-          >
-            <path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z" />
-          </svg>
-          <span className="text-white font-medium">{viewerCount}</span>
-        </button>
-      </div>
-
-      {/* Chat Sidebar */}
-      <div
-        className={`fixed top-0 right-0 h-full w-80 bg-gray-900 shadow-2xl z-40 transition-transform duration-300 ${showMobileChat ? "translate-x-0" : "translate-x-full"}`}
-      >
-        <div className="h-full flex flex-col">
-          <div className="flex items-center justify-between p-4 border-b border-gray-700">
-            <h3 className="text-lg font-semibold text-white">Chat</h3>
-            <button
-              onClick={() => setShowMobileChat(false)}
-              className="text-white hover:text-gray-400 transition"
-            >
+      {/* Chat Sidebar - Pushes content */}
+      <div className="h-screen flex">
+        {/* Main Video Area */}
+        <div className="flex-1 relative">
+          {/* Header */}
+          <div className="absolute top-4 left-4 z-20 flex items-center gap-2">
+            {/* Stream Timer */}
+            <div className="bg-black/70 backdrop-blur-sm p-3 rounded-lg hover:bg-black/70 transition px-3 py-1.5 flex items-center gap-2 border border-white/20">
               <svg
-                className="w-6 h-6"
+                className="w-4 h-4 text-white"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -1109,24 +1062,59 @@ const WatchPage = () => {
                   strokeLinecap="round"
                   strokeLinejoin="round"
                   strokeWidth={2}
-                  d="M6 18L18 6M6 6l12 12"
+                  d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
+              </svg>
+              <span className="text-white text-sm font-medium">
+                {formatDuration(duration)}
+              </span>
+            </div>
+            {streamerInfo && (
+              <div className="bg-black/60 backdrop-blur-sm p-3 hover:bg-black/70 transition pl-2 pr-1 py-1 rounded-lg flex items-center gap-2 border border-white/20">
+                <img
+                  src={getAvatarUrl(streamerInfo.username, streamerInfo.avatar)}
+                  alt={streamerInfo.username}
+                  className="w-5 h-5 rounded-full"
+                />
+                <span className="text-white text-sm font-medium">
+                  {streamerInfo.username}
+                </span>
+                <FollowButton userId={streamerInfo._id || streamerInfo.id}/>
+              </div>
+            )}
+          </div>
+
+          {/* Top Right Controls */}
+          <div className="absolute top-4 right-4 z-20 flex items-center gap-2">
+            <button className="bg-black/50 backdrop-blur-sm px-4 py-2 rounded-lg hover:bg-black/70 transition flex items-center gap-2">
+              <svg
+                className="w-4 h-4 text-white"
+                fill="currentColor"
+                viewBox="0 0 20 20"
+              >
+                <path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z" />
+              </svg>
+              <span className="text-white font-medium">{viewerCount}</span>
+            </button>
+            <button
+              onClick={() => setShowMobileChat(!showMobileChat)}
+              className="bg-black/60 backdrop-blur-sm p-3 rounded-lg hover:bg-black/70 transition"
+            >
+              <svg
+                className="w-4 h-4 text-white"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
                 />
               </svg>
             </button>
           </div>
-          <div className="flex-1 overflow-hidden">
-            <ChatPanel
-              socket={socket}
-              streamId={params.id as string}
-              username={user?.username || "Anonymous"}
-            />
-          </div>
-        </div>
-      </div>
-
-      <div className="h-screen flex">
-        {/* Main Video Area - Full Screen */}
-        <div className="flex-1 relative">
           {screenStream && screenProducerIds.current.size > 0 ? (
             /* Screen Share with Camera PiP */
             <div
@@ -1162,12 +1150,14 @@ const WatchPage = () => {
 
               {/* Camera - Picture in Picture */}
               <div
-                className={`absolute w-64 h-36 bg-gray-800 rounded-lg overflow-hidden border-2 border-gray-700 shadow-xl cursor-move ${!cameraStreamRef.current ? "hidden" : ""}`}
+                className={`absolute w-64 h-36 bg-gray-800 rounded-lg overflow-hidden border-2 border-gray-700 shadow-xl cursor-move touch-none ${!cameraStreamRef.current ? "hidden" : ""}`}
+
                 style={{
                   left: `${pipPosition.x}px`,
                   top: `${pipPosition.y}px`,
                 }}
                 onMouseDown={handlePipMouseDown}
+                onTouchStart={handlePipTouchStart}
               >
                 <video
                   ref={pipVideoRef}
@@ -1221,30 +1211,43 @@ const WatchPage = () => {
                   </div>
                 </div>
               )}
-              {/* {!isLoading && isMuted && (
-                  <button
-                    onClick={toggleMute}
-                    className="absolute bottom-4 right-4 bg-white hover:bg-gray-100 text-black px-4 py-2 rounded-xl font-semibold transition flex items-center gap-2 shadow-lg"
-                  >
-                    <svg
-                      className="w-5 h-5"
-                      fill="currentColor"
-                      viewBox="0 0 20 20"
-                    >
-                      <path
-                        fillRule="evenodd"
-                        d="M9.383 3.076A1 1 0 0110 4v12a1 1 0 01-1.707.707L4.586 13H2a1 1 0 01-1-1V8a1 1 0 011-1h2.586l3.707-3.707a1 1 0 011.09-.217zM12.293 7.293a1 1 0 011.414 0L15 8.586l1.293-1.293a1 1 0 111.414 1.414L16.414 10l1.293 1.293a1 1 0 01-1.414 1.414L15 11.414l-1.293 1.293a1 1 0 01-1.414-1.414L13.586 10l-1.293-1.293a1 1 0 010-1.414z"
-                        clipRule="evenodd"
-                      />
-                    </svg>
-                    Click to Unmute
-                  </button>
-                )} */}
             </div>
           )}
         </div>
 
-        {/* Chat Sidebar - Hidden by default, toggle with button */}
+        {/* Chat Sidebar */}
+        <div className={`bg-gray-900 border-l border-gray-800 flex-shrink-0 transition-all duration-300 overflow-hidden ${showMobileChat ? 'w-80' : 'w-0 border-0'}`}>
+          <div className="h-full flex flex-col w-80">
+            <div className="flex items-center justify-between p-4 border-b border-gray-700">
+              <h3 className="text-lg font-semibold text-white">Live Chat</h3>
+              <button
+                onClick={() => setShowMobileChat(false)}
+                className="text-gray-400 hover:text-white transition"
+              >
+                <svg
+                  className="w-5 h-5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                </svg>
+              </button>
+            </div>
+            <div className="flex-1 overflow-hidden">
+              <ChatPanel
+                socket={socket}
+                streamId={params.id as string}
+                username={user?.username || "Anonymous"}
+              />
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Bottom Control Bar - Floating */}

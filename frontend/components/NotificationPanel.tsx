@@ -3,7 +3,9 @@
 import { useEffect, useState } from "react";
 import { api } from "@/lib/AuthContext";
 import { useRouter } from "next/navigation";
-import { Bell, Check, X } from "lucide-react";
+import { Bell, Check, X, Play } from "lucide-react";
+import { useNotifications } from "@/lib/NotificationContext";
+import { getAvatarUrl } from "@/lib/avatar";
 
 interface Notification {
   _id: string;
@@ -15,6 +17,9 @@ interface Notification {
   data?: {
     streamId?: string;
     streamTitle?: string;
+    streamCategory?: string;
+    streamerUsername?: string;
+    streamerAvatar?: string;
     followerId?: string;
     followerUsername?: string;
   };
@@ -29,11 +34,26 @@ export const NotificationPanel = ({
 }) => {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
+  const [checkingStreams, setCheckingStreams] = useState<Set<string>>(new Set());
   const router = useRouter();
+  const { socket } = useNotifications();
 
   useEffect(() => {
     fetchNotifications();
   }, []);
+
+  useEffect(() => {
+    if (!socket) return;
+    
+    const handleNotification = () => {
+      fetchNotifications();
+    };
+    
+    socket.on("notification", handleNotification);
+    return () => {
+      socket.off("notification", handleNotification);
+    };
+  }, [socket]);
 
   const fetchNotifications = async () => {
     try {
@@ -68,11 +88,32 @@ export const NotificationPanel = ({
     }
   };
 
-  const handleNotificationClick = (notification: Notification) => {
-    markAsRead(notification._id);
-    if (notification.data?.streamId) {
-      router.push(`/watch/${notification.data.streamId}`);
-      onClose();
+  const handleNotificationClick = async (notification: Notification) => {
+    if (notification.type === "stream-live" && notification.data?.streamId) {
+      setCheckingStreams(prev => new Set(prev).add(notification._id));
+      
+      try {
+        const { data } = await api.get(`/api/streams/${notification.data.streamId}`);
+        
+        if (data.stream?.isLive) {
+          markAsRead(notification._id);
+          router.push(`/watch/${notification.data.streamId}`);
+          onClose();
+        } else {
+          alert("This stream has ended");
+        }
+      } catch (error) {
+        console.error("Failed to check stream:", error);
+        alert("Stream not found or has ended");
+      } finally {
+        setCheckingStreams(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(notification._id);
+          return newSet;
+        });
+      }
+    } else {
+      markAsRead(notification._id);
     }
   };
 
@@ -101,9 +142,9 @@ export const NotificationPanel = ({
 
   return (
     <>
-      <div className="fixed inset-0 z-40" onClick={onClose} />
-      <div className="absolute right-0 mt-2 w-96 bg-card border border-gray-700 rounded-lg shadow-2xl z-50 max-h-[32rem] overflow-hidden animate-slideDown">
-        <div className="p-4 border-b border-gray-700 flex justify-between items-center bg-gradient-to-r from-gray-800 to-gray-900">
+      <div className="fixed inset-0 z-40 text-white" onClick={onClose} />
+      <div className="absolute right-0 mt-2 w-96 bg-gray-900 border border-gray-700 rounded-xl shadow-2xl z-50 max-h-[32rem] overflow-hidden">
+        <div className="p-4 border-b border-gray-700 flex justify-between items-center bg-gray-800">
           <div className="flex items-center gap-2">
             <Bell className="h-5 w-5 text-blue-400" />
             <h3 className="font-semibold text-white">Notifications</h3>
@@ -126,7 +167,7 @@ export const NotificationPanel = ({
             </button>
           </div>
         </div>
-        <div className="overflow-y-auto max-h-[28rem] custom-scrollbar">
+        <div className="overflow-y-auto max-h-[28rem]">
           {loading ? (
             <div className="p-8 text-center">
               <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-blue-500 border-r-transparent"></div>
@@ -141,37 +182,68 @@ export const NotificationPanel = ({
               </p>
             </div>
           ) : (
-            <div className="divide-y divide-gray-700">
-              {notifications.map((notification, index) => (
+            <div className="divide-y divide-gray-800">
+              {notifications.map((notification) => (
                 <div
                   key={notification._id}
                   onClick={() => handleNotificationClick(notification)}
-                  className={`p-4 hover:bg-gray-800/50 cursor-pointer transition-all duration-200 transform hover:scale-[1.02] ${
-                    !notification.read
-                      ? "bg-blue-900/10 border-l-2 border-blue-500"
-                      : ""
-                  } animate-fadeIn`}
-                  style={{ animationDelay: `${index * 50}ms` }}
+                  className={`p-4 hover:bg-gray-800/50 cursor-pointer transition-all ${
+                    !notification.read ? "bg-blue-500/5" : ""
+                  }`}
                 >
-                  <div className="flex items-start gap-3">
-                    <div className="text-2xl flex-shrink-0 mt-1">
-                      {getNotificationIcon(notification.type)}
+                  {notification.type === "stream-live" ? (
+                    <div className="flex items-center gap-3">
+                      <div className="relative">
+                        <img
+                          src={getAvatarUrl(notification.data?.streamerAvatar, notification.data?.streamerUsername)}
+                          alt={notification.data?.streamerUsername}
+                          className="w-12 h-12 rounded-full"
+                        />
+                        
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <p className="text-sm font-semibold text-white">
+                            {notification.data?.streamerUsername || notification.title}
+                          </p>
+                          <span className="text-xs text-gray-500">•</span>
+                          <span className="text-xs text-gray-400">{getTimeAgo(notification.createdAt)}</span>
+                        </div>
+                        <p className="text-sm text-gray-300 mb-1">
+                          {notification.data?.streamTitle || notification.message}
+                        </p>
+                        {notification.data?.streamCategory && (
+                          <span className="inline-block text-xs bg-purple-600/30 text-purple-300 px-2 py-0.5 rounded-md font-medium">
+                            {notification.data.streamCategory}
+                          </span>
+                        )}
+                      </div>
+                      {!notification.read && (
+                        <div className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0" />
+                      )}
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-white truncate">
-                        {notification.title}
-                      </p>
-                      <p className="text-xs text-gray-400 mt-1 line-clamp-2">
-                        {notification.message}
-                      </p>
-                      <p className="text-xs text-gray-500 mt-2 flex items-center gap-1">
-                        <span>{getTimeAgo(notification.createdAt)}</span>
-                      </p>
+                  ) : (
+                    <div className="flex items-center gap-3">
+                      <div className="w-12 h-12 bg-gray-800 rounded-full flex items-center justify-center text-2xl">
+                        {getNotificationIcon(notification.type)}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <p className="text-sm font-semibold text-white">
+                            {notification.title}
+                          </p>
+                          <span className="text-xs text-gray-500">•</span>
+                          <span className="text-xs text-gray-400">{getTimeAgo(notification.createdAt)}</span>
+                        </div>
+                        <p className="text-sm text-gray-300">
+                          {notification.message}
+                        </p>
+                      </div>
+                      {!notification.read && (
+                        <div className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0" />
+                      )}
                     </div>
-                    {!notification.read && (
-                      <div className="w-2 h-2 bg-blue-500 rounded-full mt-2 flex-shrink-0 animate-pulse" />
-                    )}
-                  </div>
+                  )}
                 </div>
               ))}
             </div>

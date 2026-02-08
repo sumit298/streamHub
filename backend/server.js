@@ -102,7 +102,7 @@ app.use(cookieParser());
 // Rate Limiter
 const generateLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 1000,
+  max: 10000,
   message: "Too many requests from this ip",
   skip: (req) => {
     // Skip rate limiting for frequently-called authenticated endpoints
@@ -112,7 +112,7 @@ const generateLimiter = rateLimit({
 
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 20, // Increased from 10 to 20 for /me endpoint
+  max: 200, // Increased from 10 to 20 for /me endpoint
   message: "Too many authentication requests",
   skip: (req) => {
     // Skip rate limiting for /me and /refresh-token endpoints
@@ -208,6 +208,7 @@ async function initializeServices() {
       cacheService,
       logger,
     );
+    streamService.io = io;
     chatService = new ChatService(messageQueue, cacheService, logger);
 
     // Register routes after services are initialized
@@ -282,9 +283,14 @@ const activeConnections = new Map();
 io.on("connection", (socket) => {
   logger.info(`Client connected: ${socket.id}, User: ${socket.userId}`);
 
-  socket.join(`user-${socket.userId}`);
   logger.info(`👤 User ${socket.userId} joined room: user-${socket.userId}`);
 
+  const userId = socket.userId || socket.user?._id || socket.user?.id;
+
+  if(userId){
+    socket.join(`user:${userId.toString()}`);
+    logger.info(`User ${userId} joined notification room: user:${userId}`)
+  }
   activeConnections.set(socket.id, {
     userId: socket.userId,
     connectedAt: Date.now(),
@@ -307,17 +313,17 @@ io.on("connection", (socket) => {
       logger.info(`Stream created: ${stream.id} by user: ${socket.userId}`);
       //   metricsService.incrementActiveStreams();
       
-      const followers = await Follow.find({ followingId: socket.userId}).select('followerId');
-      for(const follow of followers){
-        const notification = await Notification.create({
-          userId: follow.followerId,
-          type: 'stream-live',
-          title: "Stream Started",
-          message: `${socket.user.username} is now live`,
-          data: { streamId: stream.id, streamTitle: stream.title}
-        });
-        io.to(`user-${follow.followerId}`).emit("notification", notification)
-      }
+      // const followers = await Follow.find({ followingId: socket.userId}).select('followerId');
+      // for(const follow of followers){
+      //   const notification = await Notification.create({
+      //     userId: follow.followerId,
+      //     type: 'stream-live',
+      //     title: "Stream Started",
+      //     message: `${socket.user.username} is now live`,
+      //     data: { streamId: stream.id, streamTitle: stream.title}
+      //   });
+      //   io.to(`user-${follow.followerId}`).emit("notification", notification)
+      // }
 
       if (callback) callback?.({ success: true, stream });
     } catch (error) {
@@ -326,29 +332,29 @@ io.on("connection", (socket) => {
     }
   });
 
-  // when a stream goes live, notify followers
-  socket.on('stream-started', async ({streamId})=> {
-    try {
-      const stream = await Stream.findById(streamId).populate('userId');
-      if(!stream) return;
+  // // when a stream goes live, notify followers
+  // socket.on('stream-started', async ({streamId})=> {
+  //   try {
+  //     const stream = await Stream.findById(streamId).populate('userId');
+  //     if(!stream) return;
 
-      const Follow = require('./src/models/Follow');
-      const followers = await Follow.find({followingId: stream.userId._id});
+  //     const Follow = require('./src/models/Follow');
+  //     const followers = await Follow.find({followingId: stream.userId._id});
 
-      // Emit to all followers
-      followers.forEach((follow)=> {
-        io.to(`user-${follow.followerId}`).emit('streamer-live', {
-          streamerId: stream.userId._id,
-          streamerName: stream.userId.username,
-          streamId: stream._id,
-          streamTitle: stream.title,  
-          category: stream.category
-        });
-      })
-    } catch (error) {
-      logger.error('Stream notification error: ', error)
-    }
-  })
+  //     // Emit to all followers
+  //     followers.forEach((follow)=> {
+  //       io.to(`user-${follow.followerId}`).emit('streamer-live', {
+  //         streamerId: stream.userId._id,
+  //         streamerName: stream.userId.username,
+  //         streamId: stream._id,
+  //         streamTitle: stream.title,  
+  //         category: stream.category
+  //       });
+  //     })
+  //   } catch (error) {
+  //     logger.error('Stream notification error: ', error)
+  //   }
+  // })
 
   socket.on("join-stream", async (data, callback) => {
     try {

@@ -1,5 +1,5 @@
 const { v4: uuidv4 } = require("uuid");
-const { Stream, User } = require("../models");
+const { Stream, User, Follow, Notification } = require("../models");
 
 class StreamService {
   constructor(mediaService, messageQueue, cacheService, logger) {
@@ -139,11 +139,11 @@ class StreamService {
       const transportData = await this.mediaService.createWebRtcTransport(
         roomId,
         userId,
-        direction
+        direction,
       );
 
       this.logger.debug(
-        `Transport created: ${transportData.id} (${direction}) for user ${userId}`
+        `Transport created: ${transportData.id} (${direction}) for user ${userId}`,
       );
       return transportData;
     } catch (error) {
@@ -158,10 +158,10 @@ class StreamService {
         roomId,
         userId,
         transportId,
-        dtlsParameters
+        dtlsParameters,
       );
       this.logger.debug(
-        `Transport connected: ${transportId} for user ${userId}`
+        `Transport connected: ${transportId} for user ${userId}`,
       );
     } catch (error) {
       this.logger.error("Error connecting transport:", error);
@@ -169,7 +169,14 @@ class StreamService {
     }
   }
 
-  async produce(roomId, userId, transportId, rtpParameters, kind, isScreenShare = false) {
+  async produce(
+    roomId,
+    userId,
+    transportId,
+    rtpParameters,
+    kind,
+    isScreenShare = false,
+  ) {
     try {
       const producer = await this.mediaService.produce(
         roomId,
@@ -177,19 +184,76 @@ class StreamService {
         transportId,
         rtpParameters,
         kind,
-        isScreenShare
+        isScreenShare,
       );
 
       // Update database to mark stream as live
       try {
-        await Stream.updateOne(
+        const stream = await Stream.findOneAndUpdate(
           { id: roomId },
           {
             isLive: true,
             isPending: false,
             startedAt: new Date(),
+          },
+          { new: true },
+        ).populate("userId", "username avatar");
+
+        if (kind === "video" && !isScreenShare && stream) {
+          const followers = await Follow.find({
+            followingId: userId,
+          }).select("followerId");
+
+          const followerIds = followers.map((f) => f.followerId);
+
+          this.logger.info(`Found ${followerIds.length} followers for user ${userId}`);
+
+          if (followerIds.length > 0) {
+            const notifications = followerIds.map((followerId) => ({
+              userId: followerId,
+              type: "stream-live",
+              title: `${stream.userId.username} is live`,
+              message: stream.title,
+              data: {
+                streamId: roomId,
+                streamerId: userId,
+                streamerUsername: stream.userId.username,
+                streamerAvatar: stream.userId.avatar,
+                streamTitle: stream.title,
+                streamCategory: stream.category,
+              },
+              read: false,
+            }));
+
+            const createdNotifications = await Notification.insertMany(notifications);
+            this.logger.info(`Created ${createdNotifications.length} notifications in database`);
+
+            if (this.io) {
+              followerIds.forEach((followerId) => {
+                this.io
+                  .to(`user:${followerId.toString()}`)
+                  .emit("notification", {
+                    type: "stream-live",
+                    title: `${stream.userId.username} is live!`,
+                    message: stream.title,
+                    data: {
+                      streamId: roomId,
+                      streamerId: userId,
+                      streamerUsername: stream.userId.username,
+                      streamerAvatar: stream.userId.avatar,
+                      streamTitle: stream.title,
+                      streamCategory: stream.category,
+                    },
+                  });
+              });
+            }
+            this.logger.info(
+              `Sent notifications to ${followerIds.length} followers for stream ${roomId}`,
+            );
+          } else {
+            this.logger.info(`No followers found for user ${userId}`);
           }
-        );
+        }
       } catch (dbError) {
         this.logger.warn("Database update failed:", dbError);
       }
@@ -211,7 +275,7 @@ class StreamService {
       }
 
       this.logger.info(
-        `Producer Created ${producer.id} (${kind}) for user ${userId} ${isScreenShare ? '[SCREEN]' : '[CAMERA]'}`
+        `Producer Created ${producer.id} (${kind}) for user ${userId} ${isScreenShare ? "[SCREEN]" : "[CAMERA]"}`,
       );
       return producer;
     } catch (error) {
@@ -226,7 +290,7 @@ class StreamService {
         roomId,
         userId,
         producerId,
-        rtcCapabilities
+        rtcCapabilities,
       );
 
       // Message queue disabled for testing
@@ -241,7 +305,7 @@ class StreamService {
       }
 
       this.logger.debug(
-        `Consumer created: ${consumerData.id} for user ${userId}`
+        `Consumer created: ${consumerData.id} for user ${userId}`,
       );
       return consumerData;
     } catch (error) {
@@ -306,8 +370,8 @@ class StreamService {
             ...streamUpdate,
             endedAt: new Date(),
             duration: streamUpdate.duration,
-            'stats.viewers': 0, // Reset current viewers to 0 when stream ends
-          }
+            "stats.viewers": 0, // Reset current viewers to 0 when stream ends
+          },
         );
       } catch (dbError) {
         this.logger.warn("Database update failed:", dbError);
@@ -374,7 +438,10 @@ class StreamService {
 
   async getStreamInfo(streamId) {
     try {
-      const streamDoc = await Stream.findOne({ id: streamId }).populate("userId", "username _id email avatar");
+      const streamDoc = await Stream.findOne({ id: streamId }).populate(
+        "userId",
+        "username _id email avatar",
+      );
       if (!streamDoc) {
         return null;
       }
