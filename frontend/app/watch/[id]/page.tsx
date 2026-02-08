@@ -1408,7 +1408,7 @@ const WatchPage = () => {
         {/* Chat - Below video on mobile, sidebar on desktop */}
         <div className={`bg-gray-900 border-t md:border-t-0 md:border-l border-gray-800 flex-shrink-0 transition-all duration-300 overflow-hidden ${showMobileChat ? 'h-1/3 md:h-full md:w-80 w-full' : 'h-0 w-0 border-0'}`}>
           <div className="h-full flex flex-col w-full">
-            <div className="flex items-center justify-between p-4 border-b border-gray-700">
+            <div className="flex items-center justify-between p-4 border-b border-gray-700 md:flex hidden">
               <h3 className="text-lg font-semibold text-white">Live Chat</h3>
               <button
                 onClick={() => setShowMobileChat(false)}
