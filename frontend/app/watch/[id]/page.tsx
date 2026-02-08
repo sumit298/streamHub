@@ -1189,10 +1189,10 @@ const WatchPage = () => {
 
               {/* Bottom Control Bar - Inside video area */}
               <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 z-30">
-                <div className="bg-black/80 backdrop-blur-lg rounded-full px-3 md:px-6 py-2 md:py-3 flex items-center gap-2 md:gap-4 shadow-2xl">
+                <div className="bg-black/80 backdrop-blur-lg rounded-full px-2 landscape:px-3 md:px-6 py-1.5 landscape:py-2 md:py-3 flex items-center gap-1.5 landscape:gap-2 md:gap-4 shadow-2xl">
                   <button
                     onClick={toggleMute}
-                    className={`p-2 md:p-3 rounded-full transition-all ${
+                    className={`p-1.5 landscape:p-2 md:p-3 rounded-full transition-all ${
                       isMuted
                         ? "bg-red-600 hover:bg-red-700"
                         : "bg-white/20 hover:bg-white/30"
@@ -1201,7 +1201,7 @@ const WatchPage = () => {
                   >
                     {isMuted ? (
                       <svg
-                        className="w-4 h-4 md:w-6 md:h-6 text-white"
+                        className="w-3.5 h-3.5 landscape:w-4 landscape:h-4 md:w-6 md:h-6 text-white"
                         fill="currentColor"
                         viewBox="0 0 20 20"
                       >
@@ -1213,7 +1213,7 @@ const WatchPage = () => {
                       </svg>
                     ) : (
                       <svg
-                        className="w-4 h-4 md:w-6 md:h-6 text-white"
+                        className="w-3.5 h-3.5 landscape:w-4 landscape:h-4 md:w-6 md:h-6 text-white"
                         fill="currentColor"
                         viewBox="0 0 20 20"
                       >
@@ -1227,12 +1227,12 @@ const WatchPage = () => {
                   </button>
                   <button
                     onClick={toggleFullscreen}
-                    className="p-2 md:p-3 rounded-full bg-white/20 hover:bg-white/30 transition-all"
+                    className="p-1.5 landscape:p-2 md:p-3 rounded-full bg-white/20 hover:bg-white/30 transition-all"
                     title={isFullscreen ? "Exit Fullscreen" : "Fullscreen"}
                   >
                     {isFullscreen ? (
                       <svg
-                        className="w-4 h-4 md:w-6 md:h-6 text-white"
+                        className="w-3.5 h-3.5 landscape:w-4 landscape:h-4 md:w-6 md:h-6 text-white"
                         fill="none"
                         stroke="currentColor"
                         viewBox="0 0 24 24"
@@ -1246,7 +1246,7 @@ const WatchPage = () => {
                       </svg>
                     ) : (
                       <svg
-                        className="w-4 h-4 md:w-6 md:h-6 text-white"
+                        className="w-3.5 h-3.5 landscape:w-4 landscape:h-4 md:w-6 md:h-6 text-white"
                         fill="none"
                         stroke="currentColor"
                         viewBox="0 0 24 24"
@@ -1262,11 +1262,11 @@ const WatchPage = () => {
                   </button>
                   <button
                     onClick={leaveStream}
-                    className="p-2 md:p-3 rounded-full bg-red-600 hover:bg-red-700 transition-all"
+                    className="p-1.5 landscape:p-2 md:p-3 rounded-full bg-red-600 hover:bg-red-700 transition-all"
                     title="Leave Stream"
                   >
                     <svg
-                      className="w-4 h-4 md:w-6 md:h-6 text-white"
+                      className="w-3.5 h-3.5 landscape:w-4 landscape:h-4 md:w-6 md:h-6 text-white"
                       fill="none"
                       stroke="currentColor"
                       viewBox="0 0 24 24"
@@ -1309,10 +1309,10 @@ const WatchPage = () => {
 
               {/* Bottom Control Bar - Inside video area */}
               <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 z-30">
-                <div className="bg-black/80 backdrop-blur-lg rounded-full px-3 md:px-6 py-2 md:py-3 flex items-center gap-2 md:gap-4 shadow-2xl">
+                <div className="bg-black/80 backdrop-blur-lg rounded-full px-2 landscape:px-3 md:px-6 py-1.5 landscape:py-2 md:py-3 flex items-center gap-1.5 landscape:gap-2 md:gap-4 shadow-2xl">
                   <button
                     onClick={toggleMute}
-                    className={`p-2 md:p-3 rounded-full transition-all ${
+                    className={`p-1.5 landscape:p-2 md:p-3 rounded-full transition-all ${
                       isMuted
                         ? "bg-red-600 hover:bg-red-700"
                         : "bg-white/20 hover:bg-white/30"
@@ -1321,7 +1321,7 @@ const WatchPage = () => {
                   >
                     {isMuted ? (
                       <svg
-                        className="w-4 h-4 md:w-6 md:h-6 text-white"
+                        className="w-3.5 h-3.5 landscape:w-4 landscape:h-4 md:w-6 md:h-6 text-white"
                         fill="currentColor"
                         viewBox="0 0 20 20"
                       >
@@ -1333,7 +1333,7 @@ const WatchPage = () => {
                       </svg>
                     ) : (
                       <svg
-                        className="w-4 h-4 md:w-6 md:h-6 text-white"
+                        className="w-3.5 h-3.5 landscape:w-4 landscape:h-4 md:w-6 md:h-6 text-white"
                         fill="currentColor"
                         viewBox="0 0 20 20"
                       >
@@ -1347,12 +1347,12 @@ const WatchPage = () => {
                   </button>
                   <button
                     onClick={toggleFullscreen}
-                    className="p-2 md:p-3 rounded-full bg-white/20 hover:bg-white/30 transition-all"
+                    className="p-1.5 landscape:p-2 md:p-3 rounded-full bg-white/20 hover:bg-white/30 transition-all"
                     title={isFullscreen ? "Exit Fullscreen" : "Fullscreen"}
                   >
                     {isFullscreen ? (
                       <svg
-                        className="w-4 h-4 md:w-6 md:h-6 text-white"
+                        className="w-3.5 h-3.5 landscape:w-4 landscape:h-4 md:w-6 md:h-6 text-white"
                         fill="none"
                         stroke="currentColor"
                         viewBox="0 0 24 24"
@@ -1366,7 +1366,7 @@ const WatchPage = () => {
                       </svg>
                     ) : (
                       <svg
-                        className="w-4 h-4 md:w-6 md:h-6 text-white"
+                        className="w-3.5 h-3.5 landscape:w-4 landscape:h-4 md:w-6 md:h-6 text-white"
                         fill="none"
                         stroke="currentColor"
                         viewBox="0 0 24 24"
@@ -1382,11 +1382,11 @@ const WatchPage = () => {
                   </button>
                   <button
                     onClick={leaveStream}
-                    className="p-2 md:p-3 rounded-full bg-red-600 hover:bg-red-700 transition-all"
+                    className="p-1.5 landscape:p-2 md:p-3 rounded-full bg-red-600 hover:bg-red-700 transition-all"
                     title="Leave Stream"
                   >
                     <svg
-                      className="w-4 h-4 md:w-6 md:h-6 text-white"
+                      className="w-3.5 h-3.5 landscape:w-4 landscape:h-4 md:w-6 md:h-6 text-white"
                       fill="none"
                       stroke="currentColor"
                       viewBox="0 0 24 24"
