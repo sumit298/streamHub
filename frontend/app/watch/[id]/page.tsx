@@ -1044,8 +1044,8 @@ const WatchPage = () => {
         </div>
       )}
 
-      {/* Chat Sidebar - Pushes content */}
-      <div className="h-screen flex">
+      {/* Container - vertical on mobile, horizontal on desktop */}
+      <div className="h-screen flex flex-col md:flex-row">
         {/* Main Video Area */}
         <div className="flex-1 relative">
           {/* Header */}
@@ -1150,7 +1150,7 @@ const WatchPage = () => {
 
               {/* Camera - Picture in Picture */}
               <div
-                className={`absolute w-64 h-36 bg-gray-800 rounded-lg overflow-hidden border-2 border-gray-700 shadow-xl cursor-move touch-none ${!cameraStreamRef.current ? "hidden" : ""}`}
+                className={`absolute w-40 h-24 md:w-64 md:h-36 bg-gray-800 rounded-lg overflow-hidden border-2 border-gray-700 shadow-xl cursor-move touch-none ${!cameraStreamRef.current ? "hidden" : ""}`}
 
                 style={{
                   left: `${pipPosition.x}px`,
@@ -1186,6 +1186,101 @@ const WatchPage = () => {
                   </button>
                 )}
               </div>
+
+              {/* Bottom Control Bar - Inside video area */}
+              <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 z-30">
+                <div className="bg-black/80 backdrop-blur-lg rounded-full px-3 md:px-6 py-2 md:py-3 flex items-center gap-2 md:gap-4 shadow-2xl">
+                  <button
+                    onClick={toggleMute}
+                    className={`p-2 md:p-3 rounded-full transition-all ${
+                      isMuted
+                        ? "bg-red-600 hover:bg-red-700"
+                        : "bg-white/20 hover:bg-white/30"
+                    }`}
+                    title={isMuted ? "Unmute" : "Mute"}
+                  >
+                    {isMuted ? (
+                      <svg
+                        className="w-4 h-4 md:w-6 md:h-6 text-white"
+                        fill="currentColor"
+                        viewBox="0 0 20 20"
+                      >
+                        <path
+                          fillRule="evenodd"
+                          d="M9.383 3.076A1 1 0 0110 4v12a1 1 0 01-1.707.707L4.586 13H2a1 1 0 01-1-1V8a1 1 0 011-1h2.586l3.707-3.707a1 1 0 011.09-.217zM12.293 7.293a1 1 0 011.414 0L15 8.586l1.293-1.293a1 1 0 111.414 1.414L16.414 10l1.293 1.293a1 1 0 01-1.414 1.414L15 11.414l-1.293 1.293a1 1 0 01-1.414-1.414L13.586 10l-1.293-1.293a1 1 0 010-1.414z"
+                          clipRule="evenodd"
+                        />
+                      </svg>
+                    ) : (
+                      <svg
+                        className="w-4 h-4 md:w-6 md:h-6 text-white"
+                        fill="currentColor"
+                        viewBox="0 0 20 20"
+                      >
+                        <path
+                          fillRule="evenodd"
+                          d="M9.383 3.076A1 1 0 0110 4v12a1 1 0 01-1.707.707L4.586 13H2a1 1 0 01-1-1V8a1 1 0 011-1h2.586l3.707-3.707a1 1 0 011.09-.217zM14.657 2.929a1 1 0 011.414 0A9.972 9.972 0 0119 10a9.972 9.972 0 01-2.929 7.071 1 1 0 01-1.414-1.414A7.971 7.971 0 0017 10c0-2.21-.894-4.208-2.343-5.657a1 1 0 010-1.414zm-2.829 2.828a1 1 0 011.415 0A5.983 5.983 0 0115 10a5.984 5.984 0 01-1.757 4.243 1 1 0 01-1.415-1.415A3.984 3.984 0 0013 10a3.983 3.983 0 00-1.172-2.828 1 1 0 010-1.415z"
+                          clipRule="evenodd"
+                        />
+                      </svg>
+                    )}
+                  </button>
+                  <button
+                    onClick={toggleFullscreen}
+                    className="p-2 md:p-3 rounded-full bg-white/20 hover:bg-white/30 transition-all"
+                    title={isFullscreen ? "Exit Fullscreen" : "Fullscreen"}
+                  >
+                    {isFullscreen ? (
+                      <svg
+                        className="w-4 h-4 md:w-6 md:h-6 text-white"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M6 18L18 6M6 6l12 12"
+                        />
+                      </svg>
+                    ) : (
+                      <svg
+                        className="w-4 h-4 md:w-6 md:h-6 text-white"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"
+                        />
+                      </svg>
+                    )}
+                  </button>
+                  <button
+                    onClick={leaveStream}
+                    className="p-2 md:p-3 rounded-full bg-red-600 hover:bg-red-700 transition-all"
+                    title="Leave Stream"
+                  >
+                    <svg
+                      className="w-4 h-4 md:w-6 md:h-6 text-white"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
+                      />
+                    </svg>
+                  </button>
+                </div>
+              </div>
             </div>
           ) : (
             /* Camera - Full View */
@@ -1211,13 +1306,108 @@ const WatchPage = () => {
                   </div>
                 </div>
               )}
+
+              {/* Bottom Control Bar - Inside video area */}
+              <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 z-30">
+                <div className="bg-black/80 backdrop-blur-lg rounded-full px-3 md:px-6 py-2 md:py-3 flex items-center gap-2 md:gap-4 shadow-2xl">
+                  <button
+                    onClick={toggleMute}
+                    className={`p-2 md:p-3 rounded-full transition-all ${
+                      isMuted
+                        ? "bg-red-600 hover:bg-red-700"
+                        : "bg-white/20 hover:bg-white/30"
+                    }`}
+                    title={isMuted ? "Unmute" : "Mute"}
+                  >
+                    {isMuted ? (
+                      <svg
+                        className="w-4 h-4 md:w-6 md:h-6 text-white"
+                        fill="currentColor"
+                        viewBox="0 0 20 20"
+                      >
+                        <path
+                          fillRule="evenodd"
+                          d="M9.383 3.076A1 1 0 0110 4v12a1 1 0 01-1.707.707L4.586 13H2a1 1 0 01-1-1V8a1 1 0 011-1h2.586l3.707-3.707a1 1 0 011.09-.217zM12.293 7.293a1 1 0 011.414 0L15 8.586l1.293-1.293a1 1 0 111.414 1.414L16.414 10l1.293 1.293a1 1 0 01-1.414 1.414L15 11.414l-1.293 1.293a1 1 0 01-1.414-1.414L13.586 10l-1.293-1.293a1 1 0 010-1.414z"
+                          clipRule="evenodd"
+                        />
+                      </svg>
+                    ) : (
+                      <svg
+                        className="w-4 h-4 md:w-6 md:h-6 text-white"
+                        fill="currentColor"
+                        viewBox="0 0 20 20"
+                      >
+                        <path
+                          fillRule="evenodd"
+                          d="M9.383 3.076A1 1 0 0110 4v12a1 1 0 01-1.707.707L4.586 13H2a1 1 0 01-1-1V8a1 1 0 011-1h2.586l3.707-3.707a1 1 0 011.09-.217zM14.657 2.929a1 1 0 011.414 0A9.972 9.972 0 0119 10a9.972 9.972 0 01-2.929 7.071 1 1 0 01-1.414-1.414A7.971 7.971 0 0017 10c0-2.21-.894-4.208-2.343-5.657a1 1 0 010-1.414zm-2.829 2.828a1 1 0 011.415 0A5.983 5.983 0 0115 10a5.984 5.984 0 01-1.757 4.243 1 1 0 01-1.415-1.415A3.984 3.984 0 0013 10a3.983 3.983 0 00-1.172-2.828 1 1 0 010-1.415z"
+                          clipRule="evenodd"
+                        />
+                      </svg>
+                    )}
+                  </button>
+                  <button
+                    onClick={toggleFullscreen}
+                    className="p-2 md:p-3 rounded-full bg-white/20 hover:bg-white/30 transition-all"
+                    title={isFullscreen ? "Exit Fullscreen" : "Fullscreen"}
+                  >
+                    {isFullscreen ? (
+                      <svg
+                        className="w-4 h-4 md:w-6 md:h-6 text-white"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M6 18L18 6M6 6l12 12"
+                        />
+                      </svg>
+                    ) : (
+                      <svg
+                        className="w-4 h-4 md:w-6 md:h-6 text-white"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"
+                        />
+                      </svg>
+                    )}
+                  </button>
+                  <button
+                    onClick={leaveStream}
+                    className="p-2 md:p-3 rounded-full bg-red-600 hover:bg-red-700 transition-all"
+                    title="Leave Stream"
+                  >
+                    <svg
+                      className="w-4 h-4 md:w-6 md:h-6 text-white"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
+                      />
+                    </svg>
+                  </button>
+                </div>
+              </div>
             </div>
           )}
         </div>
 
-        {/* Chat Sidebar */}
-        <div className={`bg-gray-900 border-l border-gray-800 flex-shrink-0 transition-all duration-300 overflow-hidden ${showMobileChat ? 'w-80' : 'w-0 border-0'}`}>
-          <div className="h-full flex flex-col w-80">
+        {/* Chat - Below video on mobile, sidebar on desktop */}
+        <div className={`bg-gray-900 border-t md:border-t-0 md:border-l border-gray-800 flex-shrink-0 transition-all duration-300 overflow-hidden ${showMobileChat ? 'h-1/3 md:h-full md:w-80 w-full' : 'h-0 w-0 border-0'}`}>
+          <div className="h-full flex flex-col w-full">
             <div className="flex items-center justify-between p-4 border-b border-gray-700">
               <h3 className="text-lg font-semibold text-white">Live Chat</h3>
               <button
@@ -1247,101 +1437,6 @@ const WatchPage = () => {
               />
             </div>
           </div>
-        </div>
-      </div>
-
-      {/* Bottom Control Bar - Floating */}
-      <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 z-30">
-        <div className="bg-black/80 backdrop-blur-lg rounded-full px-6 py-3 flex items-center gap-4 shadow-2xl">
-          <button
-            onClick={toggleMute}
-            className={`p-3 rounded-full transition-all ${
-              isMuted
-                ? "bg-red-600 hover:bg-red-700"
-                : "bg-white/20 hover:bg-white/30"
-            }`}
-            title={isMuted ? "Unmute" : "Mute"}
-          >
-            {isMuted ? (
-              <svg
-                className="w-6 h-6 text-white"
-                fill="currentColor"
-                viewBox="0 0 20 20"
-              >
-                <path
-                  fillRule="evenodd"
-                  d="M9.383 3.076A1 1 0 0110 4v12a1 1 0 01-1.707.707L4.586 13H2a1 1 0 01-1-1V8a1 1 0 011-1h2.586l3.707-3.707a1 1 0 011.09-.217zM12.293 7.293a1 1 0 011.414 0L15 8.586l1.293-1.293a1 1 0 111.414 1.414L16.414 10l1.293 1.293a1 1 0 01-1.414 1.414L15 11.414l-1.293 1.293a1 1 0 01-1.414-1.414L13.586 10l-1.293-1.293a1 1 0 010-1.414z"
-                  clipRule="evenodd"
-                />
-              </svg>
-            ) : (
-              <svg
-                className="w-6 h-6 text-white"
-                fill="currentColor"
-                viewBox="0 0 20 20"
-              >
-                <path
-                  fillRule="evenodd"
-                  d="M9.383 3.076A1 1 0 0110 4v12a1 1 0 01-1.707.707L4.586 13H2a1 1 0 01-1-1V8a1 1 0 011-1h2.586l3.707-3.707a1 1 0 011.09-.217zM14.657 2.929a1 1 0 011.414 0A9.972 9.972 0 0119 10a9.972 9.972 0 01-2.929 7.071 1 1 0 01-1.414-1.414A7.971 7.971 0 0017 10c0-2.21-.894-4.208-2.343-5.657a1 1 0 010-1.414zm-2.829 2.828a1 1 0 011.415 0A5.983 5.983 0 0115 10a5.984 5.984 0 01-1.757 4.243 1 1 0 01-1.415-1.415A3.984 3.984 0 0013 10a3.983 3.983 0 00-1.172-2.828 1 1 0 010-1.415z"
-                  clipRule="evenodd"
-                />
-              </svg>
-            )}
-          </button>
-          <button
-            onClick={toggleFullscreen}
-            className="p-3 rounded-full bg-white/20 hover:bg-white/30 transition-all"
-            title={isFullscreen ? "Exit Fullscreen" : "Fullscreen"}
-          >
-            {isFullscreen ? (
-              <svg
-                className="w-6 h-6 text-white"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M6 18L18 6M6 6l12 12"
-                />
-              </svg>
-            ) : (
-              <svg
-                className="w-6 h-6 text-white"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"
-                />
-              </svg>
-            )}
-          </button>
-          <button
-            onClick={leaveStream}
-            className="p-3 rounded-full bg-red-600 hover:bg-red-700 transition-all"
-            title="Leave Stream"
-          >
-            <svg
-              className="w-6 h-6 text-white"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
-              />
-            </svg>
-          </button>
         </div>
       </div>
     </div>
