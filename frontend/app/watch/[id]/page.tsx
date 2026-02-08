@@ -1010,7 +1010,7 @@ const WatchPage = () => {
   };
 
   return (
-    <div className="fixed inset-0 bg-black">
+    <div className="fixed inset-0 bg-black overflow-hidden" style={{ ['--viewport-height' as any]: '100dvh' }}>
       {/* Stream Ended Overlay */}
       {streamEnded && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center">
@@ -1045,7 +1045,7 @@ const WatchPage = () => {
       )}
 
       {/* Container - vertical on mobile, horizontal on desktop */}
-      <div className="h-screen flex flex-col md:flex-row">
+      <div className="h-screen md:h-screen flex flex-col md:flex-row" style={{ height: 'var(--viewport-height, 100vh)' }}>
         {/* Main Video Area */}
         <div className="flex-1 relative">
           {/* Header */}
