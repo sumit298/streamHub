@@ -102,7 +102,8 @@ app.use(cookieParser());
 // Rate Limiter
 const generateLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 10000,
+  max: 10000, // change this according to pricing
+  
   message: "Too many requests from this ip",
   skip: (req) => {
     // Skip rate limiting for frequently-called authenticated endpoints
@@ -112,7 +113,7 @@ const generateLimiter = rateLimit({
 
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 200, // Increased from 10 to 20 for /me endpoint
+  max: 20, // Increased from 10 to 20 for /me endpoint
   message: "Too many authentication requests",
   skip: (req) => {
     // Skip rate limiting for /me and /refresh-token endpoints

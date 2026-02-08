@@ -1072,7 +1072,7 @@ const WatchPage = () => {
             {streamerInfo && (
               <div className="bg-black/60 backdrop-blur-sm p-3 hover:bg-black/70 transition pl-2 pr-1 py-1 rounded-lg flex items-center gap-2 border border-white/20">
                 <img
-                  src={getAvatarUrl(streamerInfo.username, streamerInfo.avatar)}
+                  src={getAvatarUrl(streamerInfo.avatar, streamerInfo.username)}
                   alt={streamerInfo.username}
                   className="w-5 h-5 rounded-full"
                 />
