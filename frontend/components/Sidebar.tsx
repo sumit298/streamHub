@@ -1,11 +1,12 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, Compass, User, TrendingUp } from "lucide-react";
+import { Home, Compass, User, TrendingUp, Video } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: Home },
   { name: "Browse", href: "/browse", icon: Compass },
+  { name: "VODs", href: "/vods", icon: Video },
   { name: "Profile", href: "/profile", icon: User },
   { name: "Following", href: "/following", icon: TrendingUp }
 ];

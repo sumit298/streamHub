@@ -43,11 +43,11 @@ const Profile = () => {
     }, []);
 
     return (
-        <div className="min-h-screen bg-background">
+        <div className="flex flex-col h-screen bg-background">
             <Navbar />
-            <div className="flex">
+            <div className="flex flex-1 overflow-hidden">
                 <Sidebar />
-                <main className="flex-1">
+                <main className="flex-1 overflow-y-auto">
                     <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
                         {error ? (
                             <div className="text-center py-12">
@@ -71,25 +71,25 @@ const Profile = () => {
                             </div>
                         ) : profile ? (
                             <>
-                                <div className="bg-card rounded-lg p-8 mb-6">
-                                    <div className="flex items-center gap-6 mb-6">
+                                <div className="bg-card rounded-lg p-4 sm:p-8 mb-6">
+                                    <div className="flex flex-col sm:flex-row items-center gap-4 sm:gap-6 mb-6">
                                         <img 
                                             src={getAvatarUrl(profile.avatar, profile.username)} 
                                             alt={profile.username}
-                                            className="w-24 h-24 rounded-full bg-gray-700"
+                                            className="w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-gray-700"
                                         />
-                                        <div className="flex-1">
-                                            <h1 className="text-3xl font-bold text-text-primary mb-2">
+                                        <div className="flex-1 text-center sm:text-left">
+                                            <h1 className="text-2xl sm:text-3xl font-bold text-text-primary mb-2">
                                                 {profile.username}
                                             </h1>
-                                            <p className="text-gray-400">{profile.email}</p>
+                                            <p className="text-gray-400 text-sm sm:text-base">{profile.email}</p>
                                         </div>
                                         <button
                                             onClick={() => {
                                                 logout();
                                                 router.push('/login');
                                             }}
-                                            className="px-6 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition"
+                                            className="w-full sm:w-auto px-6 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition"
                                         >
                                             Logout
                                         </button>
@@ -97,36 +97,36 @@ const Profile = () => {
                                 </div>
 
                                 {stats && (
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4 mb-6">
-                                        <div className="bg-card rounded-lg p-6 border border-gray-700">
-                                            <div className="text-3xl font-bold text-emerald-400 mb-1">{stats.totalStreams}</div>
-                                            <div className="text-sm text-gray-400">Total Streams</div>
+                                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4 mb-6">
+                                        <div className="bg-card rounded-lg p-4 sm:p-6 border border-gray-700">
+                                            <div className="text-2xl sm:text-3xl font-bold text-emerald-400 mb-1">{stats.totalStreams}</div>
+                                            <div className="text-xs sm:text-sm text-gray-400">Total Streams</div>
                                         </div>
-                                        <div className="bg-card rounded-lg p-6 border border-gray-700">
-                                            <div className="text-3xl font-bold text-blue-400 mb-1">{stats.totalViews}</div>
-                                            <div className="text-sm text-gray-400">Total Views</div>
+                                        <div className="bg-card rounded-lg p-4 sm:p-6 border border-gray-700">
+                                            <div className="text-2xl sm:text-3xl font-bold text-blue-400 mb-1">{stats.totalViews}</div>
+                                            <div className="text-xs sm:text-sm text-gray-400">Total Views</div>
                                         </div>
-                                        <div className="bg-card rounded-lg p-6 border border-gray-700">
-                                            <div className="text-3xl font-bold text-purple-400 mb-1">{formatDuration(stats.totalStreamTime)}</div>
-                                            <div className="text-sm text-gray-400">Time Streamed</div>
+                                        <div className="bg-card rounded-lg p-4 sm:p-6 border border-gray-700">
+                                            <div className="text-2xl sm:text-3xl font-bold text-purple-400 mb-1">{formatDuration(stats.totalStreamTime)}</div>
+                                            <div className="text-xs sm:text-sm text-gray-400">Time Streamed</div>
                                         </div>
-                                        <div className="bg-card rounded-lg p-6 border border-gray-700">
-                                            <div className="text-3xl font-bold text-pink-400 mb-1">{stats.totalChatMessages}</div>
-                                            <div className="text-sm text-gray-400">Chat Messages</div>
+                                        <div className="bg-card rounded-lg p-4 sm:p-6 border border-gray-700">
+                                            <div className="text-2xl sm:text-3xl font-bold text-pink-400 mb-1">{stats.totalChatMessages}</div>
+                                            <div className="text-xs sm:text-sm text-gray-400">Chat Messages</div>
                                         </div>
-                                        <div className="bg-card rounded-lg p-6 border border-gray-700">
-                                            <div className="text-3xl font-bold text-cyan-400 mb-1">{profile.stats?.followers || 0}</div>
-                                            <div className="text-sm text-gray-400">Followers</div>
+                                        <div className="bg-card rounded-lg p-4 sm:p-6 border border-gray-700">
+                                            <div className="text-2xl sm:text-3xl font-bold text-cyan-400 mb-1">{profile.stats?.followers || 0}</div>
+                                            <div className="text-xs sm:text-sm text-gray-400">Followers</div>
                                         </div>
-                                        <div className="bg-card rounded-lg p-6 border border-gray-700">
-                                            <div className="text-3xl font-bold text-orange-400 mb-1">{profile.stats?.following || 0}</div>
-                                            <div className="text-sm text-gray-400">Following</div>
+                                        <div className="bg-card rounded-lg p-4 sm:p-6 border border-gray-700">
+                                            <div className="text-2xl sm:text-3xl font-bold text-orange-400 mb-1">{profile.stats?.following || 0}</div>
+                                            <div className="text-xs sm:text-sm text-gray-400">Following</div>
                                         </div>
                                     </div>
                                 )}
 
-                                <div className="bg-card rounded-lg p-8">
-                                    <h2 className="text-xl font-bold text-text-primary mb-4">Account Information</h2>
+                                <div className="bg-card rounded-lg p-4 sm:p-8">
+                                    <h2 className="text-lg sm:text-xl font-bold text-text-primary mb-4">Account Information</h2>
                                     <div className="space-y-4">
                                         <div>
                                             <label className="text-sm text-gray-400">Username</label>

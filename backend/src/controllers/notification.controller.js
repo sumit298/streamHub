@@ -11,7 +11,6 @@ const NotificationController = {
         .sort({ createdAt: -1 })
         .limit(parseInt(limit));
 
-
       const unreadCount = await Notification.countDocuments({
         userId: req.user.id,
         read: false,
@@ -23,35 +22,33 @@ const NotificationController = {
 
       res.json({ notifications, unreadCount });
     } catch (error) {
+      req.logger?.error("Get notifications error:", error); 
       res.status(500).json({ error: "Failed to fetch notifications" });
     }
   },
+
   markAsRead: async (req, res) => {
     try {
       await Notification.findOneAndUpdate(
-        {
-          _id: req.params.id,
-          userId: req.user.id,
-        },
-        { read: true },
+        { _id: req.params.id, userId: req.user.id },
+        { read: true }
       );
       res.json({ success: true });
     } catch (error) {
+      req.logger?.error("Mark as read error:", error); 
       res.status(500).json({ error: "Failed to mark as read" });
     }
   },
+
   markAllAsRead: async (req, res) => {
     try {
       await Notification.updateMany(
-        {
-          userId: req.user.id,
-          read: false,
-        },
-        { read: true },
+        { userId: req.user.id, read: false },
+        { read: true }
       );
-
       res.json({ success: true });
     } catch (error) {
+      req.logger?.error("Mark all as read error:", error); 
       res.status(500).json({ error: "Failed to mark all as read" });
     }
   },

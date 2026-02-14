@@ -5,9 +5,11 @@ interface BottomControlBarProps {
   isCameraOff: boolean;
   isScreenSharing?: boolean;
   isStreaming: boolean;
+  isRecording?: boolean;
   onToggleMute: () => void;
   onToggleCamera: () => void;
   onToggleScreenShare?: () => void;
+  onToggleRecording?: () => void;
   onEndStream: () => void;
   showScreenShare?: boolean;
 }
@@ -17,9 +19,11 @@ export default function BottomControlBar({
   isCameraOff,
   isScreenSharing = false,
   isStreaming,
+  isRecording = false,
   onToggleMute,
   onToggleCamera,
   onToggleScreenShare,
+  onToggleRecording,
   onEndStream,
   showScreenShare = true,
 }: BottomControlBarProps) {
@@ -73,6 +77,21 @@ export default function BottomControlBar({
                 icon={
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                  </svg>
+                }
+              />
+            )}
+
+            {onToggleRecording && (
+              <ControlButton
+                onClick={onToggleRecording}
+                isActive={isRecording}
+                variant={isRecording ? 'danger' : 'default'}
+                label={isRecording ? 'Stop recording' : 'Start recording'}
+                icon={
+                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
+                    <path fillRule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clipRule="evenodd" />
                   </svg>
                 }
               />

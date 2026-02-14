@@ -25,24 +25,32 @@ const {
   updateViewerStats,
   incrementChatMessages,
 } = require("./src/utils/streamStats");
-const followRoutes = require('./src/routes/routes.follow');
+const followRoutes = require('./src/routes/follow.routes');
 const { Stream, Follow } = require("./src/models");
 const Notification = require("./src/models/Notification");
-const NotificationRouter = require("./src/routes/routes.notification");
+const NotificationRouter = require("./src/routes/notification.routes");
+const R2Service = require("./src/services/R2Service");
+const VOD = require("./src/models/Vod");
+const VodRouter = require("./src/routes/vod.routes");
+const path = require("path");
 
-// Auto-detect local IP in development if not set
-if (!process.env.ANNOUNCED_IP && process.env.NODE_ENV === "development") {
-  const nets = os.networkInterfaces();
-  for (const name of Object.keys(nets)) {
-    for (const net of nets[name]) {
-      if (net.family === "IPv4" && !net.internal) {
-        process.env.ANNOUNCED_IP = net.address;
-        logger.info(`🌐 Auto-detected ANNOUNCED_IP: ${net.address}`);
-        break;
-      }
+// Auto-detect and log local IP addresses
+const nets = os.networkInterfaces();
+const detectedIPs = [];
+for (const name of Object.keys(nets)) {
+  for (const net of nets[name]) {
+    if (net.family === "IPv4" && !net.internal) {
+      detectedIPs.push(net.address);
     }
-    if (process.env.ANNOUNCED_IP) break;
   }
+}
+
+console.log(`🌐 Detected local IPs: ${detectedIPs.join(', ')|| 'none'}`);
+console.log(`🌐 ANNOUNCED_IP env var: ${process.env.ANNOUNCED_IP || 'not set'}`);
+
+if (!process.env.ANNOUNCED_IP && process.env.NODE_ENV === "development" && detectedIPs.length > 0) {
+  process.env.ANNOUNCED_IP = detectedIPs[0];
+  console.log(`🌐 Auto-set ANNOUNCED_IP to: ${detectedIPs[0]}`);
 }
 
 //metrics - later
@@ -113,7 +121,7 @@ const generateLimiter = rateLimit({
 
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 20, // Increased from 10 to 20 for /me endpoint
+  max: 200, // Increased from 10 to 20 for /me endpoint
   message: "Too many authentication requests",
   skip: (req) => {
     // Skip rate limiting for /me and /refresh-token endpoints
@@ -168,7 +176,7 @@ app.get("/health", (req, res) => {
   });
 });
 
-let mediaService, messageQueue, cacheService, streamService, chatService;
+let mediaService, messageQueue, cacheService, streamService, chatService, r2Service;
 // metricService;
 
 async function initializeServices() {
@@ -202,6 +210,11 @@ async function initializeServices() {
     cacheService = new CacheService(logger);
     await cacheService.connect();
 
+    r2Service = new R2Service(logger);
+    // Creating recording directory
+    await fs.promises.mkdir("/tmp/recordings", { recursive: true });
+    logger.info("R2 service and recordings directory initialized");
+
     // metricsService = new MetricsService();
     streamService = new StreamService(
       mediaService,
@@ -213,10 +226,10 @@ async function initializeServices() {
     chatService = new ChatService(messageQueue, cacheService, logger);
 
     // Register routes after services are initialized
-    app.use("/api/auth", require("./src/routes/routes.auth")(logger));
+    app.use("/api/auth", require("./src/routes/auth.routes")(logger));
     app.use(
       "/api/streams",
-      require("./src/routes/routes.stream")(
+      require("./src/routes/stream.routes")(
         streamService,
         logger,
         AuthMiddleWare,
@@ -226,13 +239,19 @@ async function initializeServices() {
     app.use(
       "/api/chat",
       AuthMiddleWare.authenticate,
-      require("./src/routes/routes.chat")(chatService, logger),
+      require("./src/routes/chat.routes")(chatService, logger),
     );
     app.use(
       "/api/notifications",
       AuthMiddleWare.authenticate,
       NotificationRouter,
     );
+
+    app.use('/api/vods', (req, res, next)=> {
+      req.r2Service = r2Service;
+      req.logger = logger;
+      next();
+    }, VodRouter);
 
     logger.info("All services initialized successfully");
   } catch (error) {
@@ -772,6 +791,88 @@ io.on("connection", (socket) => {
 
     //  metricsService.decrementActiveConnections();
   });
+
+  // recording handlers
+  socket.on("recording-chunk", async (data)=> {
+    try {
+      const { streamId, chunk } = data;
+      const filepath = path.join("/tmp/recordings", `${streamId}.webm`);
+      const buffer = Buffer.from(chunk);
+      await fs.promises.appendFile(filepath, buffer)
+    } catch (error) {
+      logger.error("Recording chunk error", error);      
+    }
+  })
+
+  socket.on("stream-ended", async (data) => {
+    try {
+      const { streamId } = data;
+      const webmPath = path.join("/tmp/recordings", `${streamId}.webm`);
+      const mp4Path = path.join("/tmp/recordings", `${streamId}.mp4`);
+
+      // check if file exists
+      try {
+        await fs.promises.access(webmPath);
+      } catch (error) {
+        logger.warn(`No recordings found for stream ${streamId}`)
+        return;
+      }
+
+      // get stream info
+      const stream = await Stream.findOne({id: streamId});
+      if(!stream) {
+        logger.warn(`Stream ${streamId} not found in DB`)
+        return;
+      }
+
+      // Convert WebM to MP4 for better seeking
+      logger.info(`Converting ${streamId}.webm to MP4...`);
+      const { exec } = require('child_process');
+      await new Promise((resolve, reject) => {
+        exec(
+          `ffmpeg -i "${webmPath}" -c:v libx264 -c:a aac -movflags +faststart "${mp4Path}"`,
+          { maxBuffer: 50 * 1024 * 1024 },
+          (error) => {
+            if (error) reject(error);
+            else resolve(true);
+          }
+        );
+      });
+      logger.info(`Conversion complete for ${streamId}`);
+
+      // upload MP4 to r2
+      const r2Key = `vods/${streamId}/${Date.now()}.mp4`
+      await r2Service.uploadFile(mp4Path, r2Key);
+
+      // get file size
+      const stats = await fs.promises.stat(mp4Path);
+
+      // save vod to db
+      const vod = await VOD.create({
+        streamId,
+        userId: stream.userId,
+        title: stream.title,
+        description: stream.description,
+        category: stream.category,
+        thumbnail: stream.thumbnail,
+        r2Key,
+        fileSize: stats.size,
+        filename: `${streamId}_${Date.now()}.mp4`,
+        status: "ready"
+      })
+
+      // cleanup
+      await fs.promises.unlink(webmPath);
+      await fs.promises.unlink(mp4Path);
+
+      io.to(`user:${stream.userId}`).emit("vod-ready", vod);
+
+      logger.info(`VOD created for stream ${streamId}: ${vod.id}`)
+
+    } catch (error) {
+      logger.error("Stream ended processing error", error)
+    }
+  })
 
   socket.on("error", (error) => {
     logger.error(`Socket error for ${socket.id}: ${error}`);
