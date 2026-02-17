@@ -10,7 +10,9 @@
     "test:basic": "node test-basic.js",
     "test:services": "node test-services.js",
     "test:api": "node test-api.js",
-    "test:all": "npm run test:basic && npm run test:services"
+    "test:all": "npm run test:basic && npm run test:services",
+    "worker": "node --env-file=.env.local src/workers/vodWorker.js"
+
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.989.0",

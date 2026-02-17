@@ -606,10 +606,16 @@ const StreamsPage = () => {
     // Use screen stream if screen sharing is active, otherwise use camera stream
     const recordStream = isScreenSharing && screenStream ? screenStream : stream;
     if (!recordStream) return;
+    const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=h264,opus')
+    ? 'video/webm;codecs=h264,opus'
+    : 'video/webm;codecs=vp8,opus';
+
+      console.log('🎥 Recording with:', mimeType);
+
 
     const recorder = new MediaRecorder(recordStream, { 
-      mimeType: "video/webm;codecs=vp8,opus",
-      videoBitsPerSecond: 1000000, // 1 Mbps for 480p quality
+      mimeType,
+      videoBitsPerSecond: 500000, // 1 Mbps for 480p quality
       audioBitsPerSecond: 128000   // 128 kbps audio
     });
     recorder.ondataavailable = async (e) => {
@@ -648,9 +654,15 @@ const StreamsPage = () => {
       // Switch recording to screen share only if recording is active
       if (isRecording && mediaRecorder) {
         mediaRecorder.stop();
+        const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=h264,opus')
+          ? 'video/webm;codecs=h264,opus'
+          : 'video/webm;codecs=vp8,opus';
+
+        console.log('🎥 Screen recording with:', mimeType);
+
         const screenRecorder = new MediaRecorder(screenMediaStream, { 
-          mimeType: "video/webm;codecs=vp8,opus",
-          videoBitsPerSecond: 1000000, // 1 Mbps for 480p quality
+          mimeType,
+          videoBitsPerSecond: 500000,  // 500 kbps
           audioBitsPerSecond: 128000   // 128 kbps audio
         });
         screenRecorder.ondataavailable = async (e) => {
@@ -733,9 +745,14 @@ const StreamsPage = () => {
     // Switch recording back to camera only if recording is active
     if (isRecording && mediaRecorder && stream) {
       mediaRecorder.stop();
+      const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=h264,opus')
+        ? 'video/webm;codecs=h264,opus'
+        : 'video/webm;codecs=vp8,opus';
+
+      console.log('🎥 Camera recording with:', mimeType);
       const cameraRecorder = new MediaRecorder(stream, { 
-        mimeType: "video/webm;codecs=vp8,opus",
-        videoBitsPerSecond: 1000000, // 1 Mbps for 480p quality
+        mimeType,
+        videoBitsPerSecond: 500000,  // 500 kbps
         audioBitsPerSecond: 128000   // 128 kbps audio
       });
       cameraRecorder.ondataavailable = async (e) => {

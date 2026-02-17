@@ -82,20 +82,20 @@ export default function VodPlayerPage() {
 
   useEffect(() => {
     api.get(`/api/vods/${params.id}`)
-      .then(res => {
-        setVod(res.data);
-        if (videoRef.current && res.data.playbackUrl) {
-          videoRef.current.src = res.data.playbackUrl;
-        }
-      })
+      .then(res => setVod(res.data))
       .catch(err => console.error(err))
       .finally(() => setLoading(false));
-
-    if (!viewCounted.current) {
-      api.post(`/api/vods/${params.id}/view`).catch(err => console.error(err));
-      viewCounted.current = true;
-    }
   }, [params.id]);
+
+  useEffect(() => {
+    if (vod?.playbackUrl && videoRef.current) {
+      videoRef.current.src = vod.playbackUrl;
+      if (!viewCounted.current) {
+        api.post(`/api/vods/${params.id}/view`).catch(err => console.error(err));
+        viewCounted.current = true;
+      }
+    }
+  }, [vod, params.id]);
 
   if (loading) return <div className="flex items-center justify-center h-screen bg-linear-to-br from-gray-900 via-gray-800 to-black text-white">Loading...</div>;
   if (!vod) return <div className="flex items-center justify-center h-screen bg-linear-to-br from-gray-900 via-gray-800 to-black text-white">VOD not found</div>;

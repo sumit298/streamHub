@@ -25,8 +25,8 @@ const {
   updateViewerStats,
   incrementChatMessages,
 } = require("./src/utils/streamStats");
-const followRoutes = require('./src/routes/follow.routes');
-const { Stream, Follow } = require("./src/models");
+const followRoutes = require("./src/routes/follow.routes");
+const { Stream } = require("./src/models");
 const Notification = require("./src/models/Notification");
 const NotificationRouter = require("./src/routes/notification.routes");
 const R2Service = require("./src/services/R2Service");
@@ -45,10 +45,16 @@ for (const name of Object.keys(nets)) {
   }
 }
 
-console.log(`🌐 Detected local IPs: ${detectedIPs.join(', ')|| 'none'}`);
-console.log(`🌐 ANNOUNCED_IP env var: ${process.env.ANNOUNCED_IP || 'not set'}`);
+console.log(`🌐 Detected local IPs: ${detectedIPs.join(", ") || "none"}`);
+console.log(
+  `🌐 ANNOUNCED_IP env var: ${process.env.ANNOUNCED_IP || "not set"}`,
+);
 
-if (!process.env.ANNOUNCED_IP && process.env.NODE_ENV === "development" && detectedIPs.length > 0) {
+if (
+  !process.env.ANNOUNCED_IP &&
+  process.env.NODE_ENV === "development" &&
+  detectedIPs.length > 0
+) {
   process.env.ANNOUNCED_IP = detectedIPs[0];
   console.log(`🌐 Auto-set ANNOUNCED_IP to: ${detectedIPs[0]}`);
 }
@@ -111,7 +117,7 @@ app.use(cookieParser());
 const generateLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 10000, // change this according to pricing
-  
+
   message: "Too many requests from this ip",
   skip: (req) => {
     // Skip rate limiting for frequently-called authenticated endpoints
@@ -129,9 +135,9 @@ const authLimiter = rateLimit({
   },
 });
 
-app.use('/api', generateLimiter);
-app.use('/api/auth', authLimiter);
-app.use('/api/users', followRoutes(logger))
+app.use("/api", generateLimiter);
+app.use("/api/auth", authLimiter);
+app.use("/api/users", followRoutes(logger));
 
 // Swagger Documentation
 app.use(
@@ -176,7 +182,12 @@ app.get("/health", (req, res) => {
   });
 });
 
-let mediaService, messageQueue, cacheService, streamService, chatService, r2Service;
+let mediaService,
+  messageQueue,
+  cacheService,
+  streamService,
+  chatService,
+  r2Service;
 // metricService;
 
 async function initializeServices() {
@@ -205,7 +216,7 @@ async function initializeServices() {
 
     // Temporarily disabled for streaming testing
     messageQueue = new MessageQueue(logger);
-    // await messageQueue.connect();
+    await messageQueue.connect();
 
     cacheService = new CacheService(logger);
     await cacheService.connect();
@@ -247,11 +258,15 @@ async function initializeServices() {
       NotificationRouter,
     );
 
-    app.use('/api/vods', (req, res, next)=> {
-      req.r2Service = r2Service;
-      req.logger = logger;
-      next();
-    }, VodRouter);
+    app.use(
+      "/api/vods",
+      (req, res, next) => {
+        req.r2Service = r2Service;
+        req.logger = logger;
+        next();
+      },
+      VodRouter,
+    );
 
     logger.info("All services initialized successfully");
   } catch (error) {
@@ -274,7 +289,7 @@ if (!sigintHandlerRegistered) {
 
     // Close services
     await mediaService?.cleanup();
-    // await messageQueue?.close();
+    await messageQueue?.close();
     // await cacheService?.disconnect();
     await mongoose.disconnect();
 
@@ -299,6 +314,7 @@ io.use((socket, next) => {
 });
 
 const activeConnections = new Map();
+const recordingStreams = new Map();
 
 io.on("connection", (socket) => {
   logger.info(`Client connected: ${socket.id}, User: ${socket.userId}`);
@@ -307,9 +323,9 @@ io.on("connection", (socket) => {
 
   const userId = socket.userId || socket.user?._id || socket.user?.id;
 
-  if(userId){
+  if (userId) {
     socket.join(`user:${userId.toString()}`);
-    logger.info(`User ${userId} joined notification room: user:${userId}`)
+    logger.info(`User ${userId} joined notification room: user:${userId}`);
   }
   activeConnections.set(socket.id, {
     userId: socket.userId,
@@ -332,7 +348,7 @@ io.on("connection", (socket) => {
 
       logger.info(`Stream created: ${stream.id} by user: ${socket.userId}`);
       //   metricsService.incrementActiveStreams();
-      
+
       // const followers = await Follow.find({ followingId: socket.userId}).select('followerId');
       // for(const follow of followers){
       //   const notification = await Notification.create({
@@ -367,7 +383,7 @@ io.on("connection", (socket) => {
   //         streamerId: stream.userId._id,
   //         streamerName: stream.userId.username,
   //         streamId: stream._id,
-  //         streamTitle: stream.title,  
+  //         streamTitle: stream.title,
   //         category: stream.category
   //       });
   //     })
@@ -703,7 +719,7 @@ io.on("connection", (socket) => {
       );
 
       logger.info(`Message mentions: ${JSON.stringify(message.mentions)}`);
-      
+
       if (message.mentions?.length > 0) {
         logger.info(`Processing ${message.mentions.length} mentions`);
         for (const mentionedUserId of message.mentions) {
@@ -752,6 +768,13 @@ io.on("connection", (socket) => {
 
           await streamService.handleUserDisconnect(streamId, socket.userId);
 
+          // Clean up recording stream
+          const recordingStream = recordingStreams.get(streamId);
+          if (recordingStream) {
+            recordingStream.end();
+            recordingStreams.delete(streamId);
+          }
+
           // Notify viewers about closed producers
           closedProducers.forEach((producerId) => {
             socket.to(roomId).emit("producer-closed", { producerId });
@@ -793,86 +816,87 @@ io.on("connection", (socket) => {
   });
 
   // recording handlers
-  socket.on("recording-chunk", async (data)=> {
+  socket.on("recording-chunk", async (data) => {
     try {
       const { streamId, chunk } = data;
-      const filepath = path.join("/tmp/recordings", `${streamId}.webm`);
-      const buffer = Buffer.from(chunk);
-      await fs.promises.appendFile(filepath, buffer)
+      let stream = recordingStreams.get(streamId);
+      if (!stream) {
+        const filepath = path.join("/tmp/recordings", `${streamId}.webm`);
+        stream = fs.createWriteStream(filepath, { flags: "a" });
+        recordingStreams.set(streamId, stream);
+      }
+      stream.write(Buffer.from(chunk));
     } catch (error) {
-      logger.error("Recording chunk error", error);      
+      logger.error("Recording chunk error", error);
     }
-  })
+  });
+
+  socket.on("recording-end", ({ streamId }) => {
+    const stream = recordingStreams.get(streamId);
+    if (stream) {
+      stream.end();
+      recordingStreams.delete(streamId);
+    }
+  });
 
   socket.on("stream-ended", async (data) => {
     try {
       const { streamId } = data;
+
+      // Validate streamId format (UUID only) - prevents command injection
+      if (!/^[a-f0-9-]{36}$/i.test(streamId)) {
+        logger.error(`Invalid streamId format: ${streamId}`);
+        return;
+      }
       const webmPath = path.join("/tmp/recordings", `${streamId}.webm`);
-      const mp4Path = path.join("/tmp/recordings", `${streamId}.mp4`);
+      // const mp4Path = path.join("/tmp/recordings", `${streamId}.mp4`);
 
       // check if file exists
       try {
         await fs.promises.access(webmPath);
       } catch (error) {
-        logger.warn(`No recordings found for stream ${streamId}`)
+        logger.warn(`No recordings found for stream ${streamId}`);
         return;
       }
 
-      // get stream info
-      const stream = await Stream.findOne({id: streamId});
-      if(!stream) {
-        logger.warn(`Stream ${streamId} not found in DB`)
+      // Validate file size
+      const fileStats = await fs.promises.stat(webmPath);
+      if (fileStats.size < 1000) {
+        logger.warn(`Recording too small (${fileStats.size} bytes), skipping`);
+        await fs.promises.unlink(webmPath);
         return;
       }
 
-      // Convert WebM to MP4 for better seeking
-      logger.info(`Converting ${streamId}.webm to MP4...`);
-      const { exec } = require('child_process');
-      await new Promise((resolve, reject) => {
-        exec(
-          `ffmpeg -i "${webmPath}" -c:v libx264 -c:a aac -movflags +faststart "${mp4Path}"`,
-          { maxBuffer: 50 * 1024 * 1024 },
-          (error) => {
-            if (error) reject(error);
+      // Validate WebM with ffprobe (safe - no shell)
+      const { execFile } = require("child_process");
+      try {
+        await new Promise((resolve, reject) => {
+          execFile("ffprobe", [webmPath], (error) => {
+            if (error) reject(new Error("Invalid WebM"));
             else resolve(true);
-          }
-        );
-      });
-      logger.info(`Conversion complete for ${streamId}`);
+          });
+        });
+      } catch (error) {
+        logger.error(`Invalid WebM for ${streamId}: ${error.message}`);
+        await fs.promises.unlink(webmPath);
+        return;
+      }
 
-      // upload MP4 to r2
-      const r2Key = `vods/${streamId}/${Date.now()}.mp4`
-      await r2Service.uploadFile(mp4Path, r2Key);
-
-      // get file size
-      const stats = await fs.promises.stat(mp4Path);
-
-      // save vod to db
-      const vod = await VOD.create({
+      const queued = await messageQueue.publishVODConversion({
         streamId,
-        userId: stream.userId,
-        title: stream.title,
-        description: stream.description,
-        category: stream.category,
-        thumbnail: stream.thumbnail,
-        r2Key,
-        fileSize: stats.size,
-        filename: `${streamId}_${Date.now()}.mp4`,
-        status: "ready"
-      })
+        webmPath,
+        userId: socket.userId,
+      });
 
-      // cleanup
-      await fs.promises.unlink(webmPath);
-      await fs.promises.unlink(mp4Path);
-
-      io.to(`user:${stream.userId}`).emit("vod-ready", vod);
-
-      logger.info(`VOD created for stream ${streamId}: ${vod.id}`)
-
+      if (queued) {
+        logger.info(`VOD conversion queued for stream ${streamId}`);
+      } else {
+        logger.warn(`VOD conversion queued for ${streamId}`);
+      }
     } catch (error) {
-      logger.error("Stream ended processing error", error)
+      logger.error("Stream ended processing error", error);
     }
-  })
+  });
 
   socket.on("error", (error) => {
     logger.error(`Socket error for ${socket.id}: ${error}`);
