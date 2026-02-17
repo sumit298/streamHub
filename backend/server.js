@@ -819,6 +819,19 @@ io.on("connection", (socket) => {
   socket.on("recording-chunk", async (data) => {
     try {
       const { streamId, chunk } = data;
+
+      const streamDoc = await Stream.findOne({
+        id: streamId,
+        userId: socket.userId,
+      });
+
+      if (!streamDoc) {
+        logger.warn(
+          `Unauthorized recording-chunk from user ${socket.userId} for stream ${streamId}`,
+        );
+        return;
+      }
+
       let stream = recordingStreams.get(streamId);
       if (!stream) {
         const filepath = path.join("/tmp/recordings", `${streamId}.webm`);

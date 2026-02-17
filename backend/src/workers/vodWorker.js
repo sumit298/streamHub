@@ -27,29 +27,26 @@ class VODWorker {
         process.env.RABBITMQ_URL || "amqp://localhost:5672",
       );
 
-      this.channel = this.connection.createChannel();
-      (await this.channel).prefetch(1);
-
-      (await this.channel).assertQueue("vod.conversion", {
+      this.channel = await this.connection.createChannel();
+      this.channel.prefetch(1);
+      this.channel.assertQueue("vod.conversion", {
         durable: true,
         maxLength: 100
       });
-
       logger
         .info(`VOD Worker: Started, waiting for jobs...`);
-        (await this.channel)
-        .consume("vod.conversion", async (msg) => {
-          if (msg) {
-            try {
-              const data = JSON.parse(msg.content.toString());
-              await this.processVOD(data);
-              (await this.channel)?.ack(msg);
-            } catch (error) {
-              logger.error(`VOD processing failed`, error);
-              (await this.channel)?.nack(msg, false, false);
-            }
+      this.channel.consume("vod.conversion", async (msg) => {
+        if (msg) {
+          try {
+            const data = JSON.parse(msg.content.toString());
+            await this.processVOD(data);
+            this.channel?.ack(msg);
+          } catch (error) {
+            logger.error(`VOD processing failed`, error);
+            this.channel?.nack(msg, false, false);
           }
-        });
+        }
+      });
     } catch (error) {
       logger.error(`VOD Worker: Startup failed`, error);
       process.exit(1);
@@ -114,7 +111,7 @@ class VODWorker {
   }
 
   async stop() {
-    await this.channel.close();
+    await this.channel?.close();
     await this.connection?.close();
     await mongoose.disconnect();
     logger.info(`VOD worker stopped`)
