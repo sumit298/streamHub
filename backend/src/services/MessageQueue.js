@@ -105,6 +105,11 @@ class MessageQueue {
             maxLength: 5000
         });
 
+        await this.channel.assertQueue('vod.conversion', {
+            durable: true,
+            maxLength: 100
+        });
+
     }
 
     async handleReconnect() {
@@ -313,6 +318,23 @@ class MessageQueue {
             this.logger.info('RabbitMQ connection closed');
         } catch (error) {
             this.logger.error('Error closing RabbitMQ connection:', error);
+        }
+    }
+
+    async publishVODConversion(data){
+        if(!this.channel){
+            this.logger.warn(`RabbitMQ not available, skipping queue`);
+            return false;
+        }
+
+        try {
+            await this.channel.sendToQueue('vod.conversion', Buffer.from(JSON.stringify(data)), {persistent: true});
+
+            this.logger.info(`VOD conversion job queued for ${data.streamId}`)
+            return true;
+        } catch (error) {
+            this.logger.error(`Error queueing VOD conversion:`, error);
+            return false;
         }
     }
 }

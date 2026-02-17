@@ -25,24 +25,38 @@ const {
   updateViewerStats,
   incrementChatMessages,
 } = require("./src/utils/streamStats");
-const followRoutes = require('./src/routes/routes.follow');
-const { Stream, Follow } = require("./src/models");
+const followRoutes = require("./src/routes/follow.routes");
+const { Stream } = require("./src/models");
 const Notification = require("./src/models/Notification");
-const NotificationRouter = require("./src/routes/routes.notification");
+const NotificationRouter = require("./src/routes/notification.routes");
+const R2Service = require("./src/services/R2Service");
+const VOD = require("./src/models/Vod");
+const VodRouter = require("./src/routes/vod.routes");
+const path = require("path");
 
-// Auto-detect local IP in development if not set
-if (!process.env.ANNOUNCED_IP && process.env.NODE_ENV === "development") {
-  const nets = os.networkInterfaces();
-  for (const name of Object.keys(nets)) {
-    for (const net of nets[name]) {
-      if (net.family === "IPv4" && !net.internal) {
-        process.env.ANNOUNCED_IP = net.address;
-        logger.info(`🌐 Auto-detected ANNOUNCED_IP: ${net.address}`);
-        break;
-      }
+// Auto-detect and log local IP addresses
+const nets = os.networkInterfaces();
+const detectedIPs = [];
+for (const name of Object.keys(nets)) {
+  for (const net of nets[name]) {
+    if (net.family === "IPv4" && !net.internal) {
+      detectedIPs.push(net.address);
     }
-    if (process.env.ANNOUNCED_IP) break;
   }
+}
+
+console.log(`🌐 Detected local IPs: ${detectedIPs.join(", ") || "none"}`);
+console.log(
+  `🌐 ANNOUNCED_IP env var: ${process.env.ANNOUNCED_IP || "not set"}`,
+);
+
+if (
+  !process.env.ANNOUNCED_IP &&
+  process.env.NODE_ENV === "development" &&
+  detectedIPs.length > 0
+) {
+  process.env.ANNOUNCED_IP = detectedIPs[0];
+  console.log(`🌐 Auto-set ANNOUNCED_IP to: ${detectedIPs[0]}`);
 }
 
 //metrics - later
@@ -103,7 +117,7 @@ app.use(cookieParser());
 const generateLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 10000, // change this according to pricing
-  
+
   message: "Too many requests from this ip",
   skip: (req) => {
     // Skip rate limiting for frequently-called authenticated endpoints
@@ -113,7 +127,7 @@ const generateLimiter = rateLimit({
 
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 20, // Increased from 10 to 20 for /me endpoint
+  max: 200, // Increased from 10 to 20 for /me endpoint
   message: "Too many authentication requests",
   skip: (req) => {
     // Skip rate limiting for /me and /refresh-token endpoints
@@ -121,9 +135,9 @@ const authLimiter = rateLimit({
   },
 });
 
-app.use('/api', generateLimiter);
-app.use('/api/auth', authLimiter);
-app.use('/api/users', followRoutes(logger))
+app.use("/api", generateLimiter);
+app.use("/api/auth", authLimiter);
+app.use("/api/users", followRoutes(logger));
 
 // Swagger Documentation
 app.use(
@@ -168,7 +182,12 @@ app.get("/health", (req, res) => {
   });
 });
 
-let mediaService, messageQueue, cacheService, streamService, chatService;
+let mediaService,
+  messageQueue,
+  cacheService,
+  streamService,
+  chatService,
+  r2Service;
 // metricService;
 
 async function initializeServices() {
@@ -197,10 +216,15 @@ async function initializeServices() {
 
     // Temporarily disabled for streaming testing
     messageQueue = new MessageQueue(logger);
-    // await messageQueue.connect();
+    await messageQueue.connect();
 
     cacheService = new CacheService(logger);
     await cacheService.connect();
+
+    r2Service = new R2Service(logger);
+    // Creating recording directory
+    await fs.promises.mkdir("/tmp/recordings", { recursive: true });
+    logger.info("R2 service and recordings directory initialized");
 
     // metricsService = new MetricsService();
     streamService = new StreamService(
@@ -213,10 +237,10 @@ async function initializeServices() {
     chatService = new ChatService(messageQueue, cacheService, logger);
 
     // Register routes after services are initialized
-    app.use("/api/auth", require("./src/routes/routes.auth")(logger));
+    app.use("/api/auth", require("./src/routes/auth.routes")(logger));
     app.use(
       "/api/streams",
-      require("./src/routes/routes.stream")(
+      require("./src/routes/stream.routes")(
         streamService,
         logger,
         AuthMiddleWare,
@@ -226,12 +250,22 @@ async function initializeServices() {
     app.use(
       "/api/chat",
       AuthMiddleWare.authenticate,
-      require("./src/routes/routes.chat")(chatService, logger),
+      require("./src/routes/chat.routes")(chatService, logger),
     );
     app.use(
       "/api/notifications",
       AuthMiddleWare.authenticate,
       NotificationRouter,
+    );
+
+    app.use(
+      "/api/vods",
+      (req, res, next) => {
+        req.r2Service = r2Service;
+        req.logger = logger;
+        next();
+      },
+      VodRouter,
     );
 
     logger.info("All services initialized successfully");
@@ -255,7 +289,7 @@ if (!sigintHandlerRegistered) {
 
     // Close services
     await mediaService?.cleanup();
-    // await messageQueue?.close();
+    await messageQueue?.close();
     // await cacheService?.disconnect();
     await mongoose.disconnect();
 
@@ -280,6 +314,7 @@ io.use((socket, next) => {
 });
 
 const activeConnections = new Map();
+const recordingStreams = new Map();
 
 io.on("connection", (socket) => {
   logger.info(`Client connected: ${socket.id}, User: ${socket.userId}`);
@@ -288,9 +323,9 @@ io.on("connection", (socket) => {
 
   const userId = socket.userId || socket.user?._id || socket.user?.id;
 
-  if(userId){
+  if (userId) {
     socket.join(`user:${userId.toString()}`);
-    logger.info(`User ${userId} joined notification room: user:${userId}`)
+    logger.info(`User ${userId} joined notification room: user:${userId}`);
   }
   activeConnections.set(socket.id, {
     userId: socket.userId,
@@ -313,7 +348,7 @@ io.on("connection", (socket) => {
 
       logger.info(`Stream created: ${stream.id} by user: ${socket.userId}`);
       //   metricsService.incrementActiveStreams();
-      
+
       // const followers = await Follow.find({ followingId: socket.userId}).select('followerId');
       // for(const follow of followers){
       //   const notification = await Notification.create({
@@ -348,7 +383,7 @@ io.on("connection", (socket) => {
   //         streamerId: stream.userId._id,
   //         streamerName: stream.userId.username,
   //         streamId: stream._id,
-  //         streamTitle: stream.title,  
+  //         streamTitle: stream.title,
   //         category: stream.category
   //       });
   //     })
@@ -684,7 +719,7 @@ io.on("connection", (socket) => {
       );
 
       logger.info(`Message mentions: ${JSON.stringify(message.mentions)}`);
-      
+
       if (message.mentions?.length > 0) {
         logger.info(`Processing ${message.mentions.length} mentions`);
         for (const mentionedUserId of message.mentions) {
@@ -733,6 +768,13 @@ io.on("connection", (socket) => {
 
           await streamService.handleUserDisconnect(streamId, socket.userId);
 
+          // Clean up recording stream
+          const recordingStream = recordingStreams.get(streamId);
+          if (recordingStream) {
+            recordingStream.end();
+            recordingStreams.delete(streamId);
+          }
+
           // Notify viewers about closed producers
           closedProducers.forEach((producerId) => {
             socket.to(roomId).emit("producer-closed", { producerId });
@@ -771,6 +813,102 @@ io.on("connection", (socket) => {
     activeConnections.delete(socket.id);
 
     //  metricsService.decrementActiveConnections();
+  });
+
+  // recording handlers
+  socket.on("recording-chunk", async (data) => {
+    try {
+      const { streamId, chunk } = data;
+
+      const streamDoc = await Stream.findOne({
+        id: streamId,
+        userId: socket.userId,
+      });
+
+      if (!streamDoc) {
+        logger.warn(
+          `Unauthorized recording-chunk from user ${socket.userId} for stream ${streamId}`,
+        );
+        return;
+      }
+
+      let stream = recordingStreams.get(streamId);
+      if (!stream) {
+        const filepath = path.join("/tmp/recordings", `${streamId}.webm`);
+        stream = fs.createWriteStream(filepath, { flags: "a" });
+        recordingStreams.set(streamId, stream);
+      }
+      stream.write(Buffer.from(chunk));
+    } catch (error) {
+      logger.error("Recording chunk error", error);
+    }
+  });
+
+  socket.on("recording-end", ({ streamId }) => {
+    const stream = recordingStreams.get(streamId);
+    if (stream) {
+      stream.end();
+      recordingStreams.delete(streamId);
+    }
+  });
+
+  socket.on("stream-ended", async (data) => {
+    try {
+      const { streamId } = data;
+
+      // Validate streamId format (UUID only) - prevents command injection
+      if (!/^[a-f0-9-]{36}$/i.test(streamId)) {
+        logger.error(`Invalid streamId format: ${streamId}`);
+        return;
+      }
+      const webmPath = path.join("/tmp/recordings", `${streamId}.webm`);
+      // const mp4Path = path.join("/tmp/recordings", `${streamId}.mp4`);
+
+      // check if file exists
+      try {
+        await fs.promises.access(webmPath);
+      } catch (error) {
+        logger.warn(`No recordings found for stream ${streamId}`);
+        return;
+      }
+
+      // Validate file size
+      const fileStats = await fs.promises.stat(webmPath);
+      if (fileStats.size < 1000) {
+        logger.warn(`Recording too small (${fileStats.size} bytes), skipping`);
+        await fs.promises.unlink(webmPath);
+        return;
+      }
+
+      // Validate WebM with ffprobe (safe - no shell)
+      const { execFile } = require("child_process");
+      try {
+        await new Promise((resolve, reject) => {
+          execFile("ffprobe", [webmPath], (error) => {
+            if (error) reject(new Error("Invalid WebM"));
+            else resolve(true);
+          });
+        });
+      } catch (error) {
+        logger.error(`Invalid WebM for ${streamId}: ${error.message}`);
+        await fs.promises.unlink(webmPath);
+        return;
+      }
+
+      const queued = await messageQueue.publishVODConversion({
+        streamId,
+        webmPath,
+        userId: socket.userId,
+      });
+
+      if (queued) {
+        logger.info(`VOD conversion queued for stream ${streamId}`);
+      } else {
+        logger.warn(`VOD conversion queued for ${streamId}`);
+      }
+    } catch (error) {
+      logger.error("Stream ended processing error", error);
+    }
   });
 
   socket.on("error", (error) => {

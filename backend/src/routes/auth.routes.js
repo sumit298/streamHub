@@ -1,7 +1,7 @@
 const express = require("express");
 const rateLimit = require("express-rate-limit");
 const { body, validationResult } = require("express-validator");
-const { User } = require("../models");
+const { User } = require("../models/index.js");
 const AuthMiddleWare = require("../middleware/middleware.auth.js");
 const Stream = require('../models/Stream.js')
 

@@ -10,9 +10,13 @@
     "test:basic": "node test-basic.js",
     "test:services": "node test-services.js",
     "test:api": "node test-api.js",
-    "test:all": "npm run test:basic && npm run test:services"
+    "test:all": "npm run test:basic && npm run test:services",
+    "worker": "node --env-file=.env.local src/workers/vodWorker.js"
+
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.989.0",
+    "@aws-sdk/s3-request-presigner": "^3.989.0",
     "amqplib": "^0.10.3",
     "bcrypt": "^6.0.0",
     "cookie-parser": "^1.4.7",
@@ -26,6 +30,7 @@
     "mediasoup": "^3.12.0",
     "mongoose": "^7.5.0",
     "morgan": "^1.10.1",
+    "multer": "^2.0.2",
     "prom-client": "^14.2.0",
     "sanitize-html": "^2.17.0",
     "socket.io": "^4.7.2",

@@ -48,6 +48,8 @@ const StreamsPage = () => {
   const [showEndStreamModal, setShowEndStreamModal] = useState(false);
   const [isStarting, setIsStarting] = useState(false);
   const [isStopping, setIsStopping] = useState(false);
+  const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
+  const [isRecording, setIsRecording] = useState(false);
   const [availableDevices, setAvailableDevices] = useState<{
     cameras: MediaDeviceInfo[];
     microphones: MediaDeviceInfo[];
@@ -235,7 +237,7 @@ const StreamsPage = () => {
     } catch (error: any) {
       console.error("MediaSoup initialization failed:", error);
       setConnectionStatus("failed");
-      setConnectionTested(false);
+      // setConnectionTested(false);
       toast.error(
         error.message ||
           "Connection test failed. Please check your network and try again.",
@@ -473,13 +475,6 @@ const StreamsPage = () => {
           toast.success("Stream is now live!", { position: "bottom-left" });
         } else if (state === "connecting") {
           setStreamingStatus("connecting");
-        } else if (state === "failed" || state === "closed") {
-          console.error("❌ Transport connection failed or closed");
-          setStreamingStatus("failed");
-          setConnectionStatus("failed");
-          setConnectionTested(false);
-          toast.error("Stream connection lost. Ending stream...", { position: "bottom-left" });
-          setIsStreaming(false);
         }
       });
 
@@ -533,6 +528,11 @@ const StreamsPage = () => {
     setIsStopping(true);
     
     try {
+      if (mediaRecorder && isRecording) {
+        mediaRecorder.stop();
+        setIsRecording(false);
+      }
+
       if (producer) {
         producer.video?.close();
         producer.audio?.close();
@@ -554,8 +554,13 @@ const StreamsPage = () => {
       );
 
       if (!response.ok) {
-        throw new Error("Failed to end stream");
+        const errorData = await response.json().catch(() => ({}));
+        console.error("End stream error:", response.status, errorData);
+        throw new Error(errorData.error || "Failed to end stream");
       }
+
+      // Notify backend that stream ended
+      socket?.emit("stream-ended", { streamId: params.id });
 
       // Fetch duration from backend response
       const data = await response.json();
@@ -583,6 +588,55 @@ const StreamsPage = () => {
     }
   };
 
+  const toggleRecording = () => {
+    if (isRecording) {
+      if (mediaRecorder) {
+        mediaRecorder.stop();
+        setMediaRecorder(null);
+      }
+      setIsRecording(false);
+      toast.success("Recording stopped", { position: "bottom-left" });
+    } else {
+      startRecording();
+      toast.success("Recording started", { position: "bottom-left" });
+    }
+  };
+
+  const startRecording = () => {
+    // Use screen stream if screen sharing is active, otherwise use camera stream
+    const recordStream = isScreenSharing && screenStream ? screenStream : stream;
+    if (!recordStream) return;
+    const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=h264,opus')
+    ? 'video/webm;codecs=h264,opus'
+    : 'video/webm;codecs=vp8,opus';
+
+      console.log('🎥 Recording with:', mimeType);
+
+
+    const recorder = new MediaRecorder(recordStream, { 
+      mimeType,
+      videoBitsPerSecond: 500000, // 1 Mbps for 480p quality
+      audioBitsPerSecond: 128000   // 128 kbps audio
+    });
+    recorder.ondataavailable = async (e) => {
+      if (e.data.size > 0) {
+        const formData = new FormData();
+        formData.append('chunk', e.data);
+        formData.append('streamId', params.id as string);
+        
+        fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001"}/api/vods/upload-chunk`, {
+          method: 'POST',
+          credentials: 'include',
+          body: formData,
+        }).catch(err => console.error('Upload chunk failed:', err));
+      }
+    };
+
+    recorder.start(90000); // 90 seconds
+    setMediaRecorder(recorder);
+    setIsRecording(true);
+  };
+
   const startScreenShare = async () => {
     if (!sendTransport || !isStreaming) {
       toast.error("Please start streaming first", { position: "bottom-left" });
@@ -596,6 +650,37 @@ const StreamsPage = () => {
       });
 
       setScreenStream(screenMediaStream);
+
+      // Switch recording to screen share only if recording is active
+      if (isRecording && mediaRecorder) {
+        mediaRecorder.stop();
+        const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=h264,opus')
+          ? 'video/webm;codecs=h264,opus'
+          : 'video/webm;codecs=vp8,opus';
+
+        console.log('🎥 Screen recording with:', mimeType);
+
+        const screenRecorder = new MediaRecorder(screenMediaStream, { 
+          mimeType,
+          videoBitsPerSecond: 500000,  // 500 kbps
+          audioBitsPerSecond: 128000   // 128 kbps audio
+        });
+        screenRecorder.ondataavailable = async (e) => {
+          if (e.data.size > 0) {
+            const formData = new FormData();
+            formData.append('chunk', e.data);
+            formData.append('streamId', params.id as string);
+            
+            fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001"}/api/vods/upload-chunk`, {
+              method: 'POST',
+              credentials: 'include',
+              body: formData,
+            }).catch(err => console.error('Upload chunk failed:', err));
+          }
+        };
+        screenRecorder.start(90000); // 90 seconds
+        setMediaRecorder(screenRecorder);
+      }
 
       // produce screen video
       const screenVideoTrack = screenMediaStream.getVideoTracks()[0];
@@ -655,6 +740,36 @@ const StreamsPage = () => {
     if (screenStream) {
       screenStream.getTracks().forEach((track) => track.stop());
       setScreenStream(null);
+    }
+
+    // Switch recording back to camera only if recording is active
+    if (isRecording && mediaRecorder && stream) {
+      mediaRecorder.stop();
+      const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=h264,opus')
+        ? 'video/webm;codecs=h264,opus'
+        : 'video/webm;codecs=vp8,opus';
+
+      console.log('🎥 Camera recording with:', mimeType);
+      const cameraRecorder = new MediaRecorder(stream, { 
+        mimeType,
+        videoBitsPerSecond: 500000,  // 500 kbps
+        audioBitsPerSecond: 128000   // 128 kbps audio
+      });
+      cameraRecorder.ondataavailable = async (e) => {
+        if (e.data.size > 0) {
+          const formData = new FormData();
+          formData.append('chunk', e.data);
+          formData.append('streamId', params.id as string);
+          
+          fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001"}/api/vods/upload-chunk`, {
+            method: 'POST',
+            credentials: 'include',
+            body: formData,
+          }).catch(err => console.error('Upload chunk failed:', err));
+        }
+      };
+      cameraRecorder.start(90000); // 90 seconds
+      setMediaRecorder(cameraRecorder);
     }
 
     setIsScreenSharing(false);
@@ -910,9 +1025,11 @@ const StreamsPage = () => {
                   isCameraOff={isCameraOff}
                   isScreenSharing={isScreenSharing}
                   isStreaming={isStreaming}
+                  isRecording={isRecording}
                   onToggleMute={toggleMute}
                   onToggleCamera={toggleCamera}
                   onToggleScreenShare={isMobile ? undefined : (isScreenSharing ? stopScreenShare : startScreenShare)}
+                  onToggleRecording={toggleRecording}
                   onEndStream={() => setShowEndStreamModal(true)}
                   showScreenShare={!isMobile}
                 />
