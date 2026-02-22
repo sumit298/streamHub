@@ -214,9 +214,14 @@ async function initializeServices() {
     mediaService = new MediaService(logger);
     await mediaService.initialize();
 
-    // Temporarily disabled for streaming testing
     messageQueue = new MessageQueue(logger);
-    await messageQueue.connect();
+    if (process.env.NODE_ENV === 'development') {
+      try {
+        await messageQueue.connect();
+      } catch (error) {
+        logger.warn('RabbitMQ unavailable, continuing without it');
+      }
+    }
 
     cacheService = new CacheService(logger);
     await cacheService.connect();
@@ -862,7 +867,6 @@ io.on("connection", (socket) => {
         return;
       }
       const webmPath = path.join("/tmp/recordings", `${streamId}.webm`);
-      // const mp4Path = path.join("/tmp/recordings", `${streamId}.mp4`);
 
       // check if file exists
       try {
@@ -895,17 +899,52 @@ io.on("connection", (socket) => {
         return;
       }
 
-      const queued = await messageQueue.publishVODConversion({
+      const stream = await Stream.findOne({ id: streamId });
+      if (!stream) {
+        logger.warn(`Stream ${streamId} not found in DB`);
+        await fs.promises.unlink(webmPath);
+        return;
+      }
+
+      // DEVELOPMENT: Use RabbitMQ worker for background processing with FFmpeg
+      if (process.env.NODE_ENV === 'development' && messageQueue.channel) {
+        const queued = await messageQueue.publishVODConversion({
+          streamId,
+          webmPath,
+          userId: socket.userId,
+        });
+
+        if (queued) {
+          logger.info(`VOD queued for worker: ${streamId}`);
+          return;
+        }
+        logger.warn(`RabbitMQ unavailable, falling back to sync processing`);
+      }
+
+      // PRODUCTION: Process synchronously (upload WebM directly, no conversion)
+      logger.info(`Processing VOD synchronously: ${streamId}`);
+
+      const r2Key = `vods/${streamId}/${Date.now()}.webm`;
+      await r2Service.uploadFile(webmPath, r2Key);
+      const stats = await fs.promises.stat(webmPath);
+
+      await VOD.create({
         streamId,
-        webmPath,
-        userId: socket.userId,
+        userId: stream.userId,
+        title: stream.title,
+        description: stream.description,
+        category: stream.category,
+        thumbnail: stream.thumbnail,
+        r2Key,
+        fileSize: stats.size,
+        filename: `${streamId}_${Date.now()}.webm`,
+        status: "ready",
       });
 
-      if (queued) {
-        logger.info(`VOD conversion queued for stream ${streamId}`);
-      } else {
-        logger.warn(`VOD conversion queued for ${streamId}`);
-      }
+      await fs.promises.unlink(webmPath).catch(() => {});
+
+      io.to(`user:${stream.userId}`).emit("vod-ready", { streamId });
+      logger.info(`VOD ready: ${streamId}`);
     } catch (error) {
       logger.error("Stream ended processing error", error);
     }
