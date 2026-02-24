@@ -21,38 +21,39 @@ export const Navbar = () => {
   return (
     <>
       <nav className="bg-background border-b border-border sticky top-0 z-50 backdrop-blur-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
+        <div className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-8">
+          <div className="flex justify-between items-center h-14 sm:h-16">
             {/* Mobile Menu Button */}
             <button
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-              className="lg:hidden text-white hover:text-gray-300 transition"
+              className="lg:hidden text-white hover:text-gray-300 transition p-1"
             >
-              {isMobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+              {isMobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
             </button>
 
             {/* Logo */}
-            <Link href="/dashboard" className="flex items-center gap-2">
-              <img src="/favicon.svg" alt="StreamHub" className="h-10 w-10" />
-              <div className="text-2xl font-bold text-white">
+            <Link href="/dashboard" className="flex items-center gap-1 sm:gap-2">
+              <img src="/favicon.svg" alt="StreamHub" className="h-7 w-7 sm:h-10 sm:w-10" />
+              <div className="text-lg sm:text-2xl font-bold text-white">
                 StreamHub
               </div>
             </Link>
 
             {/* Actions */}
-            <div className="flex items-center gap-2 sm:gap-4">
+            <div className="flex items-center gap-1 sm:gap-2 md:gap-4">
               <Button 
                 variant="default" 
-                className="font-semibold cursor-pointer"
+                className="font-semibold cursor-pointer text-xs sm:text-sm px-2 sm:px-4 py-1 sm:py-2 h-8 sm:h-10"
                 onClick={() => setIsCreateStreamOpen(true)}
               >
-                Go Live
+                <span className="hidden sm:inline">Go Live</span>
+                <span className="sm:hidden">Live</span>
               </Button>
               <NotificationBell />
               <Link
                 href="/profile"
                 title={user?.username || "Profile"}
-                className="w-9 h-9 bg-gray-700 rounded-full flex items-center justify-center text-white font-semibold text-sm hover:bg-gray-600 transition"
+                className="w-7 h-7 sm:w-9 sm:h-9 bg-gray-700 rounded-full flex items-center justify-center text-white font-semibold text-xs sm:text-sm hover:bg-gray-600 transition"
               >
                 {getInitials(user?.username)}
               </Link>

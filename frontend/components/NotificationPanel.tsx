@@ -143,7 +143,7 @@ export const NotificationPanel = ({
   return (
     <>
       <div className="fixed inset-0 z-40 text-white" onClick={onClose} />
-      <div className="absolute right-0 mt-2 w-96 bg-gray-900 border border-gray-700 rounded-xl shadow-2xl z-50 max-h-[32rem] overflow-hidden">
+      <div className="absolute right-0 mt-2 w-96 max-w-[calc(100vw-2rem)] bg-gray-900 border border-gray-700 rounded-xl shadow-2xl z-50 max-h-[80vh] overflow-hidden flex flex-col">
         <div className="p-4 border-b border-gray-700 flex justify-between items-center bg-gray-800">
           <div className="flex items-center gap-2">
             <Bell className="h-5 w-5 text-blue-400" />
@@ -167,7 +167,7 @@ export const NotificationPanel = ({
             </button>
           </div>
         </div>
-        <div className="overflow-y-auto max-h-[28rem]">
+        <div className="overflow-y-auto flex-1">
           {loading ? (
             <div className="p-8 text-center">
               <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-blue-500 border-r-transparent"></div>
