@@ -7,6 +7,54 @@ const Notification = require("../models/Notification");
 module.exports = (logger) => {
   const router = express.Router();
 
+  // get followed streamers who are live (must be before /:userId)
+  router.get(
+    "/following/live",
+    AuthMiddleWare.authenticate,
+    async (req, res) => {
+      try {
+        const followerId = req.userId;
+
+        const following = await Follow.find({ followerId }).select(
+          "followingId",
+        );
+        const followingIds = following.map((f) => f.followingId);
+
+        const liveStreams = await Stream.find({
+          userId: { $in: followingIds },
+          isLive: true,
+        }).populate("userId", "username avatar");
+
+        res.json({ success: true, streams: liveStreams });
+      } catch (error) {
+        logger.error("Get following live streams error", error);
+        res.status(500).json({ error: "Failed to get live streams" });
+      }
+    },
+  );
+
+  // get user by id
+  router.get("/:userId", async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const user = await User.findById(userId).select("-password");
+      
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      // Calculate total streams
+      const totalStreams = await Stream.countDocuments({ userId });
+      if (!user.stats) user.stats = {};
+      user.stats.totalStreams = totalStreams;
+      
+      res.json({ success: true, user });
+    } catch (error) {
+      logger.error("Get user error", error);
+      res.status(500).json({ error: "Failed to get user" });
+    }
+  });
+
   // follow a user
   router.post(
     "/:userId/follow",
@@ -196,29 +244,6 @@ module.exports = (logger) => {
   });
 
   // get followed streamers who are live
-  router.get(
-    "/following/live",
-    AuthMiddleWare.authenticate,
-    async (req, res) => {
-      try {
-        const followerId = req.userId;
-
-        const following = await Follow.find({ followerId }).select(
-          "followingId",
-        );
-        const followingIds = following.map((f) => f.followingId);
-
-        const liveStreams = await Stream.find({
-          userId: { $in: followingIds },
-          isLive: true,
-        }).populate("userId", "username avatar");
-
-        res.json({ success: true, streams: liveStreams });
-      } catch (error) {
-        logger.error("Get following live streams error", error);
-        res.status(500).json({ error: "Failed to get live streams" });
-      }
-    },
-  );
+  // MOVED TO TOP - see line 9
   return router;
 };
