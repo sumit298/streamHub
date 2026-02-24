@@ -26,8 +26,7 @@ export default function VodsPage() {
         setVods([]);
       })
       .finally(() => setLoading(false));
-  }, [page]);
-
+  }, [page])
   return (
     <div className="flex flex-col h-screen bg-gray-900">
       <Navbar />
@@ -36,18 +35,9 @@ export default function VodsPage() {
           <Sidebar />
         </div>
         <div className="flex-1 overflow-y-auto p-8">
-          {loading ? (
-            <div className="flex items-center justify-center h-full">
-              <div className="text-center">
-                <div className="w-16 h-16 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-                <p className="text-white text-lg">Loading VODs...</p>
-              </div>
-            </div>
-          ) : (
-            <>
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
             <h1 className="text-2xl sm:text-3xl font-bold text-white">Recorded Streams</h1>
-            {vods.length > 0 && (
+            {!loading && vods.length > 0 && (
               <div className="flex gap-2 sm:gap-4 w-full sm:w-auto">
                 <button
                   onClick={() => setPage(p => Math.max(1, p - 1))}
@@ -67,8 +57,20 @@ export default function VodsPage() {
               </div>
             )}
           </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
-        {vods.map((vod: any) => (
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
+            {loading ? (
+              Array.from({ length: limit }).map((_, i) => (
+                <div key={i} className="bg-gray-800 rounded-lg overflow-hidden animate-pulse">
+                  <div className="w-full h-48 bg-gray-700" />
+                  <div className="p-4 space-y-3">
+                    <div className="h-4 bg-gray-700 rounded w-3/4" />
+                    <div className="h-3 bg-gray-700 rounded w-1/2" />
+                    <div className="h-3 bg-gray-700 rounded w-1/4" />
+                  </div>
+                </div>
+              ))
+            ) : vods.length > 0 ? (
+              vods.map((vod: any) => (
           <Link key={vod._id} href={`/vods/${vod._id}`}>
             <div className="bg-gray-800 rounded-lg overflow-hidden hover:ring-2 ring-emerald-500 transition cursor-pointer">
               <div className="w-full h-48 bg-gray-700 flex items-center justify-center">
@@ -87,15 +89,13 @@ export default function VodsPage() {
               </div>
             </div>
           </Link>
-        ))}
-      </div>
-      {vods.length === 0 && (
-        <div className="text-center text-gray-400 mt-12">
-          <p>No recorded streams available yet</p>
-        </div>
-      )}
-            </>
-          )}
+              ))
+            ) : (
+              <div className="col-span-full text-center text-gray-400 mt-12">
+                <p>No recorded streams available yet</p>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>
