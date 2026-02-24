@@ -29,7 +29,9 @@ const FollowingPage = () => {
     <div className="min-h-screen bg-background">
       <Navbar />
       <div className="flex">
-        <Sidebar />
+        <div className="hidden lg:block">
+          <Sidebar />
+        </div>
         <main className="flex-1 p-8">
           <h1 className="text-3xl font-bold text-text-primary mb-6">
             Following

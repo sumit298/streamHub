@@ -70,6 +70,14 @@ const Dashboard = () => {
       }
     );
 
+    // Listen for notifications to refetch streams
+    newSocket.on("notification", (notification: any) => {
+      console.log("Notification received:", notification);
+      if (notification.type === "stream-live") {
+        fetchStreams();
+      }
+    });
+
     setSocket(newSocket);
 
     return () => {
@@ -91,7 +99,9 @@ const Dashboard = () => {
     <div className="min-h-screen bg-background">
       <Navbar />
       <div className="flex">
-        <Sidebar />
+        <div className="hidden lg:block">
+          <Sidebar />
+        </div>
         <main className="flex-1">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
             {/* Header */}

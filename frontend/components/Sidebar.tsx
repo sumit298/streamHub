@@ -11,11 +11,15 @@ const navigation = [
   { name: "Following", href: "/following", icon: TrendingUp }
 ];
 
-export const Sidebar = () => {
+interface SidebarProps {
+  onNavigate?: () => void;
+}
+
+export const Sidebar = ({ onNavigate }: SidebarProps = {}) => {
   const location = usePathname();
 
   return (
-    <aside className="hidden lg:block w-64 bg-gray-850 border-r border-gray-700 p-4 min-h-screen">
+    <aside className="w-full lg:w-64 bg-gray-850 lg:border-r border-gray-700 p-4 min-h-screen">
       <nav className="space-y-1">
         {navigation.map((item) => {
           const isActive = location === item.href;
@@ -23,6 +27,7 @@ export const Sidebar = () => {
             <Link
               key={item.name}
               href={item.href}
+              onClick={onNavigate}
               className={cn(
                 "flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors",
                 isActive

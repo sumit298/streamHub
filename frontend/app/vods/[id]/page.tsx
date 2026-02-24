@@ -97,8 +97,24 @@ export default function VodPlayerPage() {
     }
   }, [vod, params.id]);
 
-  if (loading) return <div className="flex items-center justify-center h-screen bg-linear-to-br from-gray-900 via-gray-800 to-black text-white">Loading...</div>;
-  if (!vod) return <div className="flex items-center justify-center h-screen bg-linear-to-br from-gray-900 via-gray-800 to-black text-white">VOD not found</div>;
+  if (loading) return (
+    <div className="flex items-center justify-center h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black">
+      <div className="text-center">
+        <div className="w-16 h-16 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+        <p className="text-white text-lg">Loading video...</p>
+      </div>
+    </div>
+  );
+  if (!vod) return (
+    <div className="flex items-center justify-center h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black">
+      <div className="text-center">
+        <svg className="w-20 h-20 text-red-500 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+        <p className="text-white text-xl font-semibold">VOD not found</p>
+      </div>
+    </div>
+  );
 
   return (
     <div className="min-h-screen bg-linear-to-br from-gray-900 via-gray-800 to-black p-6">

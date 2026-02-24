@@ -28,37 +28,46 @@ export default function VodsPage() {
       .finally(() => setLoading(false));
   }, [page]);
 
-  if (loading) return <div className="flex items-center justify-center h-screen bg-gray-900 text-white">Loading...</div>;
+  if (loading) return (
+    <div className="flex items-center justify-center h-screen bg-gray-900">
+      <div className="text-center">
+        <div className="w-16 h-16 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+        <p className="text-white text-lg">Loading VODs...</p>
+      </div>
+    </div>
+  );
 
   return (
     <div className="flex flex-col h-screen bg-gray-900">
       <Navbar />
       <div className="flex flex-1 overflow-hidden">
-        <Sidebar />
+        <div className="hidden lg:block">
+          <Sidebar />
+        </div>
         <div className="flex-1 overflow-y-auto p-8">
-          <div className="flex justify-between items-center mb-6">
-            <h1 className="text-3xl font-bold text-white">Recorded Streams</h1>
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+            <h1 className="text-2xl sm:text-3xl font-bold text-white">Recorded Streams</h1>
             {vods.length > 0 && (
-              <div className="flex gap-4">
+              <div className="flex gap-2 sm:gap-4 w-full sm:w-auto">
                 <button
                   onClick={() => setPage(p => Math.max(1, p - 1))}
                   disabled={page === 1}
-                  className="px-4 py-2 bg-gray-800 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-700 transition"
+                  className="flex-1 sm:flex-none px-3 sm:px-4 py-2 bg-gray-800 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-700 transition text-sm sm:text-base"
                 >
-                  Previous
+                  Prev
                 </button>
-                <span className="px-4 py-2 text-white">Page {page}</span>
+                <span className="flex-1 sm:flex-none px-3 sm:px-4 py-2 text-white text-center text-sm sm:text-base">Page {page}</span>
                 <button
                   onClick={() => setPage(p => p + 1)}
                   disabled={!hasMore}
-                  className="px-4 py-2 bg-gray-800 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-700 transition"
+                  className="flex-1 sm:flex-none px-3 sm:px-4 py-2 bg-gray-800 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-700 transition text-sm sm:text-base"
                 >
                   Next
                 </button>
               </div>
             )}
           </div>
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
         {vods.map((vod: any) => (
           <Link key={vod._id} href={`/vods/${vod._id}`}>
             <div className="bg-gray-800 rounded-lg overflow-hidden hover:ring-2 ring-emerald-500 transition cursor-pointer">

@@ -580,6 +580,11 @@ const StreamsPage = () => {
         // Fallback: use current duration state
         toast.success(`Stream ended. Duration: ${formatDuration(duration)}`, { position: "bottom-left" });
       }
+      
+      // Redirect to dashboard after stream ends
+      setTimeout(() => {
+        window.location.href = '/dashboard';
+      }, 2000);
     } catch (error) {
       console.error("Failed to stop stream:", error);
       toast.error("Failed to end stream", { position: "bottom-left" });
