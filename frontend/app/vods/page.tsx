@@ -28,15 +28,6 @@ export default function VodsPage() {
       .finally(() => setLoading(false));
   }, [page]);
 
-  if (loading) return (
-    <div className="flex items-center justify-center h-screen bg-gray-900">
-      <div className="text-center">
-        <div className="w-16 h-16 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-        <p className="text-white text-lg">Loading VODs...</p>
-      </div>
-    </div>
-  );
-
   return (
     <div className="flex flex-col h-screen bg-gray-900">
       <Navbar />
@@ -45,6 +36,15 @@ export default function VodsPage() {
           <Sidebar />
         </div>
         <div className="flex-1 overflow-y-auto p-8">
+          {loading ? (
+            <div className="flex items-center justify-center h-full">
+              <div className="text-center">
+                <div className="w-16 h-16 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                <p className="text-white text-lg">Loading VODs...</p>
+              </div>
+            </div>
+          ) : (
+            <>
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
             <h1 className="text-2xl sm:text-3xl font-bold text-white">Recorded Streams</h1>
             {vods.length > 0 && (
@@ -94,6 +94,8 @@ export default function VodsPage() {
           <p>No recorded streams available yet</p>
         </div>
       )}
+            </>
+          )}
         </div>
       </div>
     </div>
