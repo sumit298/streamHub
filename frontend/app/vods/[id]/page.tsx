@@ -15,6 +15,7 @@ export default function VodPlayerPage() {
   const [volume, setVolume] = useState(1);
   const [isMuted, setIsMuted] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isTheaterMode, setIsTheaterMode] = useState(false);
   const viewCounted = useRef(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -62,6 +63,10 @@ export default function VodPlayerPage() {
       videoRef.current.muted = !isMuted;
       setIsMuted(!isMuted);
     }
+  };
+
+  const toggleTheaterMode = () => {
+    setIsTheaterMode(!isTheaterMode);
   };
 
   const toggleFullscreen = () => {
@@ -117,12 +122,12 @@ export default function VodPlayerPage() {
   );
 
   return (
-    <div className="min-h-screen bg-linear-to-br from-gray-900 via-gray-800 to-black p-6">
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black p-2 sm:p-4 md:p-6">
       <div className="max-w-[1800px] mx-auto">
         {/* Back Button */}
         <button
           onClick={() => router.back()}
-          className="flex items-center gap-2 text-gray-400 hover:text-white transition mb-6 group"
+          className="flex items-center gap-2 text-gray-400 hover:text-white transition mb-3 sm:mb-4 md:mb-6 group"
         >
           <svg className="w-5 h-5 group-hover:-translate-x-1 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -131,13 +136,14 @@ export default function VodPlayerPage() {
         </button>
 
         {/* Two Column Layout */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Video Player - Left Side (2/3 width) */}
-          <div className="lg:col-span-2">
-            <div ref={containerRef} className="relative bg-black rounded-2xl overflow-hidden shadow-2xl group">
+        <div className={`flex flex-col ${isTheaterMode ? '' : 'lg:grid lg:grid-cols-3'} gap-3 sm:gap-4 md:gap-6`}>
+          {/* Video Player - Full width on mobile, 2/3 on desktop, full width in theater mode */}
+          <div className={`w-full ${isTheaterMode ? '' : 'lg:col-span-2'}`}>
+            <div ref={containerRef} className="relative bg-black rounded-lg sm:rounded-xl md:rounded-2xl overflow-hidden shadow-2xl group">
               <video 
                 ref={videoRef} 
-                className="w-full aspect-video object-contain"
+                className={`w-full object-contain ${isTheaterMode ? 'max-h-[70vh]' : 'aspect-video'}`}
+                playsInline
                 onPlay={() => setIsPlaying(true)}
                 onPause={() => setIsPlaying(false)}
                 onTimeUpdate={handleTimeUpdate}
@@ -145,8 +151,8 @@ export default function VodPlayerPage() {
                 onClick={togglePlay}
               />
               
-              {/* Custom Controls */}
-              <div className="absolute bottom-0 left-0 right-0 bg-linear-to-t from-black/90 to-transparent p-4 opacity-0 group-hover:opacity-100 transition-opacity">
+              {/* Custom Controls - Always visible on mobile, hover on desktop */}
+              <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 to-transparent p-2 sm:p-3 md:p-4 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity">
                 {/* Progress Bar */}
                 <input
                   type="range"
@@ -154,34 +160,34 @@ export default function VodPlayerPage() {
                   max={duration || 0}
                   value={currentTime}
                   onChange={handleSeek}
-                  className="w-full h-1 bg-gray-600 rounded-lg appearance-none cursor-pointer mb-3"
+                  className="w-full h-1 bg-gray-600 rounded-lg appearance-none cursor-pointer mb-2 sm:mb-3"
                   style={{
                     background: `linear-gradient(to right, #10b981 0%, #10b981 ${(currentTime / duration) * 100}%, #4b5563 ${(currentTime / duration) * 100}%, #4b5563 100%)`
                   }}
                 />
                 
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-4">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 sm:gap-3 md:gap-4">
                     {/* Play/Pause */}
                     <button onClick={togglePlay} className="text-white hover:text-emerald-500 transition">
                       {isPlaying ? (
-                        <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 20 20">
+                        <svg className="w-6 h-6 sm:w-7 sm:h-7 md:w-8 md:h-8" fill="currentColor" viewBox="0 0 20 20">
                           <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zM7 8a1 1 0 012 0v4a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v4a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
                         </svg>
                       ) : (
-                        <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 20 20">
+                        <svg className="w-6 h-6 sm:w-7 sm:h-7 md:w-8 md:h-8" fill="currentColor" viewBox="0 0 20 20">
                           <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" />
                         </svg>
                       )}
                     </button>
                     
                     {/* Time */}
-                    <span className="text-white text-sm">
+                    <span className="text-white text-xs sm:text-sm hidden sm:inline">
                       {formatTime(currentTime)} / {formatTime(duration)}
                     </span>
                     
-                    {/* Volume */}
-                    <div className="flex items-center gap-2">
+                    {/* Volume - Hidden on mobile */}
+                    <div className="hidden sm:flex items-center gap-2">
                       <button onClick={toggleMute} className="text-white hover:text-emerald-500 transition">
                         {isMuted || volume === 0 ? (
                           <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
@@ -200,13 +206,27 @@ export default function VodPlayerPage() {
                         step="0.1"
                         value={isMuted ? 0 : volume}
                         onChange={handleVolumeChange}
-                        className="w-20 h-1 bg-gray-600 rounded-lg appearance-none cursor-pointer"
+                        className="w-16 sm:w-20 h-1 bg-gray-600 rounded-lg appearance-none cursor-pointer"
                       />
                     </div>
                   </div>
                   
-                  {/* Fullscreen */}
-                  <button onClick={toggleFullscreen} className="text-white hover:text-emerald-500 transition">
+                  <div className="flex items-center gap-2">
+                    {/* Theater Mode - Desktop only */}
+                    <button onClick={toggleTheaterMode} className="hidden lg:block text-white hover:text-emerald-500 transition" title={isTheaterMode ? "Default view" : "Theater mode"}>
+                      {isTheaterMode ? (
+                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 4H5a2 2 0 00-2 2v14a2 2 0 002 2h4m0-18v18m0-18l6-2m-6 2v18m6-16a2 2 0 012 2v12a2 2 0 01-2 2m0-14v14m0-14l6-2m-6 2v14" />
+                        </svg>
+                      ) : (
+                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z" />
+                        </svg>
+                      )}
+                    </button>
+                    
+                    {/* Fullscreen */}
+                    <button onClick={toggleFullscreen} className="text-white hover:text-emerald-500 transition" title="Fullscreen">
                     {isFullscreen ? (
                       <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -216,17 +236,18 @@ export default function VodPlayerPage() {
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
                       </svg>
                     )}
-                  </button>
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Video Info - Right Sidebar (1/3 width) */}
-          <div className="lg:col-span-1 space-y-4">
+          {/* Video Info - Below video on mobile, sidebar on desktop, below in theater mode */}
+          <div className={`w-full ${isTheaterMode ? '' : 'lg:col-span-1'} space-y-3 sm:space-y-4`}>
             {/* Title Card */}
-            <div className="bg-linear-to-br from-gray-800 to-gray-900 rounded-2xl p-6 shadow-xl border border-gray-700">
-              <h1 className="text-2xl font-bold text-white mb-4 leading-tight">{vod.title}</h1>
+            <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-lg sm:rounded-xl md:rounded-2xl p-4 sm:p-5 md:p-6 shadow-xl border border-gray-700">
+              <h1 className="text-lg sm:text-xl md:text-2xl font-bold text-white mb-3 sm:mb-4 leading-tight">{vod.title}</h1>
               
               {/* Stats */}
               <div className="space-y-3">
@@ -258,7 +279,7 @@ export default function VodPlayerPage() {
             
             {/* Description Card */}
             {vod.description && (
-              <div className="bg-linear-to-br from-gray-800 to-gray-900 rounded-2xl p-6 shadow-xl border border-gray-700">
+              <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-lg sm:rounded-xl md:rounded-2xl p-4 sm:p-5 md:p-6 shadow-xl border border-gray-700">
                 <h3 className="text-lg font-semibold text-white mb-3 flex items-center gap-2">
                   <svg className="w-5 h-5 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h7" />
