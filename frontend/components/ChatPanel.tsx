@@ -2,6 +2,10 @@
 import { useState, useEffect, useRef } from 'react';
 import { Socket } from 'socket.io-client';
 import { api } from '@/lib/AuthContext';
+import dynamic from 'next/dynamic';
+import GifPicker from './GifPicker';
+
+const EmojiPicker = dynamic(() => import('emoji-picker-react'), { ssr: false });
 
 interface Message {
   id: string;
@@ -10,6 +14,7 @@ interface Message {
   timestamp: string;
   username: string;
   avatar?: string;
+  type?: string;
 }
 
 interface Viewer {
@@ -63,8 +68,12 @@ export default function ChatPanel({
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [mentionQuery, setMentionQuery] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [showGifPicker, setShowGifPicker] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const emojiPickerRef = useRef<HTMLDivElement>(null);
+  const gifPickerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     api.get(`/api/streams/${streamId}/viewers`)
@@ -92,18 +101,44 @@ export default function ChatPanel({
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
+  // Close pickers on outside click
+  useEffect(() => {
+    const handleClick = (e: MouseEvent) => {
+      if (emojiPickerRef.current && !emojiPickerRef.current.contains(e.target as Node)) {
+        setShowEmojiPicker(false);
+      }
+      if (gifPickerRef.current && !gifPickerRef.current.contains(e.target as Node)) {
+        setShowGifPicker(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, []);
+
   const sendMessage = () => {
     if (!input.trim() || !socket) return;
-    
-    socket.emit('send-message', { 
-      roomId: streamId, 
-      content: input 
+
+    socket.emit('send-message', {
+      roomId: streamId,
+      content: input
     }, (response: any) => {
       if (response?.error) console.error(response.error);
     });
-    
+
     setInput('');
     setShowSuggestions(false);
+  };
+
+  const sendGif = (url: string) => {
+    if (!socket) return;
+    socket.emit('send-message', {
+      roomId: streamId,
+      content: url,
+      type: 'gif',
+    }, (response: any) => {
+      if (response?.error) console.error(response.error);
+    });
+    setShowGifPicker(false);
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -168,18 +203,26 @@ export default function ChatPanel({
       <div className="flex-1 overflow-y-auto py-2 space-y-1">
         {messages.map((msg) => (
           <div key={msg.id} className="flex items-start py-1 gap-1 hover:bg-gray-800/50 rounded">
-            <span className="text-xs text-gray-500 flex-shrink-0 w-12 text-right">
+            <span className="text-xs text-gray-500 shrink-0 w-12 text-right">
               {formatTime(msg.timestamp)}
             </span>
             <img
               src={msg.avatar || `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(msg.username || 'Anonymous')}`}
               alt={msg.username}
-              className="w-6 h-6 rounded-full flex-shrink-0"
+              className="w-6 h-6 rounded-full shrink-0"
             />
-            <span className={`text-sm font-bold flex-shrink-0 ${getUsernameColor(msg.username || 'Anonymous')}`}>
+            <span className={`text-sm font-bold shrink-0 ${getUsernameColor(msg.username || 'Anonymous')}`}>
               {msg.username || 'Anonymous'}:
             </span>
-            <p className="text-sm text-white break-words flex-1">{msg.content}</p>
+            {msg.type === 'gif' ? (
+              <img
+                src={msg.content}
+                alt="GIF"
+                className="max-w-[180px] max-h-[140px] rounded mt-0.5 object-contain"
+              />
+            ) : (
+              <p className="text-sm text-white wrap-break-word flex-1">{msg.content}</p>
+            )}
           </div>
         ))}
         <div ref={messagesEndRef} />
@@ -201,22 +244,67 @@ export default function ChatPanel({
             ))}
           </div>
         )}
-        <div className="flex gap-2">
-          <input
-            ref={inputRef}
-            value={input}
-            onChange={handleInputChange}
-            onKeyDown={handleKeyDown}
-            placeholder="Write your message"
-            className="flex-1 bg-gray-650 text-white px-4 py-3 rounded-xl border border-gray-600 focus:outline-none focus:border-purple-350 text-sm"
-            maxLength={500}
-          />
+        {/* Emoji picker popup */}
+        {showEmojiPicker && (
+          <div ref={emojiPickerRef} className="absolute bottom-full left-0 mb-2 z-50">
+            <EmojiPicker
+              onEmojiClick={(emojiData) => {
+                setInput(prev => prev + emojiData.emoji);
+                inputRef.current?.focus();
+              }}
+              theme={'dark' as any}
+              height={350}
+              width={300}
+            />
+          </div>
+        )}
+
+        {/* GIF picker popup */}
+        {showGifPicker && (
+          <div ref={gifPickerRef} className="absolute bottom-full left-0 mb-2 z-50">
+            <GifPicker onSelect={sendGif} onClose={() => setShowGifPicker(false)} />
+          </div>
+        )}
+
+        <div className="flex gap-2 items-center">
+          {/* Input + inline buttons */}
+          <div className="flex-1 flex items-center bg-gray-800 border border-gray-600 rounded-xl focus-within:border-purple-500 transition-colors px-3">
+            <input
+              ref={inputRef}
+              value={input}
+              onChange={handleInputChange}
+              onKeyDown={handleKeyDown}
+              placeholder="Write your message"
+              className="flex-1 bg-transparent text-white py-2.5 text-sm outline-none placeholder-gray-500 min-w-0"
+              maxLength={500}
+            />
+            {/* Emoji button */}
+            <button
+              onClick={() => { setShowEmojiPicker(v => !v); setShowGifPicker(false); }}
+              className={`shrink-0 text-base leading-none p-1 rounded transition hover:bg-gray-700 ml-1 ${showEmojiPicker ? 'bg-gray-700' : ''}`}
+              title="Emoji"
+              type="button"
+            >
+              😊
+            </button>
+            {/* GIF button */}
+            <button
+              onClick={() => { setShowGifPicker(v => !v); setShowEmojiPicker(false); }}
+              className={`shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded border transition hover:bg-gray-700 ml-1 ${showGifPicker ? 'bg-gray-700 border-purple-500 text-purple-400' : 'border-gray-600 text-gray-400'}`}
+              title="GIF"
+              type="button"
+            >
+              GIF
+            </button>
+          </div>
+          {/* Send button */}
           <button
             onClick={sendMessage}
             disabled={!input.trim()}
-            className="bg-purple-350 hover:bg-purple-350/80 text-white px-4 py-3 rounded-xl text-sm font-semibold transition disabled:opacity-50 disabled:cursor-not-allowed"
+            className="shrink-0 bg-purple-600 hover:bg-purple-500 disabled:opacity-40 disabled:cursor-not-allowed text-white p-2.5 rounded-xl transition"
+            title="Send (Enter)"
           >
-            <svg className="w-5 h-5 rotate-90" fill="currentColor" viewBox="0 0 20 20">
+            <svg className="w-4 h-4 rotate-90" fill="currentColor" viewBox="0 0 20 20">
               <path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z" />
             </svg>
           </button>

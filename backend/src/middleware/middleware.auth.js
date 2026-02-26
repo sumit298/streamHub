@@ -2,6 +2,15 @@ const jwt = require("jsonwebtoken");
 const { User } = require("../models");
 const logger = require("../utils/logger");
 
+if (!process.env.JWT_SECRET) {
+  if (process.env.NODE_ENV === "production") {
+    throw new Error(
+      "JWT_SECRET environment variable is required in production",
+    );
+  }
+  logger.warn("JWT_SECRET environment variable is not set.");
+}
+
 class AuthMiddleWare {
   static async authenticate(req, res, next) {
     try {
@@ -19,10 +28,7 @@ class AuthMiddleWare {
       }
 
       try {
-        const decoded = jwt.verify(
-          token,
-          process.env.JWT_SECRET || "fallback-secret"
-        );
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
         const user = await User.findById(decoded.userId);
 
@@ -68,7 +74,7 @@ class AuthMiddleWare {
         ?.split(";")
         .find((c) => c.trim().startsWith("token="))
         ?.split("=")[1];
-      
+
       const token = cookieToken || socket.handshake.auth.token;
 
       // Allow anonymous viewers (no token)
@@ -77,35 +83,31 @@ class AuthMiddleWare {
       }
 
       // If token exists, verify it
-      jwt.verify(
-        token,
-        process.env.JWT_SECRET || "fallback-secret",
-        async (err, decoded) => {
-          if (err) {
-           return next(new Error("Invalid token"))
-          }
-
-          try {
-            const user = await User.findById(decoded.userId);
-            if (!user || !user.isActive) {
-              return next(new Error("User not found or inactive"));
-            }
-
-            socket.userId = decoded.userId; 
-            socket.user = {
-              id: decoded.userId,
-              username: decoded.username,
-              email: user.email,
-              role: user.role || "user",
-            };
-
-            next();
-          } catch (dbError) {
-            logger.error("Socket auth database error:", dbError);
-            return next(new Error("Authentication failed"));
-          }
+      jwt.verify(token, process.env.JWT_SECRET, async (err, decoded) => {
+        if (err) {
+          return next(new Error("Invalid token"));
         }
-      );
+
+        try {
+          const user = await User.findById(decoded.userId);
+          if (!user || !user.isActive) {
+            return next(new Error("User not found or inactive"));
+          }
+
+          socket.userId = decoded.userId;
+          socket.user = {
+            id: decoded.userId,
+            username: decoded.username,
+            email: user.email,
+            role: user.role || "user",
+          };
+
+          next();
+        } catch (dbError) {
+          logger.error("Socket auth database error:", dbError);
+          return next(new Error("Authentication failed"));
+        }
+      });
     } catch (error) {
       logger.error("Socket authentication error:", error);
       return next(new Error("Authentication failed"));
@@ -162,25 +164,21 @@ class AuthMiddleWare {
   static createToken(user) {
     return jwt.sign(
       { userId: user.id, username: user.username },
-      process.env.JWT_SECRET || "fallback-secret",
+      process.env.JWT_SECRET,
       {
         expiresIn: "2h",
         issuer: "ils-platform",
         audience: "ils-users",
         algorithm: "HS256",
-      }
+      },
     );
   }
 
   static refreshToken(token) {
     try {
-      const decoded = jwt.verify(
-        token,
-        process.env.JWT_SECRET || "fallback-secret",
-        {
-          ignoreExpiration: true,
-        }
-      );
+      const decoded = jwt.verify(token, process.env.JWT_SECRET, {
+        ignoreExpiration: true,
+      });
 
       // checking token if it is not too old
       const tokenAge = Date.now() / 1000 - decoded.iat;
