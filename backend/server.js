@@ -320,6 +320,7 @@ io.use((socket, next) => {
 
 const activeConnections = new Map();
 const recordingStreams = new Map();
+const chatRateLimits = new Map();
 
 io.on("connection", (socket) => {
   logger.info(`Client connected: ${socket.id}, User: ${socket.userId}`);
@@ -337,10 +338,6 @@ io.on("connection", (socket) => {
     connectedAt: Date.now(),
   });
 
-  socket.join(`user-${socket.userId}`);
-
-  //   metricsService.incrementActiveConnections();
-
   socket.on("create-stream", async (data, callback) => {
     try {
       if (!data?.title || data.title.length > 100) {
@@ -352,19 +349,6 @@ io.on("connection", (socket) => {
       socket.emit("stream-created", stream);
 
       logger.info(`Stream created: ${stream.id} by user: ${socket.userId}`);
-      //   metricsService.incrementActiveStreams();
-
-      // const followers = await Follow.find({ followingId: socket.userId}).select('followerId');
-      // for(const follow of followers){
-      //   const notification = await Notification.create({
-      //     userId: follow.followerId,
-      //     type: 'stream-live',
-      //     title: "Stream Started",
-      //     message: `${socket.user.username} is now live`,
-      //     data: { streamId: stream.id, streamTitle: stream.title}
-      //   });
-      //   io.to(`user-${follow.followerId}`).emit("notification", notification)
-      // }
 
       if (callback) callback?.({ success: true, stream });
     } catch (error) {
@@ -372,30 +356,6 @@ io.on("connection", (socket) => {
       if (callback) callback?.({ error: error.message });
     }
   });
-
-  // // when a stream goes live, notify followers
-  // socket.on('stream-started', async ({streamId})=> {
-  //   try {
-  //     const stream = await Stream.findById(streamId).populate('userId');
-  //     if(!stream) return;
-
-  //     const Follow = require('./src/models/Follow');
-  //     const followers = await Follow.find({followingId: stream.userId._id});
-
-  //     // Emit to all followers
-  //     followers.forEach((follow)=> {
-  //       io.to(`user-${follow.followerId}`).emit('streamer-live', {
-  //         streamerId: stream.userId._id,
-  //         streamerName: stream.userId.username,
-  //         streamId: stream._id,
-  //         streamTitle: stream.title,
-  //         category: stream.category
-  //       });
-  //     })
-  //   } catch (error) {
-  //     logger.error('Stream notification error: ', error)
-  //   }
-  // })
 
   socket.on("join-stream", async (data, callback) => {
     try {
@@ -454,7 +414,7 @@ io.on("connection", (socket) => {
       roomSockets.forEach((s) => {
         if (s.userId) uniqueUsers.add(s.userId);
       });
-      const viewerCount = uniqueUsers.size - 1; // Subtract streamer
+      const viewerCount = Math.max(0, uniqueUsers.size - 1); // Subtract streamer
 
       logger.debug(
         `📊 Room ${data.streamId} has ${roomSockets.length} sockets, ${uniqueUsers.size} unique users`,
@@ -710,6 +670,21 @@ io.on("connection", (socket) => {
         return callback?.({ error: "Invalid message parameters" });
       }
 
+      // Rate limit: max 3 messages per 3 seconds per user
+      const now = Date.now();
+      const limit = chatRateLimits.get(socket.userId) || { count: 0, resetAt: now + 3000 };
+
+      if(now > limit.resetAt) {
+        limit.count = 0;
+        limit.resetAt = now + 3000;
+      }
+      limit.count++;
+      chatRateLimits.set(socket.userId, limit);
+
+      if (limit.count > 3) {
+        return callback?.({ error: "You are sending messages too fast. Please wait a moment." });
+      }
+
       const message = await chatService.sendMessage(
         socket.userId,
         data.roomId,
@@ -737,7 +712,7 @@ io.on("connection", (socket) => {
             data: { streamId: data.roomId },
           });
           logger.info(`Emitting notification to user-${mentionedUserId}`);
-          io.to(`user-${mentionedUserId}`).emit("notification", notification);
+          io.to(`user:${mentionedUserId}`).emit("notification", notification);
         }
       }
 

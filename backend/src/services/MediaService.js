@@ -20,8 +20,26 @@ class MediaService {
     }
 
     this.logger.info(
-      `Mediasoup initialized with ${this.workers.length} workers`
+      `Mediasoup initialized with ${this.workers.length} workers`,
     );
+
+    // sweep idle rooms every 5 minutes
+    setInterval(
+      () => {
+        for (const [roomId, room] of this.rooms) {
+          if (room.participants.size === 0) {
+            try {
+              room.router.close();
+            } catch (e) {
+              /* already closed */
+            }
+            this.rooms.delete(roomId);
+            this.logger.info(`Room ${roomId} closed (idle)`);
+          }
+        }
+      },
+      5 * 60 * 1000,
+    ); // 5 minutes in milliseconds
   }
 
   async createWorker(index) {
@@ -179,11 +197,16 @@ class MediaService {
   async createWebRtcTransport(roomId, userId, direction) {
     try {
       const room = await this.createRoom(roomId);
-      
+
       // Log the announced IP being used
-      const announcedIp = process.env.ANNOUNCED_IP || process.env.RENDER_EXTERNAL_HOSTNAME || "127.0.0.1";
-      this.logger.info(`Creating transport with announcedIp: ${announcedIp} for ${direction} direction`);
-      
+      const announcedIp =
+        process.env.ANNOUNCED_IP ||
+        process.env.RENDER_EXTERNAL_HOSTNAME ||
+        "127.0.0.1";
+      this.logger.info(
+        `Creating transport with announcedIp: ${announcedIp} for ${direction} direction`,
+      );
+
       const transportOptions = {
         listenIps: [
           {
@@ -199,14 +222,17 @@ class MediaService {
         appData: { userId, direction },
       };
 
-      const transport = await room.router.createWebRtcTransport(
-        transportOptions
-      );
-      
+      const transport =
+        await room.router.createWebRtcTransport(transportOptions);
+
       // Log ICE candidates
-      this.logger.info(`Transport ${transport.id} created with ${transport.iceCandidates.length} ICE candidates`);
+      this.logger.info(
+        `Transport ${transport.id} created with ${transport.iceCandidates.length} ICE candidates`,
+      );
       transport.iceCandidates.forEach((candidate, idx) => {
-        this.logger.debug(`ICE candidate ${idx}: ${candidate.ip}:${candidate.port} (${candidate.protocol})`);
+        this.logger.debug(
+          `ICE candidate ${idx}: ${candidate.ip}:${candidate.port} (${candidate.protocol})`,
+        );
       });
 
       let participant = room.participants.get(userId);
@@ -231,7 +257,7 @@ class MediaService {
     } catch (error) {
       this.logger.error(
         `Failed to create WebRTC transport for user ${userId}:`,
-        error
+        error,
       );
       throw error;
     }
@@ -251,7 +277,14 @@ class MediaService {
     this.logger.info(`Transport connected: ${transportId} for user ${userId}`);
   }
 
-  async produce(roomId, userId, transportId, rtpParameters, kind, isScreenShare = false) {
+  async produce(
+    roomId,
+    userId,
+    transportId,
+    rtpParameters,
+    kind,
+    isScreenShare = false,
+  ) {
     const room = this.rooms.get(roomId);
     if (!room) {
       throw new Error("Room not found");
@@ -277,7 +310,7 @@ class MediaService {
     });
 
     this.logger.info(
-      `Producer created: ${producer.id} (${kind}) for user ${userId} ${isScreenShare ? '[SCREEN]' : '[CAMERA]'}`
+      `Producer created: ${producer.id} (${kind}) for user ${userId} ${isScreenShare ? "[SCREEN]" : "[CAMERA]"}`,
     );
     return producer;
   }
@@ -369,8 +402,20 @@ class MediaService {
     const participant = room.participants.get(userId);
     if (!participant) return;
 
-    for (const transport of participant.transports.values()) {
+    for (const transport of participant.producers.values()) {
       transport.close();
+    }
+
+    for (const consumer of participant.consumers.values()) {
+      consumer.close();
+    }
+
+    for (const transport of participant.transports.values()) {
+      try {
+        transport.close();
+      } catch (e) {
+        /* already closed */
+      }
     }
 
     room.participants.delete(userId);

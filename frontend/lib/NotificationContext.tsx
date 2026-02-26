@@ -32,7 +32,7 @@ export function NotificationProvider({
         withCredentials: true,
         transports: ["websocket", "polling"],
         auth: { token },
-      }
+      },
     );
 
     newSocket.on("connect", () => {
@@ -57,11 +57,14 @@ export function NotificationProvider({
           >
             <div className="flex-1 w-0 p-4">
               <div className="flex items-start gap-3">
-                {notification.type === "stream-live" && notification.data?.streamerAvatar ? (
+                {notification.type === "stream-live" &&
+                notification.data?.streamerAvatar ? (
                   <img
-                    src={notification.data.streamerAvatar.startsWith('http') 
-                      ? notification.data.streamerAvatar 
-                      : `https://api.dicebear.com/7.x/avataaars/svg?seed=${notification.data.streamerUsername}`}
+                    src={
+                      notification.data.streamerAvatar.startsWith("http")
+                        ? notification.data.streamerAvatar
+                        : `https://api.dicebear.com/7.x/avataaars/svg?seed=${notification.data.streamerUsername}`
+                    }
                     alt={notification.data.streamerUsername}
                     className="w-10 h-10 rounded-full flex-shrink-0 ring-2 ring-red-500"
                   />
@@ -102,7 +105,11 @@ export function NotificationProvider({
             </div>
           </div>
         ),
-        { duration: 5000, position: "top-right" }
+        {
+          duration: 5000,
+          position: "top-right",
+          id: `notif-${notification.type}-${notification.data?.streamId || Date.now()}`,
+        },
       );
 
       // Trigger browser notification if permission granted
@@ -122,7 +129,7 @@ export function NotificationProvider({
     return () => {
       newSocket.close();
     };
-  }, [user]);
+  }, [user?._id ?? user?.id]);
 
   // Request notification permission on mount
   useEffect(() => {
