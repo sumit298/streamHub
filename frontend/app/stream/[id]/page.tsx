@@ -8,12 +8,15 @@ import { useAuth } from "@/lib/AuthContext";
 import ChatPanel from "@/components/ChatPanel";
 import BottomControlBar from "@/components/BottomControlBar";
 import ViewerStats from "@/components/ViewerStats";
+import MediaStatsOverlay from "@/components/MediaStatsOverlay";
 
 const StreamsPage = () => {
   const params = useParams();
   const { user } = useAuth();
   const videoRef = useRef<HTMLVideoElement>(null);
   // Refs so the onended callback always sees the latest values (avoids stale closure)
+  const videoProducerRef = useRef<types.Producer | null>(null);
+  const audioProducerRef = useRef<types.Producer | null>(null);
   const screenProducersRef = useRef<{ video: types.Producer | null; audio: types.Producer | null } | null>(null);
   const screenStreamRef = useRef<MediaStream | null>(null);
   const [stream, setStream] = useState<MediaStream | null>(null);
@@ -489,6 +492,8 @@ const StreamsPage = () => {
       const audioProducer = await sendTransport.produce({ track: audioTrack });
 
       console.log("audio producer created", audioProducer.id);
+      videoProducerRef.current = videoProducer;
+      audioProducerRef.current = audioProducer;
       setProducer({ video: videoProducer, audio: audioProducer });
 
       const patchResponse = await fetch(
@@ -917,6 +922,16 @@ const StreamsPage = () => {
               <div className="absolute top-3 left-3 bg-red-600 text-white px-2.5 py-1 rounded-full text-xs font-bold flex items-center gap-1.5 shadow-lg">
                 <span className="w-1.5 h-1.5 bg-white rounded-full animate-pulse" />
                 LIVE
+              </div>
+            )}
+
+            {/* Media stats overlay (live only) */}
+            {isStreaming && (
+              <div className="absolute top-3 right-3">
+                <MediaStatsOverlay
+                  videoProducerRef={videoProducerRef}
+                  audioProducerRef={audioProducerRef}
+                />
               </div>
             )}
 
