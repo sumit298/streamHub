@@ -26,7 +26,6 @@ const BrowsePage = () => {
   const [viewerCounts, setViewerCounts] = useState<Record<string, number>>({});
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
-  const [hasMore, setHasMore] = useState(false);
   const limit = 8;
   const [socket, setSocket] = useState<Socket | null>(null);
   const [filter, setFilter] = useState<"all" | "my" | "community">("all");
@@ -38,7 +37,6 @@ const BrowsePage = () => {
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearching, setIsSearching] = useState(false);
-  const [searchResultsTotal, setSearchResultsTotal] = useState(0);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
 
   const fetchCounts = async () => {
@@ -82,17 +80,12 @@ const BrowsePage = () => {
       const { data } = await api.get(url);
       setAllStreams(data.streams || []);
       setTotalPages(data.pagination?.totalPages || 1);
-      setHasMore(data.hasMore || false);
       setCurrentPage(page);
 
-      if (search) {
-        setSearchResultsTotal(data.total || 0);
-      } else {
-        setSearchResultsTotal(0);
+      if (!search) {
         if (filter === "all") setTotalStreams(data.total || 0);
         else if (filter === "my") setMyStreamsCount(data.total || 0);
-        else if (filter === "community")
-          setCommunityStreamsCount(data.total || 0);
+        else if (filter === "community") setCommunityStreamsCount(data.total || 0);
       }
     } catch (error) {
       console.error("Failed to fetch streams:", error);
@@ -118,7 +111,6 @@ const BrowsePage = () => {
 
   const clearSearch = () => {
     setSearchQuery("");
-    setSearchResultsTotal(0);
     setCurrentPage(1);
     fetchStreams(1, "", selectedCategory || "");
   };
@@ -371,7 +363,7 @@ const BrowsePage = () => {
                             Ended
                           </span>
                         )}
-                        {stream.duration && !stream.isLive && (
+                        {!!stream.duration && !stream.isLive && (
                           <span className="absolute bottom-2 right-2 bg-black/80 text-white px-2 py-1 text-xs rounded">
                             ⏱️ {formatDuration(stream.duration)}
                           </span>
@@ -434,36 +426,51 @@ const BrowsePage = () => {
                 )}
               </div>
             )}
-            {/* Pagination - only show if there are items and multiple pages */}
-            {!loading &&
-              allStreams.length > 0 &&
-              (searchQuery
-                ? searchResultsTotal > limit
-                : filter === "all"
-                  ? totalStreams > limit
-                  : filter === "my"
-                    ? myStreamsCount > limit
-                    : communityStreamsCount > limit) && (
-                <div className="flex justify-center mt-8 space-x-4">
-                  <button
-                    onClick={() => fetchStreams(currentPage - 1, searchQuery)}
-                    disabled={currentPage === 1 || loading}
-                    className="px-4 py-2 bg-gray-700 text-white rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-600 transition"
-                  >
-                    Previous
-                  </button>
-                  <span className="text-gray-400">
-                    Page {currentPage} of {totalPages}
-                  </span>
-                  <button
-                    onClick={() => fetchStreams(currentPage + 1, searchQuery)}
-                    disabled={!hasMore || loading}
-                    className="px-4 py-2 bg-gray-700 text-white rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-600 transition"
-                  >
-                    Next
-                  </button>
-                </div>
-              )}
+            {/* Pagination */}
+            {!loading && totalPages > 1 && (
+              <div className="flex items-center justify-center gap-2 mt-8">
+                <button
+                  onClick={() => fetchStreams(currentPage - 1, searchQuery, selectedCategory || "")}
+                  disabled={currentPage === 1}
+                  className="px-3 py-2 bg-card border border-gray-700 text-gray-300 rounded-lg disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gray-700 transition text-sm"
+                >
+                  ← Prev
+                </button>
+
+                {Array.from({ length: totalPages }, (_, i) => i + 1)
+                  .filter((p) => p === 1 || p === totalPages || Math.abs(p - currentPage) <= 1)
+                  .reduce<(number | "...")[]>((acc, p, idx, arr) => {
+                    if (idx > 0 && p - (arr[idx - 1] as number) > 1) acc.push("...");
+                    acc.push(p);
+                    return acc;
+                  }, [])
+                  .map((item, idx) =>
+                    item === "..." ? (
+                      <span key={`ellipsis-${idx}`} className="px-2 text-gray-500 text-sm">…</span>
+                    ) : (
+                      <button
+                        key={item}
+                        onClick={() => fetchStreams(item as number, searchQuery, selectedCategory || "")}
+                        className={`w-9 h-9 rounded-lg text-sm font-medium transition ${
+                          currentPage === item
+                            ? "bg-gray-600 text-white border border-gray-500"
+                            : "bg-card border border-gray-700 text-gray-400 hover:bg-gray-700 hover:text-white"
+                        }`}
+                      >
+                        {item}
+                      </button>
+                    )
+                  )}
+
+                <button
+                  onClick={() => fetchStreams(currentPage + 1, searchQuery, selectedCategory || "")}
+                  disabled={currentPage === totalPages}
+                  className="px-3 py-2 bg-card border border-gray-700 text-gray-300 rounded-lg disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gray-700 transition text-sm"
+                >
+                  Next →
+                </button>
+              </div>
+            )}
           </div>
         </main>
       </div>
