@@ -1,9 +1,19 @@
 const express = require("express");
 const rateLimit = require("express-rate-limit");
+const multer = require("multer");
 const { body, validationResult } = require("express-validator");
 const { User } = require("../models/index.js");
 const AuthMiddleWare = require("../middleware/middleware.auth.js");
 const Stream = require('../models/Stream.js')
+
+const avatarUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5 MB
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype.startsWith("image/")) cb(null, true);
+    else cb(new Error("Only image files are allowed"));
+  },
+});
 
 module.exports = (logger) => {
   const router = express.Router();
@@ -332,6 +342,7 @@ module.exports = (logger) => {
   router.put(
     "/me",
     AuthMiddleWare.authenticate,
+    avatarUpload.single("avatar"),
     [body("bio").optional().isLength({ max: 500 })],
     async (req, res) => {
       try {
@@ -349,12 +360,15 @@ module.exports = (logger) => {
           return res.status(404).json({ error: "User not found" });
         }
 
-        // Update allowed fields
-        //   bit of exaggeration
         if (username !== undefined) user.username = username;
         if (bio !== undefined) user.bio = bio;
         if (preferences !== undefined) {
           user.preferences = { ...user.preferences, ...preferences };
+        }
+
+        if (req.file) {
+          const key = `avatars/${req.userId}-${Date.now()}.${req.file.mimetype.split("/")[1]}`;
+          user.avatar = await req.r2Service.uploadBuffer(req.file.buffer, key, req.file.mimetype);
         }
 
         await user.save();
@@ -366,6 +380,9 @@ module.exports = (logger) => {
         });
       } catch (error) {
         logger.error("Profile update error:", error);
+        if (error.code === 11000) {
+          return res.status(400).json({ error: "Username is already taken" });
+        }
         res.status(500).json({ error: "Unable to update profile" });
       }
     }

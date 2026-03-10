@@ -20,6 +20,23 @@ class R2Service {
     this.bucket = process.env.R2_BUCKET_NAME;
   }
 
+  async uploadBuffer(buffer, key, contentType) {
+    await this.client.send(
+      new PutObjectCommand({
+        Bucket: this.bucket,
+        Key: key,
+        Body: buffer,
+        ContentType: contentType,
+      }),
+    );
+
+    this.logger.info(`Uploaded ${key} to R2`);
+    if (process.env.R2_PUBLIC_URL) {
+      return `${process.env.R2_PUBLIC_URL}/${key}`;
+    }
+    return `https://${this.bucket}.${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com/${key}`;
+  }
+
   async uploadFile(filePath, key) {
     const fileContent = await fs.readFile(filePath);
 

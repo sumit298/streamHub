@@ -130,8 +130,8 @@ const authLimiter = rateLimit({
   max: 200, // Increased from 10 to 20 for /me endpoint
   message: "Too many authentication requests",
   skip: (req) => {
-    // Skip rate limiting for /me and /refresh-token endpoints
-    return req.path === "/me" || req.path === "/refresh-token";
+    // Skip rate limiting for frequently-called authenticated endpoints
+    return req.path === "/me" || req.path === "/me/stats" || req.path === "/refresh-token";
   },
 });
 
@@ -242,7 +242,7 @@ async function initializeServices() {
     chatService = new ChatService(messageQueue, cacheService, logger);
 
     // Register routes after services are initialized
-    app.use("/api/auth", require("./src/routes/auth.routes")(logger));
+    app.use("/api/auth", (req, res, next) => { req.r2Service = r2Service; next(); }, require("./src/routes/auth.routes")(logger));
     app.use(
       "/api/streams",
       require("./src/routes/stream.routes")(

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Search, Bell, User, Menu, X } from "lucide-react";
+import { Menu, X } from "lucide-react";
 import { Button } from "./button";
 import Link from "next/link";
 import { Input } from "./input";
@@ -7,16 +7,12 @@ import { CreateStreamDialog } from "../CreateStreamDialog";
 import { useAuth } from "@/lib/AuthContext";
 import { NotificationBell } from "../NotificationBell";
 import { Sidebar } from "../Sidebar";
+import { getAvatarUrl } from "@/lib/avatar";
 
 export const Navbar = () => {
   const [isCreateStreamOpen, setIsCreateStreamOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const { user } = useAuth();
-
-  const getInitials = (username?: string) => {
-    if (!username) return "U";
-    return username.slice(0, 2).toUpperCase();
-  };
 
   return (
     <>
@@ -53,9 +49,13 @@ export const Navbar = () => {
               <Link
                 href="/profile"
                 title={user?.username || "Profile"}
-                className="w-7 h-7 sm:w-9 sm:h-9 bg-gray-700 rounded-full flex items-center justify-center text-white font-semibold text-xs sm:text-sm hover:bg-gray-600 transition"
+                className="w-7 h-7 sm:w-9 sm:h-9 rounded-full overflow-hidden hover:ring-2 hover:ring-gray-500 transition"
               >
-                {getInitials(user?.username)}
+                <img
+                  src={getAvatarUrl(user?.avatar, user?.username)}
+                  alt={user?.username || "Profile"}
+                  className="w-full h-full object-cover"
+                />
               </Link>
             </div>
           </div>
