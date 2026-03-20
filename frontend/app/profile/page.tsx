@@ -1,18 +1,16 @@
 "use client"
 import { Sidebar } from "@/components/Sidebar"
 import { Navbar } from "@/components/ui/Navbar"
-import { useEffect, useState } from "react"
+import { useState } from "react"
 import { useAuth, api } from "@/lib/AuthContext"
 import { useRouter } from "next/navigation"
 import { getAvatarUrl } from "@/lib/avatar"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 
 const Profile = () => {
     const { logout } = useAuth();
     const router = useRouter();
-    const [profile, setProfile] = useState<any>(null);
-    const [stats, setStats] = useState<any>(null);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
+    const queryClient = useQueryClient();
     const [editing, setEditing] = useState(false);
     const [editForm, setEditForm] = useState({ username: '', bio: '' });
     const [avatarFile, setAvatarFile] = useState<File | null>(null);
@@ -20,22 +18,17 @@ const Profile = () => {
     const [saving, setSaving] = useState(false);
     const [editError, setEditError] = useState<string | null>(null);
 
-    const fetchProfile = async () => {
-        try {
-            setError(null);
-            const [profileRes, statsRes] = await Promise.all([
-                api.get('/api/auth/me'),
-                api.get('/api/auth/me/stats')
-            ]);
-            setProfile(profileRes.data.user);
-            setStats(statsRes.data.stats);
-        } catch (error) {
-            console.error('Failed to fetch profile:', error);
-            setError('Failed to load profile');
-        } finally {
-            setLoading(false);
-        }
-    };
+    const { data: profile, isLoading: profileLoading, error: profileError, refetch} = useQuery({
+        queryKey: ['profile'],
+        queryFn: ()=> api.get('/api/auth/me').then(res => res.data.user),
+    });
+
+    const { data: stats, isLoading: statsLoading } = useQuery({
+        queryKey: ['profile-stats'],
+        queryFn: ()=> api.get('/api/auth/me/stats').then(res=> res.data.stats),
+    })
+
+    const loading = profileLoading || statsLoading
 
     const startEditing = () => {
         setEditForm({ username: profile.username, bio: profile.bio || '' });
@@ -67,10 +60,11 @@ const Profile = () => {
             formData.append('username', editForm.username);
             formData.append('bio', editForm.bio);
             if (avatarFile) formData.append('avatar', avatarFile);
-            const { data } = await api.put('/api/auth/me', formData, {
-                headers: { 'Content-Type': 'multipart/form-data' },
-            });
-            setProfile(data.user);
+            await api.put('/api/auth/me', formData, {
+                headers: { 'Content-Type': "multipart/form-data"},
+            })
+            queryClient.invalidateQueries({ queryKey: ['profile'] });
+            queryClient.invalidateQueries({queryKey: ['profile-stats']});
             setEditing(false);
             setAvatarFile(null);
             setAvatarPreview(null);
@@ -88,10 +82,6 @@ const Profile = () => {
         return `${minutes}m`;
     };
 
-    useEffect(() => {
-        fetchProfile();
-    }, []);
-
     return (
         <div className="flex flex-col h-screen bg-background">
             <Navbar />
@@ -101,11 +91,12 @@ const Profile = () => {
                 </div>
                 <main className="flex-1 overflow-y-auto">
                     <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-                        {error ? (
+                        {profileError ? (
                             <div className="text-center py-12">
-                                <p className="text-red-500 text-lg">{error}</p>
+                                <p className="text-red-500 text-lg">Failed to load profile</p>
+
                                 <button
-                                    onClick={fetchProfile}
+                                    onClick={() => refetch()}
                                     className="mt-4 px-4 py-2 bg-gray-700 text-white rounded hover:bg-gray-600"
                                 >
                                     Retry

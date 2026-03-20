@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { api, useAuth } from "@/lib/AuthContext";
 import { io, Socket } from "socket.io-client";
 import { useRouter } from "next/navigation";
+import { useQuery } from "@tanstack/react-query";
 
 const getCategoryColor = (category: string) => {
   const colors: Record<string, string> = {
@@ -21,39 +22,54 @@ const getCategoryColor = (category: string) => {
 };
 
 const BrowsePage = () => {
-  const [allStreams, setAllStreams] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [viewerCounts, setViewerCounts] = useState<Record<string, number>>({});
   const [currentPage, setCurrentPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
   const limit = 8;
   const [socket, setSocket] = useState<Socket | null>(null);
   const [filter, setFilter] = useState<"all" | "my" | "community">("all");
   const { user } = useAuth();
   const router = useRouter();
-  const [totalStreams, setTotalStreams] = useState(0);
-  const [myStreamsCount, setMyStreamsCount] = useState(0);
-  const [communityStreamsCount, setCommunityStreamsCount] = useState(0);
-  const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
-  const [isSearching, setIsSearching] = useState(false);
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
 
-  const fetchCounts = async () => {
-    try {
-      const [allRes, myRes, communityRes] = await Promise.all([
-        api.get("/api/streams?limit=1"),
-        api.get("/api/streams?limit=1&filter=my"),
-        api.get("/api/streams?limit=1&filter=community"),
-      ]);
-      setTotalStreams(allRes.data.total || 0);
-      setMyStreamsCount(myRes.data.total || 0);
-      setCommunityStreamsCount(communityRes.data.total || 0);
-    } catch (error) {
-      console.error("Failed to fetch counts:", error);
-    }
-  };
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(searchQuery), 400);
+    return () => clearTimeout(t);
+  }, [searchQuery]);
 
+  const { data: streamsData, isLoading: loading, error: streamError, refetch } = useQuery({
+    queryKey: ['streams', filter, currentPage, debouncedSearch, selectedCategory],
+    queryFn: ()=> {
+      const offset = (currentPage - 1) * limit;
+      const filterParam = filter!== "all" ? `&filter=${filter}` : ""
+      const searchParam = debouncedSearch ? `&search=${encodeURIComponent(debouncedSearch)}` : "";
+      const categoryParam = selectedCategory ? `&category=${selectedCategory}` : "";
+      return api.get(`/api/streams?limit=${limit}&offset=${offset}${filterParam}${searchParam}${categoryParam}`).then(res=> res.data);
+    }
+  })
+
+  const { data: countsData} = useQuery({
+    queryKey: ['stream-counts'],
+    queryFn: ()=> Promise.all([
+      api.get("/api/streams?limit=1" ),
+      api.get("/api/streams?limit=1&filter=my"),
+      api.get("/api/streams?limit=1&filter=community"),
+    ]).then(([all, my, community]) => ({
+      total: all.data.total || 0,
+      my: my.data.total || 0,
+      community: community.data.total || 0,
+    }))
+  })
+
+  const allStreams = streamsData?.streams || [];
+  const totalPages = streamsData?.pagination?.totalPages || 1;
+  const totalStreams = countsData?.total || 0;
+  const myStreamCount = countsData?.my || 0;
+  const communityStreamsCount = countsData?.community || 0;
+  const error = streamError ? "Failed to load streams. Please try again." : null
+
+ 
   const formatDuration = (milliseconds: number) => {
     const seconds = Math.floor(milliseconds / 1000);
     const h = Math.floor(seconds / 3600);
@@ -67,62 +83,26 @@ const BrowsePage = () => {
     return `${m}:${s.toString().padStart(2, "0")}`;
   };
 
-  const fetchStreams = async (page = 1, search = "", category = "") => {
-    try {
-      setLoading(true);
-      setError(null);
-      const offset = (page - 1) * limit;
-      const filterParam = filter !== "all" ? `&filter=${filter}` : "";
-      const searchParam = search ? `&search=${encodeURIComponent(search)}` : "";
-      const categoryParam = category ? `&category=${category}` : "";
-      const url = `/api/streams?limit=${limit}&offset=${offset}${filterParam}${searchParam}${categoryParam}`;
-
-      const { data } = await api.get(url);
-      setAllStreams(data.streams || []);
-      setTotalPages(data.pagination?.totalPages || 1);
-      setCurrentPage(page);
-
-      if (!search) {
-        if (filter === "all") setTotalStreams(data.total || 0);
-        else if (filter === "my") setMyStreamsCount(data.total || 0);
-        else if (filter === "community") setCommunityStreamsCount(data.total || 0);
-      }
-    } catch (error) {
-      console.error("Failed to fetch streams:", error);
-      setError("Failed to load streams. Please try again.");
-    } finally {
-      setLoading(false);
-      setIsSearching(false);
-    }
-  };
-
   const handleCategoryChange = (category: string) => {
     setSelectedCategory(category);
     setCurrentPage(1);
-    fetchStreams(1, searchQuery, category);
   };
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    setIsSearching(true);
     setCurrentPage(1);
-    fetchStreams(1, searchQuery, selectedCategory || "");
   };
 
   const clearSearch = () => {
     setSearchQuery("");
     setCurrentPage(1);
-    fetchStreams(1, "", selectedCategory || "");
   };
 
   useEffect(() => {
     setCurrentPage(1);
-    fetchStreams(1, searchQuery);
   }, [filter]);
 
   useEffect(() => {
-    fetchStreams(1);
-    fetchCounts();
 
     // Connect to Socket.IO for real-time viewer counts
     const newSocket = io(
@@ -163,13 +143,13 @@ const BrowsePage = () => {
   }, [socket, allStreams]);
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="flex flex-col h-screen bg-background">
       <Navbar />
-      <div className="flex">
+      <div className="flex flex-1 overflow-hidden">
         <div className="hidden lg:block">
           <Sidebar />
         </div>
-        <main className="flex-1">
+        <main className="flex-1 overflow-y-auto">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
             <div className="mb-8">
               <h1 className="text-3xl font-bold text-text-primary mb-2">
@@ -228,20 +208,12 @@ const BrowsePage = () => {
                 )}
                 <button
                   type="submit"
-                  disabled={isSearching}
+                  disabled={loading}
                   className="absolute right-2 top-1/2 -translate-y-1/2 px-4 py-1.5 bg-gray-700 text-white rounded-md hover:bg-gray-600 disabled:opacity-50 transition"
                 >
-                  {isSearching ? "..." : "Search"}
+                  {loading ? "..." : "Search"}
                 </button>
               </div>
-              {searchQuery && (
-                <p className="mt-2 text-sm text-gray-400">
-                  Searching for:{" "}
-                  <span className="text-gray-300 font-medium">
-                    {searchQuery}
-                  </span>
-                </p>
-              )}
             </form>
 
             <div className="mb-6">
@@ -284,7 +256,7 @@ const BrowsePage = () => {
                     : "text-gray-400 hover:text-gray-300"
                 }`}
               >
-                My Streams ({myStreamsCount})
+                My Streams ({myStreamCount})
               </button>
               <button
                 onClick={() => setFilter("community")}
@@ -304,7 +276,7 @@ const BrowsePage = () => {
               <div className="col-span-full text-center py-12">
                 <p className="text-red-500 text-lg">{error}</p>
                 <button
-                  onClick={() => fetchStreams(currentPage)}
+                  onClick={() => refetch()}
                   className="mt-4 px-4 py-2 bg-gray-700 text-white rounded hover:bg-gray-600"
                 >
                   Retry
@@ -430,7 +402,7 @@ const BrowsePage = () => {
             {!loading && totalPages > 1 && (
               <div className="flex items-center justify-center gap-2 mt-8">
                 <button
-                  onClick={() => fetchStreams(currentPage - 1, searchQuery, selectedCategory || "")}
+                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
                   disabled={currentPage === 1}
                   className="px-3 py-2 bg-card border border-gray-700 text-gray-300 rounded-lg disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gray-700 transition text-sm"
                 >
@@ -450,7 +422,7 @@ const BrowsePage = () => {
                     ) : (
                       <button
                         key={item}
-                        onClick={() => fetchStreams(item as number, searchQuery, selectedCategory || "")}
+                        onClick={() => setCurrentPage(item as number)}
                         className={`w-9 h-9 rounded-lg text-sm font-medium transition ${
                           currentPage === item
                             ? "bg-gray-600 text-white border border-gray-500"
@@ -463,7 +435,7 @@ const BrowsePage = () => {
                   )}
 
                 <button
-                  onClick={() => fetchStreams(currentPage + 1, searchQuery, selectedCategory || "")}
+                  onClick={() => setCurrentPage(p => p + 1)}
                   disabled={currentPage === totalPages}
                   className="px-3 py-2 bg-card border border-gray-700 text-gray-300 rounded-lg disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gray-700 transition text-sm"
                 >

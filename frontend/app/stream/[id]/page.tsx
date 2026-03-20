@@ -645,7 +645,7 @@ const StreamsPage = () => {
       }
     };
 
-    recorder.start(90000); // 90 seconds
+    recorder.start(30000); // 30 seconds
     setMediaRecorder(recorder);
     setIsRecording(true);
   };
@@ -692,7 +692,7 @@ const StreamsPage = () => {
             }).catch(err => console.error('Upload chunk failed:', err));
           }
         };
-        screenRecorder.start(90000); // 90 seconds
+        screenRecorder.start(30000); // 30 seconds
         setMediaRecorder(screenRecorder);
       }
 
@@ -800,7 +800,7 @@ const StreamsPage = () => {
           }).catch(err => console.error('Upload chunk failed:', err));
         }
       };
-      cameraRecorder.start(90000); // 90 seconds
+      cameraRecorder.start(30000); // 30 seconds
       setMediaRecorder(cameraRecorder);
     }
 

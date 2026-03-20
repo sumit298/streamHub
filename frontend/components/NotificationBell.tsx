@@ -1,55 +1,29 @@
 "use client";
 
 import { Bell } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState } from "react";
+import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/AuthContext";
 import { NotificationPanel } from "./NotificationPanel";
-import { useNotifications } from "@/lib/NotificationContext";
+
+interface Notification { _id: string; read: boolean; }
 
 export const NotificationBell = () => {
-  const [unreadCount, setUnreadCount] = useState(0);
   const [isOpen, setIsOpen] = useState(false);
-  const [shake, setShake] = useState(false);
-  const { socket } = useNotifications();
+  const queryClient = useQueryClient();
 
-  useEffect(() => {
-    fetchUnreadCount();
-  }, []);
+  const { data } = useQuery<Notification[]>({
+    queryKey: ['notifications'],
+    queryFn: () => api.get("/api/notifications?limit=10").then(res => res.data.notifications || []),
+  });
 
-  useEffect(()=> {
-    if(!socket) return;
-
-    const handleNotification = ()=> {
-      fetchUnreadCount();
-
-    }
-    socket.on("notification", handleNotification);  
-    return () => {
-      socket.off("notification", handleNotification);
-    } 
-  }, [socket])
-
-  const fetchUnreadCount = async () => {
-    try {
-      const { data } = await api.get("/api/notifications?unreadOnly=true");
-      const newCount = data.unreadCount || 0;
-      if (newCount > unreadCount) {
-        setShake(true);
-        setTimeout(() => setShake(false), 500);
-      }
-      setUnreadCount(newCount);
-    } catch (error) {
-      console.error("Failed to fetch notifications:", error);
-    }
-  };
+  const unreadCount = (data || []).filter(n => !n.read).length;
 
   return (
     <div className="relative">
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className={`p-2 hover:bg-surface rounded-lg transition-all duration-200 relative group ${
-          shake ? "animate-shake" : ""
-        }`}
+        className="p-2 hover:bg-surface rounded-lg transition-all duration-200 relative group"
       >
         <Bell className="h-5 w-5 text-text-secondary group-hover:text-white transition-colors" />
         {unreadCount > 0 && (
@@ -61,7 +35,7 @@ export const NotificationBell = () => {
       {isOpen && (
         <NotificationPanel
           onClose={() => setIsOpen(false)}
-          onUpdate={fetchUnreadCount}
+          onUpdate={() => queryClient.invalidateQueries({ queryKey: ['notifications'] })}
         />
       )}
     </div>

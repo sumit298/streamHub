@@ -19,7 +19,7 @@ export const Sidebar = ({ onNavigate }: SidebarProps = {}) => {
   const location = usePathname();
 
   return (
-    <aside className="w-full lg:w-64 bg-gray-850 lg:border-r border-gray-700 p-4 min-h-screen">
+    <aside className="w-full lg:w-64 bg-gray-850 lg:border-r border-gray-700 p-4 h-full">
       <nav className="space-y-1">
         {navigation.map((item) => {
           const isActive = location === item.href;

@@ -108,6 +108,26 @@ class VODWorker {
 
       const stats = await fs.promises.stat(mp4Path);
 
+      // Get duration via ffprobe
+      let duration = 0;
+      try {
+        const ffprobeOut = await new Promise((resolve, reject) => {
+          const ffprobe = spawn("ffprobe", [
+            "-v", "error",
+            "-show_entries", "format=duration",
+            "-of", "default=noprint_wrappers=1:nokey=1",
+            mp4Path,
+          ]);
+          let out = "";
+          ffprobe.stdout.on("data", (d) => { out += d.toString(); });
+          ffprobe.on("close", (code) => code === 0 ? resolve(out.trim()) : reject(new Error(`ffprobe exited ${code}`)));
+          ffprobe.on("error", reject);
+        });
+        duration = Math.round(parseFloat(ffprobeOut));
+      } catch (e) {
+        logger.warn("ffprobe failed, duration unknown", e.message);
+      }
+
       await Vod.create({
         streamId,
         userId: stream.userId,
@@ -118,6 +138,7 @@ class VODWorker {
         r2Key,
         fileSize: stats.size,
         filename: `${streamId}_${Date.now()}.mp4`,
+        duration,
         status: "ready",
       });
 

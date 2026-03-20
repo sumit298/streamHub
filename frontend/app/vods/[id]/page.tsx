@@ -2,13 +2,27 @@
 import { useState, useEffect, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { api } from "@/lib/AuthContext";
+import { useQuery } from "@tanstack/react-query";
+
+
+interface Vod {
+  _id: string;
+  title: string;
+  playbackUrl: string;
+  thumbnail?: string;
+  duration?: number;
+  views?: number;
+  createdAt: string;
+  recordedAt?: string;
+  userId?: {username: string; avatar?: string};
+  description?: string;
+  category?: string
+}
 
 export default function VodPlayerPage() {
   const params = useParams();
   const router = useRouter();
   const videoRef = useRef<HTMLVideoElement>(null);
-  const [vod, setVod] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
@@ -18,6 +32,11 @@ export default function VodPlayerPage() {
   const [isTheaterMode, setIsTheaterMode] = useState(false);
   const viewCounted = useRef(false);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  const { data: vod, isLoading: loading} = useQuery<Vod>({
+    queryKey: ['vod', params.id],
+    queryFn: () => api.get(`/api/vods/${params.id}`).then(res=> res.data),
+  })
 
   const togglePlay = () => {
     if (videoRef.current) {
@@ -84,13 +103,6 @@ export default function VodPlayerPage() {
     const secs = Math.floor(seconds % 60);
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
-
-  useEffect(() => {
-    api.get(`/api/vods/${params.id}`)
-      .then(res => setVod(res.data))
-      .catch(err => console.error(err))
-      .finally(() => setLoading(false));
-  }, [params.id]);
 
   useEffect(() => {
     if (vod?.playbackUrl && videoRef.current) {

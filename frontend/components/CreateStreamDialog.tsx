@@ -1,5 +1,6 @@
 
 import { useState } from "react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "./ui/dialog";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
@@ -7,7 +8,7 @@ import { Textarea } from "./ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import toast from "react-hot-toast";
 import { Button } from "./ui/button";
-import { useAuth } from "@/lib/AuthContext";
+import { api } from "@/lib/AuthContext";
 import { useRouter } from "next/navigation";
 
 
@@ -34,83 +35,37 @@ export const CreateStreamDialog = ({ open, onOpenChange }: CreateStreamDialogPro
     const [description, setDescription] = useState("");
     const [thumbnail, setThumbnail] = useState("");
     const [tags, setTags] = useState("");
-    const [isCreating, setIsCreating] = useState(false);
     const router = useRouter();
-    //   const { toast } = useToast();
+    const queryClient = useQueryClient();
 
-    // call authcontext
-    // const { user } = useAuth();
-    // console.log(user)
+    const { mutate: createStream, isPending: isCreating } = useMutation({
+        mutationFn: () => {
+            const thumbnailUrl = thumbnail || `https://picsum.photos/seed/${Date.now()}/400/225`;
+            return api.post("/api/streams", {
+                title,
+                category: category.toLowerCase(),
+                description,
+                thumbnail: thumbnailUrl,
+                tags: tags.split(',').map(t => t.trim()).filter(Boolean),
+                isPending: true,
+            });
+        },
+        onSuccess: (res) => {
+            toast.success(`Stream "${title}" created successfully!`);
+            setTitle(""); setCategory(""); setDescription(""); setThumbnail(""); setTags("");
+            queryClient.invalidateQueries({ queryKey: ['dashboard-streams'] });
+            onOpenChange(false);
+            router.push(`/stream/${res.data.stream.id}`);
+        },
+        onError: (error: any) => {
+            toast.error(error.response?.data?.error || "Failed to create stream");
+        },
+    });
 
-    const handleCreateStream = async () => {
-        if (isCreating) return;
-        
-        if (!title.trim()) {
-            toast.error("Please enter a stream title");
-            return;
-        }
-
-        if (!category) {
-            toast.error("Please select a category");
-            return;
-        }
-
-        setIsCreating(true);
-
-        // Generate thumbnail URL before creating stream
-        let thumbnailUrl = thumbnail;
-        if (!thumbnailUrl) {
-            // Use timestamp as seed for consistent random image
-            const seed = Date.now();
-            thumbnailUrl = `https://picsum.photos/seed/${seed}/400/225`;
-        }
-
-        // Here you would typically create the stream with all data
-        const streamData = {
-            title,
-            category: category.toLowerCase(),
-            description,
-            thumbnail: thumbnailUrl,
-            tags: tags.split(',').map(tag => tag.trim()).filter(tag => tag.length > 0),
-            isPending: true
-        };
-
-        //api call
-        try {
-            const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/streams`, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    
-                },
-                credentials: "include",
-                body: JSON.stringify(streamData),
-            })
-
-            const result = await response.json();
-            console.log(result);
-            if(response.ok){
-                toast.success(`Stream "${title}" created successfully!`);
-                setTitle("");
-                setCategory("")
-                setDescription("")
-                setThumbnail("")
-                setTags("")
-                onOpenChange(false);
-                router.push(`/stream/${result.stream.id}`);
-            }
-            else {
-                toast.error(result.error || "Failed to create stream");
-            }
-        
-
-            
-        } catch (error) {
-            console.error("Create stream error:", error);
-            toast.error("Failed to create stream");
-        } finally {
-            setIsCreating(false);
-        }
+    const handleCreateStream = () => {
+        if (!title.trim()) { toast.error("Please enter a stream title"); return; }
+        if (!category) { toast.error("Please select a category"); return; }
+        createStream();
     };
 
 

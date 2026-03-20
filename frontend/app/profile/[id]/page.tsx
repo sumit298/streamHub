@@ -1,61 +1,55 @@
 "use client";
-import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { api, useAuth } from "@/lib/AuthContext";
 import { Navbar } from "@/components/ui/Navbar";
 import { Sidebar } from "@/components/Sidebar";
 import { getAvatarUrl } from "@/lib/avatar";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+
+interface UserProfile {
+  _id: string;
+  username: string;
+  avatar?: string;
+  bio: string;
+  stats?: { followers: number; following: number; totalStreams: number; totalViews: number}
+  createdAt?: string;
+  email: string;
+}
+
 
 export default function UserProfilePage() {
   const params = useParams();
   const router = useRouter();
   const { user: currentUser } = useAuth();
-  const [profile, setProfile] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
-  const [isFollowing, setIsFollowing] = useState(false);
-  const [followLoading, setFollowLoading] = useState(false);
+  const queryClient = useQueryClient();
 
-  useEffect(() => {
-    const fetchProfile = async () => {
-      try {
-        const { data } = await api.get(`/api/users/${params.id}`);
-        setProfile(data.user);
-        
-        if (currentUser) {
-          const { data: followData } = await api.get(`/api/users/${params.id}/is-following`);
-          setIsFollowing(followData.isFollowing);
-        }
-      } catch (error) {
-        console.error("Failed to fetch profile:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
+  const { data: profile, isLoading: loading} = useQuery<UserProfile>({
+    queryKey: ['user-profile', params.id],
+    queryFn: () => api.get(`/api/users/${params.id}`).then(res=> res.data.user),
+  });
 
-    fetchProfile();
-  }, [params.id, currentUser]);
+  const { data: followData } = useQuery<{ isFollowing: boolean}>({
+    queryKey: ['is-following', params.id],
+    queryFn: () => api.get(`/api/users/${params.id}/is-following`).then(res=> res.data),
+    enabled: !!currentUser,
+  });
 
-  const handleFollow = async () => {
-    if (!currentUser) {
-      router.push("/login");
+  const isFollowing = followData?.isFollowing ?? false;
+  const { mutate: toggleFollow, isPending: followLoading} = useMutation({
+    mutationFn: () => isFollowing 
+    ? api.delete(`/api/users/${params.id}/follow`) : api.post(`/api/users/${params.id}/follow`),
+    onSuccess: () => {
+      queryClient.setQueryData(['is-following', params.id], {isFollowing: !isFollowing})
+    }
+  })
+
+  const handleFollow = ()=> {
+    if(!currentUser) {
+      router.push('/login');
       return;
     }
-
-    setFollowLoading(true);
-    try {
-      if (isFollowing) {
-        await api.delete(`/api/users/${params.id}/follow`);
-        setIsFollowing(false);
-      } else {
-        await api.post(`/api/users/${params.id}/follow`);
-        setIsFollowing(true);
-      }
-    } catch (error) {
-      console.error("Follow action failed:", error);
-    } finally {
-      setFollowLoading(false);
-    }
-  };
+    toggleFollow();
+  }
 
   if (loading) {
     return (
