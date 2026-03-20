@@ -5,6 +5,7 @@ import { AuthProvider } from "@/lib/AuthContext";
 import { NotificationProvider } from "@/lib/NotificationContext";
 import { Toaster } from "react-hot-toast";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import QueryProvider from "@/components/QueryProvider";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -59,11 +60,13 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <ErrorBoundary>
+          <QueryProvider>
           <AuthProvider>
             <NotificationProvider>
               {children}
             </NotificationProvider>
           </AuthProvider>
+          </QueryProvider>
         </ErrorBoundary>
         <Toaster />
       </body>

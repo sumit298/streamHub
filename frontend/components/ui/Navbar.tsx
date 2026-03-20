@@ -2,7 +2,6 @@ import { useState } from "react";
 import { Menu, X } from "lucide-react";
 import { Button } from "./button";
 import Link from "next/link";
-import { Input } from "./input";
 import { CreateStreamDialog } from "../CreateStreamDialog";
 import { useAuth } from "@/lib/AuthContext";
 import { NotificationBell } from "../NotificationBell";

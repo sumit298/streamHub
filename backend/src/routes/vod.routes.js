@@ -9,8 +9,6 @@ const upload = multer({ dest: "/tmp/recordings/" });
 const VodRouter = express.Router();
 
 VodRouter.get("/", VodController.getVods);
-VodRouter.get("/:id", VodController.getVodById);
-VodRouter.post("/:id/view", VodController.incrementView);
 VodRouter.post("/upload-chunk", upload.single('chunk'), async (req, res) => {
   try {
     const { streamId } = req.body;
@@ -30,5 +28,8 @@ VodRouter.post("/upload-chunk", upload.single('chunk'), async (req, res) => {
     res.status(500).json({ error: 'Upload failed' });
   }
 });
+
+VodRouter.get("/:id", VodController.getVodById);
+VodRouter.post("/:id/view", VodController.incrementView);
 
 module.exports = VodRouter;
