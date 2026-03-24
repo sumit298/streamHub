@@ -130,9 +130,7 @@ const Login = () => {
         </div>
 
         <div className="flex flex-col mb-4">
-          <Label htmlFor="password" className="mb-2">
-            Password
-          </Label>
+          <Label htmlFor="password" className="mb-2">Password</Label>
           <div className="relative">
             <Lock className="absolute left-3 top-3  h-4 w-4 text-muted-foreground" />
             <Input
@@ -165,7 +163,7 @@ const Login = () => {
         </div>
 
         <Button
-          className="w-full bg-emerald-600 hover:bg-emerald-700 font-semibold"
+          className="w-full bg-emerald-600 hover:bg-emerald-700 font-semibold mt-2"
           onClick={handleSubmit}
           disabled={
             isLoading ||
@@ -175,6 +173,12 @@ const Login = () => {
         >
           {isLoading ? "Signing in..." : "Sign In"}
         </Button>
+
+        <div className="text-center mt-2">
+          <Link href="/forgot-password" className="text-xs text-emerald-500 hover:underline">
+            Forgot password?
+          </Link>
+        </div>
 
         <div className="text-center">
           <p className="text-sm mt-3">

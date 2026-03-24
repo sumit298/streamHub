@@ -26,7 +26,7 @@ const {
   incrementChatMessages,
 } = require("./src/utils/streamStats");
 const followRoutes = require("./src/routes/follow.routes");
-const { Stream } = require("./src/models");
+const { Stream, User } = require("./src/models");
 const Notification = require("./src/models/Notification");
 const NotificationRouter = require("./src/routes/notification.routes");
 const R2Service = require("./src/services/R2Service");
@@ -131,7 +131,11 @@ const authLimiter = rateLimit({
   message: "Too many authentication requests",
   skip: (req) => {
     // Skip rate limiting for frequently-called authenticated endpoints
-    return req.path === "/me" || req.path === "/me/stats" || req.path === "/refresh-token";
+    return (
+      req.path === "/me" ||
+      req.path === "/me/stats" ||
+      req.path === "/refresh-token"
+    );
   },
 });
 
@@ -215,11 +219,11 @@ async function initializeServices() {
     await mediaService.initialize();
 
     messageQueue = new MessageQueue(logger);
-    if (process.env.NODE_ENV === 'development') {
+    if (process.env.NODE_ENV === "development") {
       try {
         await messageQueue.connect();
       } catch (error) {
-        logger.warn('RabbitMQ unavailable, continuing without it');
+        logger.warn("RabbitMQ unavailable, continuing without it");
       }
     }
 
@@ -242,7 +246,15 @@ async function initializeServices() {
     chatService = new ChatService(messageQueue, cacheService, logger);
 
     // Register routes after services are initialized
-    app.use("/api/auth", (req, res, next) => { req.r2Service = r2Service; next(); }, require("./src/routes/auth.routes")(logger));
+    app.use(
+      "/api/auth",
+      (req, res, next) => {
+        req.r2Service = r2Service;
+        req.cacheService = cacheService;
+        next();
+      },
+      require("./src/routes/auth.routes")(logger),
+    );
     app.use(
       "/api/streams",
       require("./src/routes/stream.routes")(
@@ -272,6 +284,7 @@ async function initializeServices() {
       },
       VodRouter,
     );
+
 
     logger.info("All services initialized successfully");
   } catch (error) {
@@ -670,11 +683,20 @@ io.on("connection", (socket) => {
         return callback?.({ error: "Invalid message parameters" });
       }
 
+       // Check if user is timed out
+      const isTimedOut = await chatService.isUserTimedOut(socket.userId);
+      if (isTimedOut) {
+        return callback?.({ error: "You are timed out from chat" });
+      }
+
       // Rate limit: max 3 messages per 3 seconds per user
       const now = Date.now();
-      const limit = chatRateLimits.get(socket.userId) || { count: 0, resetAt: now + 3000 };
+      const limit = chatRateLimits.get(socket.userId) || {
+        count: 0,
+        resetAt: now + 3000,
+      };
 
-      if(now > limit.resetAt) {
+      if (now > limit.resetAt) {
         limit.count = 0;
         limit.resetAt = now + 3000;
       }
@@ -682,7 +704,9 @@ io.on("connection", (socket) => {
       chatRateLimits.set(socket.userId, limit);
 
       if (limit.count > 3) {
-        return callback?.({ error: "You are sending messages too fast. Please wait a moment." });
+        return callback?.({
+          error: "You are sending messages too fast. Please wait a moment.",
+        });
       }
 
       const message = await chatService.sendMessage(
@@ -721,6 +745,155 @@ io.on("connection", (socket) => {
     } catch (error) {
       logger.error("Send message error", error);
       if (callback) callback?.({ error: error.message });
+    }
+  });
+
+  socket.on("mod-action", async (data) => {
+    try {
+      const { streamId, action, target, duration } = data;
+      if (!streamId || !action || !target) return;
+
+      // check if sender is the streamer
+      const stream = await Stream.findOne({ id: streamId });
+      if (!stream || stream.userId.toString() !== socket.userId) return;
+
+      const targetUser = await User.findOne({ username: target });
+      if (!targetUser) return;
+
+      // Prevent streamer from banning themselves
+      if (targetUser._id.toString() === socket.userId) return;
+
+      if (action === "timeout") {
+        const seconds = duration || 300;
+        await chatService.cacheService.client.setex(
+          `timeout:user:${targetUser._id}`,
+          seconds,
+          "true",
+        );
+        io.to(`stream:${streamId}`).emit("new-message", {
+          id: Date.now().toString(),
+          userId: "system",
+          username: "System",
+          content: `${target} has been timed out for ${seconds} seconds`,
+          timestamp: new Date().toISOString(),
+          type: "system",
+        });
+      } else if (action === "ban") {
+        await chatService.cacheService.client.setex(
+          `timeout:user:${targetUser._id}`,
+          3600, // 1 hour
+          "true",
+        );
+        io.to(`stream:${streamId}`).emit("new-message", {
+          id: Date.now().toString(),
+          userId: "system",
+          username: "System",
+          content: `${target} has been banned from chat`,
+          timestamp: new Date().toISOString(),
+          type: "system",
+        });
+      }
+    } catch (error) {
+      logger.error("Mod action error:", error);
+    }
+  });
+
+  socket.on("slow-mode", async (data) => {
+    try {
+      const { streamId, seconds } = data;
+      if (!streamId) return;
+
+      const stream = await Stream.findOne({ id: streamId });
+      if (!stream || stream.userId.toString() !== socket.userId) return;
+
+      if (seconds > 0) {
+        await chatService.cacheService.client.setex(
+          `slowmode:${streamId}`,
+          86400,
+          seconds.toString(),
+        );
+        io.to(`stream:${streamId}`).emit("new-message", {
+          id: Date.now().toString(),
+          userId: "system",
+          username: "System",
+          content: `Slow mode enabled: ${seconds}s between messages`,
+          timestamp: new Date().toISOString(),
+          type: "system",
+        });
+      } else {
+        await chatService.cacheService.client.del(`slowmode:${streamId}`);
+        io.to(`stream:${streamId}`).emit("new-message", {
+          id: Date.now().toString(),
+          userId: "system",
+          username: "System",
+          content: `Slow mode disabled`,
+          timestamp: new Date().toISOString(),
+          type: "system",
+        });
+      }
+    } catch (error) {
+      logger.error("Slow mode error:", error);
+    }
+  });
+
+  socket.on("unban-user", async (data) => {
+    try {
+      const { streamId, target } = data;
+      if (!streamId || !target) return;
+
+      const stream = await Stream.findOne({ id: streamId });
+      if (!stream || stream.userId.toString() !== socket.userId) return;
+
+      const targetUser = await User.findOne({ username: target });
+      if (!targetUser) return;
+
+      const removed = await chatService.cacheService.client.del(`timeout:user:${targetUser._id}`);
+
+      io.to(`stream:${streamId}`).emit("new-message", {
+        id: Date.now().toString(),
+        userId: "system",
+        username: "System",
+        content: removed ? `${target} has been unbanned` : `${target} is not banned`,
+        timestamp: new Date().toISOString(),
+        type: "system",
+      });
+    } catch (error) {
+      logger.error("Unban error:", error);
+    }
+  });
+
+  socket.on("delete-message", async (data) => {
+    try {
+      const { streamId, messageId } = data;
+      if (!streamId || !messageId) return;
+
+      const stream = await Stream.findOne({ id: streamId });
+      if (!stream || stream.userId.toString() !== socket.userId) return;
+
+      io.to(`stream:${streamId}`).emit("message-deleted", { messageId });
+    } catch (error) {
+      logger.error("Delete message error:", error);
+    }
+  });
+
+  socket.on("announce", async (data) => {
+    try {
+      const { streamId, message } = data;
+      if (!streamId || !message) return;
+
+      const stream = await Stream.findOne({ id: streamId });
+      if (!stream || stream.userId.toString() !== socket.userId) return;
+
+      io.to(`stream:${streamId}`).emit("new-message", {
+        id: Date.now().toString(),
+        userId: "system",
+        username: "Announcement",
+        content: message,
+        timestamp: new Date().toISOString(),
+        type: "announce",
+      });
+    } catch (error) {
+      logger.error("Announce error:", error);
     }
   });
 
@@ -882,7 +1055,7 @@ io.on("connection", (socket) => {
       }
 
       // DEVELOPMENT: Use RabbitMQ worker for background processing with FFmpeg
-      if (process.env.NODE_ENV === 'development' && messageQueue.channel) {
+      if (process.env.NODE_ENV === "development" && messageQueue.channel) {
         const queued = await messageQueue.publishVODConversion({
           streamId,
           webmPath,
