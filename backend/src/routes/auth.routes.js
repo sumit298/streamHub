@@ -4,7 +4,11 @@ const multer = require("multer");
 const { body, validationResult } = require("express-validator");
 const { User } = require("../models/index.js");
 const AuthMiddleWare = require("../middleware/middleware.auth.js");
-const Stream = require('../models/Stream.js')
+const Stream = require('../models/Stream.js');
+const EmailService = require("../services/EmailService.js");
+const crypto = require("crypto");
+const bcrypt = require('bcrypt');
+
 
 const avatarUpload = multer({
   storage: multer.memoryStorage(),
@@ -442,6 +446,58 @@ module.exports = (logger) => {
       res.status(500).json({ error: "Unable to logout" });
     }
   });
+
+  router.post('/forgot-password', async (req, res)=> {
+    try {
+      const { email }  = req.body;
+      if(!email) {
+        return res.status(400).json({ message: "Email is required"})
+      }
+
+      const user = await User.findOne({email: email.toLowerCase()})
+      if(!user) {
+        return res.status(404).json({ message: "No account found with that email address" })
+      }
+
+      const token = crypto.randomBytes(32).toString('hex');
+      await req.cacheService.client.setex(`reset:${token}`, 3600, user._id.toString());
+
+      const resetUrl = `${process.env.FRONTEND_URL}/reset-password?token=${token}`;
+      const emailResult = await EmailService.sendPasswordReset(user.email, resetUrl);
+      logger.info("Email send result:", emailResult);
+
+      res.json({ message: 'If that email exists, a reset link has been sent' });
+
+    } catch (error) {
+      logger.error("Forgot password error", error);
+      res.status(500).json({ message: 'Failed to send reset email' });
+    }
+  })
+
+  router.post('/reset-password', async (req, res) => {
+    try {
+      const { token, password } = req.body;
+      if(!token || !password) return res.status(400).json({ message: "Token and password are required" })
+      if (password.length < 8 || !/[A-Z]/.test(password) || !/[0-9]/.test(password)) {
+        return res.status(400).json({
+          message: "Password must be at least 8 characters and contain at least one uppercase letter and one number",
+        });
+      }
+      const userId = await req.cacheService.client.get(`reset:${token}`)
+      if(!userId) return res.status(400).json({ message: "Invalid or expired token"})
+
+      const hashed = await bcrypt.hash(password, 12);
+      await User.findByIdAndUpdate(userId, { password: hashed });
+      await req.cacheService.client.del(`reset:${token}`);
+
+      res.json({ message: 'Password reset successful' });
+
+      
+    } catch (error) {
+      logger.error("Reset password error", error);
+      res.status(500).json({ message: 'Failed to reset password' });
+    }
+  })
 
   return router;
 };

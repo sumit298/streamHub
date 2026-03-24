@@ -28,8 +28,8 @@ export default function GifPicker({ onSelect, onClose }: GifPickerProps) {
     setLoading(true);
     try {
       const endpoint = searchQuery.trim()
-        ? `https://api.giphy.com/v1/gifs/search?api_key=${apiKey}&q=${encodeURIComponent(searchQuery)}&limit=12&rating=g`
-        : `https://api.giphy.com/v1/gifs/trending?api_key=${apiKey}&limit=12&rating=g`;
+        ? `https://api.giphy.com/v1/gifs/search?api_key=${apiKey}&q=${encodeURIComponent(searchQuery)}&limit=30&rating=g`
+        : `https://api.giphy.com/v1/gifs/trending?api_key=${apiKey}&limit=30&rating=g`;
       const res = await fetch(endpoint);
       const data = await res.json();
       setGifs(data.data || []);
@@ -71,7 +71,7 @@ export default function GifPicker({ onSelect, onClose }: GifPickerProps) {
       </div>
 
       {/* GIF Grid */}
-      <div className="h-56 overflow-y-auto p-1.5">
+      <div className="h-80 overflow-y-auto p-1.5">
         {!apiKey ? (
           <div className="flex items-center justify-center h-full text-gray-400 text-xs text-center px-4">
             Add NEXT_PUBLIC_GIPHY_API_KEY to .env to enable GIFs

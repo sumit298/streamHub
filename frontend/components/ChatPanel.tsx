@@ -56,11 +56,13 @@ const formatTime = (timestamp: string) => {
 export default function ChatPanel({ 
   socket, 
   streamId, 
-  username 
+  username,
+  isStreamer = false,
 }: { 
   socket: Socket | null;
   streamId: string;
   username: string;
+  isStreamer?: boolean; 
 }) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
@@ -90,10 +92,16 @@ export default function ChatPanel({
       setMessages(prev => [...prev, msg]);
     };
     
+    const handleDeleteMessage = ({ messageId }: { messageId: string }) => {
+      setMessages(prev => prev.filter(m => m.id !== messageId));
+    };
+
     socket.on('new-message', handleNewMessage);
-    
+    socket.on('message-deleted', handleDeleteMessage);
+
     return () => {
       socket.off('new-message', handleNewMessage);
+      socket.off('message-deleted', handleDeleteMessage);
     };
   }, [socket, streamId]);
 
@@ -118,11 +126,82 @@ export default function ChatPanel({
   const sendMessage = () => {
     if (!input.trim() || !socket) return;
 
+    // parse commands
+    if(input.startsWith('/')){
+      const [command, ...args] = input.trim().split(" ");
+      switch(command.toLowerCase()){
+        case '/clear':
+          setMessages([]);
+          setInput('');
+          return;
+        case '/timeout':
+          if(isStreamer){
+            socket.emit('mod-action', {
+              streamId,
+              action: 'timeout',
+              target: args[0]?.replace('@', ''),
+              duration: parseInt(args[1]) || 300
+            });
+          }
+          setInput('');
+          return;
+        case '/ban':
+        if (isStreamer) {
+          socket.emit('mod-action', {
+            streamId,
+            action: 'ban',
+            target: args[0]?.replace('@', '')
+          });
+        }
+        setInput('');
+        return;
+      case '/slow':
+        if (isStreamer) {
+          socket.emit('slow-mode', { streamId, seconds: parseInt(args[0]) || 10 });
+        }
+        setInput('');
+        return;
+      case '/slowoff':
+        if (isStreamer) {
+          socket.emit('slow-mode', { streamId, seconds: 0 });
+        }
+        setInput('');
+        return;
+      case '/unban':
+        if (isStreamer) {
+          socket.emit('unban-user', {
+            streamId,
+            target: args[0]?.replace('@', ''),
+          });
+        }
+        setInput('');
+        return;
+      case '/announce':
+        if (isStreamer) {
+          socket.emit('announce', {
+            streamId,
+            message: args.join(' '),
+          });
+        }
+        setInput('');
+        return;
+      }
+    }
+
     socket.emit('send-message', {
       roomId: streamId,
       content: input
-    }, (response: any) => {
-      if (response?.error) console.error(response.error);
+    }, (response: { error?: string }) => {
+      if (response?.error) {
+        setMessages(prev => [...prev, {
+          id: Date.now().toString(),
+          userId: 'system',
+          username: 'System',
+          content: response.error ?? 'An error occurred',
+          timestamp: new Date().toISOString(),
+          type: 'system',
+        }]);
+      }
     });
 
     setInput('');
@@ -135,8 +214,17 @@ export default function ChatPanel({
       roomId: streamId,
       content: url,
       type: 'gif',
-    }, (response: any) => {
-      if (response?.error) console.error(response.error);
+    }, (response: { error?: string }) => {
+      if (response?.error) {
+        setMessages(prev => [...prev, {
+          id: Date.now().toString(),
+          userId: 'system',
+          username: 'System',
+          content: response.error ?? 'An error occurred',
+          timestamp: new Date().toISOString(),
+          type: 'system',
+        }]);
+      }
     });
     setShowGifPicker(false);
   };
@@ -202,19 +290,27 @@ export default function ChatPanel({
       
       <div className="flex-1 overflow-y-auto py-2 space-y-1">
         {messages.map((msg) => (
-          <div key={msg.id} className="flex items-start py-1 gap-1 hover:bg-gray-800/50 rounded">
+          <div key={msg.id} className={`group flex items-start py-1 gap-1 rounded ${msg.type === 'announce' ? 'bg-yellow-900/20 px-1' : 'hover:bg-gray-800/50'}`}>
             <span className="text-xs text-gray-500 shrink-0 w-12 text-right">
               {formatTime(msg.timestamp)}
             </span>
-            <img
-              src={msg.avatar || `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(msg.username || 'Anonymous')}`}
-              alt={msg.username}
-              className="w-6 h-6 rounded-full shrink-0"
-            />
-            <span className={`text-sm font-bold shrink-0 ${getUsernameColor(msg.username || 'Anonymous')}`}>
+            {msg.type !== 'system' && msg.type !== 'announce' && (
+              <img
+                src={msg.avatar || `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(msg.username || 'Anonymous')}`}
+                alt={msg.username}
+                className="w-6 h-6 rounded-full shrink-0"
+              />
+            )}
+            <span className={`text-sm font-bold shrink-0 ${
+              msg.type === 'system' ? 'text-gray-400 italic'
+              : msg.type === 'announce' ? 'text-yellow-400'
+              : getUsernameColor(msg.username || 'Anonymous')
+            }`}>
               {msg.username || 'Anonymous'}:
             </span>
-            {msg.type === 'gif' ? (
+            {msg.type === 'announce' ? (
+              <p className="text-sm text-yellow-300 font-semibold flex-1">{msg.content}</p>
+            ) : msg.type === 'gif' ? (
               <img
                 src={msg.content}
                 alt="GIF"
@@ -222,6 +318,17 @@ export default function ChatPanel({
               />
             ) : (
               <p className="text-sm text-white wrap-break-word flex-1">{msg.content}</p>
+            )}
+            {isStreamer && msg.userId !== 'system' && (
+              <button
+                onClick={() => socket?.emit('delete-message', { streamId, messageId: msg.id })}
+                className="opacity-0 group-hover:opacity-100 shrink-0 p-1 text-gray-500 hover:text-red-400 transition"
+                title="Delete message"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+              </button>
             )}
           </div>
         ))}
@@ -242,6 +349,31 @@ export default function ChatPanel({
                 <span className="text-sm text-white font-medium">@{viewer.username}</span>
               </button>
             ))}
+          </div>
+        )}
+        {/* Command suggestions */}
+        {isStreamer && input.startsWith('/') && !showSuggestions && (
+          <div className="absolute bottom-full left-4 right-4 mb-2 bg-gray-800 rounded-lg border border-gray-700 shadow-xl overflow-hidden">
+            {[
+              { cmd: '/timeout', usage: '/timeout @user 60', desc: 'Timeout a user (seconds)' },
+              { cmd: '/ban', usage: '/ban @user', desc: 'Ban user from chat' },
+              { cmd: '/slow', usage: '/slow 10', desc: 'Enable slow mode (seconds)' },
+              { cmd: '/slowoff', usage: '/slowoff', desc: 'Disable slow mode' },
+              { cmd: '/clear', usage: '/clear', desc: 'Clear chat messages' },
+              { cmd: '/unban', usage: '/unban @user', desc: 'Unban user from chat' },
+              { cmd: '/announce', usage: '/announce message', desc: 'Send announcement' },
+            ]
+              .filter(c => c.cmd.startsWith(input.split(' ')[0].toLowerCase()))
+              .map(c => (
+                <button
+                  key={c.cmd}
+                  onClick={() => { setInput(c.usage + ' '); inputRef.current?.focus(); }}
+                  className="w-full px-4 py-2 text-left hover:bg-gray-700 transition flex items-center justify-between"
+                >
+                  <span className="text-sm text-purple-400 font-mono">{c.usage}</span>
+                  <span className="text-xs text-gray-400">{c.desc}</span>
+                </button>
+              ))}
           </div>
         )}
         {/* Emoji picker popup */}

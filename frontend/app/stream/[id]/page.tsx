@@ -10,7 +10,7 @@ import BottomControlBar from "@/components/BottomControlBar";
 import ViewerStats from "@/components/ViewerStats";
 import MediaStatsOverlay from "@/components/MediaStatsOverlay";
 
-const StreamsPage = () => {
+const StreamsPage = ({isStreamer = true}) => {
   const params = useParams();
   const { user } = useAuth();
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -858,7 +858,8 @@ const StreamsPage = () => {
             </button>
           </div>
           <div className="flex-1 overflow-hidden">
-            <ChatPanel socket={socket} streamId={params.id as string} username={user?.username || "Streamer"} />
+            <ChatPanel socket={socket} streamId={params.id as string} username={user?.username || "Streamer"} isStreamer={true} /
+            >
           </div>
         </div>
       </div>
@@ -1039,7 +1040,7 @@ const StreamsPage = () => {
         <div className="hidden lg:flex w-72 xl:w-80 shrink-0 flex-col border-l border-gray-800 overflow-hidden bg-gray-900">
           {/* Chat fills all space */}
           <div className="flex-1 overflow-hidden">
-            <ChatPanel socket={socket} streamId={params.id as string} username={user?.username || "Streamer"} />
+            <ChatPanel socket={socket} streamId={params.id as string} username={user?.username || "Streamer"} isStreamer={true} />
           </div>
 
           {/* Connection panel — only shown pre-live */}
