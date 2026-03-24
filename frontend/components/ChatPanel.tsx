@@ -18,8 +18,10 @@ interface Message {
 }
 
 interface Viewer {
-  id: string;
+  id?: string;
+  userId?: string;
   username: string;
+  avatar?: string;
 }
 
 // Generate consistent color for username
@@ -72,6 +74,8 @@ export default function ChatPanel({
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [showGifPicker, setShowGifPicker] = useState(false);
+  const [chatError, setChatError] = useState<string | null>(null);
+  const [chatUsers, setChatUsers] = useState<Viewer[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const emojiPickerRef = useRef<HTMLDivElement>(null);
@@ -90,6 +94,14 @@ export default function ChatPanel({
     
     const handleNewMessage = (msg: Message) => {
       setMessages(prev => [...prev, msg]);
+      // track unique chat participants for mod suggestions
+      if (msg.userId !== 'system' && msg.username) {
+        setChatUsers(prev =>
+          prev.find(u => u.username === msg.username)
+            ? prev
+            : [...prev, { userId: msg.userId, username: msg.username, avatar: msg.avatar }]
+        );
+      }
     };
     
     const handleDeleteMessage = ({ messageId }: { messageId: string }) => {
@@ -193,14 +205,8 @@ export default function ChatPanel({
       content: input
     }, (response: { error?: string }) => {
       if (response?.error) {
-        setMessages(prev => [...prev, {
-          id: Date.now().toString(),
-          userId: 'system',
-          username: 'System',
-          content: response.error ?? 'An error occurred',
-          timestamp: new Date().toISOString(),
-          type: 'system',
-        }]);
+        setChatError(response.error);
+        setTimeout(() => setChatError(null), 4000);
       }
     });
 
@@ -216,14 +222,8 @@ export default function ChatPanel({
       type: 'gif',
     }, (response: { error?: string }) => {
       if (response?.error) {
-        setMessages(prev => [...prev, {
-          id: Date.now().toString(),
-          userId: 'system',
-          username: 'System',
-          content: response.error ?? 'An error occurred',
-          timestamp: new Date().toISOString(),
-          type: 'system',
-        }]);
+        setChatError(response.error);
+        setTimeout(() => setChatError(null), 4000);
       }
     });
     setShowGifPicker(false);
@@ -280,7 +280,9 @@ export default function ChatPanel({
     }
   };
 
-  const filteredViewers = viewers.filter(v => 
+  const isModCommand = /^\/(timeout|ban|unban)\s/.test(input);
+  const suggestionSource = isModCommand ? chatUsers.filter(u => u.username !== username) : viewers;
+  const filteredViewers = suggestionSource.filter(v =>
     v.username.toLowerCase().includes(mentionQuery.toLowerCase())
   );
 
@@ -335,6 +337,11 @@ export default function ChatPanel({
         <div ref={messagesEndRef} />
       </div>
       
+      {chatError && (
+        <div className="mx-4 mb-1 px-3 py-2 bg-red-900/60 border border-red-700 rounded-lg text-red-300 text-xs">
+          {chatError}
+        </div>
+      )}
       <div className="p-4 border-t border-gray-700 relative">
         {showSuggestions && filteredViewers.length > 0 && (
           <div className="absolute bottom-full left-4 right-4 mb-2 bg-gray-800 rounded-lg border border-gray-700 shadow-xl max-h-48 overflow-y-auto">
