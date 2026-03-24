@@ -770,7 +770,7 @@ io.on("connection", (socket) => {
           seconds,
           "true",
         );
-        io.to(`stream:${streamId}`).emit("new-message", {
+        io.to(`room:${streamId}`).emit("new-message", {
           id: Date.now().toString(),
           userId: "system",
           username: "System",
@@ -784,7 +784,7 @@ io.on("connection", (socket) => {
           3600, // 1 hour
           "true",
         );
-        io.to(`stream:${streamId}`).emit("new-message", {
+        io.to(`room:${streamId}`).emit("new-message", {
           id: Date.now().toString(),
           userId: "system",
           username: "System",
@@ -812,7 +812,7 @@ io.on("connection", (socket) => {
           86400,
           seconds.toString(),
         );
-        io.to(`stream:${streamId}`).emit("new-message", {
+        io.to(`room:${streamId}`).emit("new-message", {
           id: Date.now().toString(),
           userId: "system",
           username: "System",
@@ -822,7 +822,7 @@ io.on("connection", (socket) => {
         });
       } else {
         await chatService.cacheService.client.del(`slowmode:${streamId}`);
-        io.to(`stream:${streamId}`).emit("new-message", {
+        io.to(`room:${streamId}`).emit("new-message", {
           id: Date.now().toString(),
           userId: "system",
           username: "System",
@@ -849,7 +849,7 @@ io.on("connection", (socket) => {
 
       const removed = await chatService.cacheService.client.del(`timeout:user:${targetUser._id}`);
 
-      io.to(`stream:${streamId}`).emit("new-message", {
+      io.to(`room:${streamId}`).emit("new-message", {
         id: Date.now().toString(),
         userId: "system",
         username: "System",
@@ -884,7 +884,7 @@ io.on("connection", (socket) => {
       const stream = await Stream.findOne({ id: streamId });
       if (!stream || stream.userId.toString() !== socket.userId) return;
 
-      io.to(`stream:${streamId}`).emit("new-message", {
+      io.to(`room:${streamId}`).emit("new-message", {
         id: Date.now().toString(),
         userId: "system",
         username: "Announcement",

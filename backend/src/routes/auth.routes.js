@@ -478,8 +478,11 @@ module.exports = (logger) => {
     try {
       const { token, password } = req.body;
       if(!token || !password) return res.status(400).json({ message: "Token and password are required" })
-      if(password.length < 6) return res.status(400).json({ message: "Password must be at least 6 characters" })
-
+      if (password.length < 8 || !/[A-Z]/.test(password) || !/[0-9]/.test(password)) {
+        return res.status(400).json({
+          message: "Password must be at least 8 characters and contain at least one uppercase letter and one number",
+        });
+      }
       const userId = await req.cacheService.client.get(`reset:${token}`)
       if(!userId) return res.status(400).json({ message: "Invalid or expired token"})
 

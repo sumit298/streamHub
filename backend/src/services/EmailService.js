@@ -2,6 +2,9 @@ const nodemailer = require("nodemailer");
 
 class EmailService {
   async sendPasswordReset(email, resetUrl) {
+     if (!process.env.MAIL_FROM) {
+      throw new Error("MAIL_FROM is required");
+    }
     const transporter = nodemailer.createTransport({
       host: "smtp-relay.brevo.com",
       port: 587,
@@ -11,7 +14,7 @@ class EmailService {
       },
     });
     return transporter.sendMail({
-      from: `"StreamHub" <richardhendricks374@gmail.com>`,
+      from: `"StreamHub" <${process.env.MAIL_FROM}>`,
       to: email,
       subject: "Reset your StreamHub password",
       html: `
