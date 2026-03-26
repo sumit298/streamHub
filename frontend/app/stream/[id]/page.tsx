@@ -670,7 +670,7 @@ const StreamsPage = ({isStreamer = true}) => {
       }
     };
 
-    recorder.start(5000); // 5 second chunks
+    recorder.start(30000); // 30 second chunks
     setMediaRecorder(recorder);
     setIsRecording(true);
   };
@@ -736,7 +736,7 @@ const StreamsPage = ({isStreamer = true}) => {
             }).catch(err => console.error('Upload chunk failed:', err));
           }
         };
-        screenRecorder.start(5000); // 5 second chunks
+        screenRecorder.start(30000); // 30 second chunks
         setMediaRecorder(screenRecorder);
       }
 
