@@ -334,6 +334,10 @@ io.use((socket, next) => {
 const activeConnections = new Map();
 const recordingStreams = new Map();
 const { finalizedRecordings } = require("./src/utils/recordingState");
+const fixWebmDurationNode = require("./src/utils/fixWebmDurationNode");
+const RECORDINGS_DIR = "/tmp/recordings";
+// Allowlist: UUID-timestamp only, no path separators or traversal possible
+const RECORDING_ID_RE = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}-\d+$/i;
 const chatRateLimits = new Map();
 
 io.on("connection", (socket) => {
@@ -976,6 +980,11 @@ io.on("connection", (socket) => {
 
       if (!streamId || !recordingId) return;
 
+      if (!RECORDING_ID_RE.test(recordingId)) {
+        logger.warn(`Invalid recordingId in recording-chunk: ${recordingId}`);
+        return;
+      }
+
       const streamDoc = await Stream.findOne({
         id: streamId,
         userId: socket.userId,
@@ -990,7 +999,7 @@ io.on("connection", (socket) => {
 
       let writeStream = recordingStreams.get(recordingId);
       if (!writeStream) {
-        const filepath = path.join("/tmp/recordings", `${recordingId}.webm`);
+        const filepath = path.join(RECORDINGS_DIR, `${recordingId}.webm`);
         writeStream = fs.createWriteStream(filepath, { flags: "w" });
         recordingStreams.set(recordingId, writeStream);
       }
@@ -1000,20 +1009,25 @@ io.on("connection", (socket) => {
     }
   });
 
-  socket.on("recording-end", async ({ streamId, recordingId }) => {
+  socket.on("recording-end", async ({ streamId, recordingId, durationMs }) => {
     const key = recordingId || streamId;
+
+    if (!RECORDING_ID_RE.test(key)) {
+      logger.warn(`Invalid recording key in recording-end: ${key}`);
+      return;
+    }
+
     const writeStream = recordingStreams.get(key);
     if (writeStream) {
       writeStream.end();
       recordingStreams.delete(key);
 
       if (recordingId) {
-        const filepath = path.join("/tmp/recordings", `${recordingId}.webm`);
+        const filepath = path.join(RECORDINGS_DIR, `${recordingId}.webm`);
         try {
           await fs.promises.access(filepath);
-          const fixWebmDuration = require("fix-webm-duration");
           const buffer = await fs.promises.readFile(filepath);
-          const fixedBuffer = await fixWebmDuration(buffer);
+          const fixedBuffer = await fixWebmDurationNode(buffer, durationMs || 0);
           await fs.promises.writeFile(filepath, fixedBuffer);
           finalizedRecordings.add(recordingId);
           logger.info(`Recording finalized via socket: ${recordingId}`);

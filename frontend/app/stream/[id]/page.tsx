@@ -57,6 +57,7 @@ const StreamsPage = ({isStreamer = true}) => {
   const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
   const [isRecording, setIsRecording] = useState(false);
   const recordingIdRef = useRef<string | null>(null);
+  const recordingStartTimeRef = useRef<number | null>(null);
   const [availableDevices, setAvailableDevices] = useState<{
     cameras: MediaDeviceInfo[];
     microphones: MediaDeviceInfo[];
@@ -602,20 +603,28 @@ const StreamsPage = ({isStreamer = true}) => {
     }
   };
 
-  const toggleRecording = () => {
+  const toggleRecording = async () => {
     if (isRecording) {
       if (mediaRecorder) {
         mediaRecorder.stop();
         setMediaRecorder(null);
       }
       if (recordingIdRef.current) {
-        fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001"}/api/vods/recording-end`, {
-          method: 'POST',
-          credentials: 'include',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ streamId: params.id, recordingId: recordingIdRef.current }),
-        }).catch(err => console.error('recording-end failed:', err));
+        const durationMs = recordingStartTimeRef.current
+          ? Date.now() - recordingStartTimeRef.current
+          : 0;
+        try {
+          await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001"}/api/vods/recording-end`, {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ streamId: params.id, recordingId: recordingIdRef.current, durationMs }),
+          });
+        } catch (err) {
+          console.error('recording-end failed:', err);
+        }
         recordingIdRef.current = null;
+        recordingStartTimeRef.current = null;
       }
       setIsRecording(false);
       toast.success("Recording stopped", { position: "bottom-left" });
@@ -632,6 +641,7 @@ const StreamsPage = ({isStreamer = true}) => {
 
     const recordingId = `${params.id}-${Date.now()}`;
     recordingIdRef.current = recordingId;
+    recordingStartTimeRef.current = Date.now();
 
     const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=h264,opus')
     ? 'video/webm;codecs=h264,opus'
@@ -683,8 +693,23 @@ const StreamsPage = ({isStreamer = true}) => {
       // Switch recording to screen share only if recording is active
       if (isRecording && mediaRecorder) {
         mediaRecorder.stop();
+
+        // Finalize the camera recording before starting screen recording
+        if (recordingIdRef.current) {
+          const durationMs = recordingStartTimeRef.current
+            ? Date.now() - recordingStartTimeRef.current
+            : 0;
+          fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001"}/api/vods/recording-end`, {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ streamId: params.id, recordingId: recordingIdRef.current, durationMs }),
+          }).catch(err => console.error('recording-end (camera→screen) failed:', err));
+        }
+
         const screenRecordingId = `${params.id}-${Date.now()}`;
         recordingIdRef.current = screenRecordingId;
+        recordingStartTimeRef.current = Date.now();
 
         const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=h264,opus')
           ? 'video/webm;codecs=h264,opus'
