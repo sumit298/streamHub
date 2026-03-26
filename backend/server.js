@@ -333,6 +333,7 @@ io.use((socket, next) => {
 
 const activeConnections = new Map();
 const recordingStreams = new Map();
+const { finalizedRecordings } = require("./src/utils/recordingState");
 const chatRateLimits = new Map();
 
 io.on("connection", (socket) => {
@@ -971,7 +972,9 @@ io.on("connection", (socket) => {
   // recording handlers
   socket.on("recording-chunk", async (data) => {
     try {
-      const { streamId, chunk } = data;
+      const { streamId, recordingId, chunk } = data;
+
+      if (!streamId || !recordingId) return;
 
       const streamDoc = await Stream.findOne({
         id: streamId,
@@ -985,23 +988,39 @@ io.on("connection", (socket) => {
         return;
       }
 
-      let stream = recordingStreams.get(streamId);
-      if (!stream) {
-        const filepath = path.join("/tmp/recordings", `${streamId}.webm`);
-        stream = fs.createWriteStream(filepath, { flags: "a" });
-        recordingStreams.set(streamId, stream);
+      let writeStream = recordingStreams.get(recordingId);
+      if (!writeStream) {
+        const filepath = path.join("/tmp/recordings", `${recordingId}.webm`);
+        writeStream = fs.createWriteStream(filepath, { flags: "w" });
+        recordingStreams.set(recordingId, writeStream);
       }
-      stream.write(Buffer.from(chunk));
+      writeStream.write(Buffer.from(chunk));
     } catch (error) {
       logger.error("Recording chunk error", error);
     }
   });
 
-  socket.on("recording-end", ({ streamId }) => {
-    const stream = recordingStreams.get(streamId);
-    if (stream) {
-      stream.end();
-      recordingStreams.delete(streamId);
+  socket.on("recording-end", async ({ streamId, recordingId }) => {
+    const key = recordingId || streamId;
+    const writeStream = recordingStreams.get(key);
+    if (writeStream) {
+      writeStream.end();
+      recordingStreams.delete(key);
+
+      if (recordingId) {
+        const filepath = path.join("/tmp/recordings", `${recordingId}.webm`);
+        try {
+          await fs.promises.access(filepath);
+          const fixWebmDuration = require("fix-webm-duration");
+          const buffer = await fs.promises.readFile(filepath);
+          const fixedBuffer = await fixWebmDuration(buffer);
+          await fs.promises.writeFile(filepath, fixedBuffer);
+          finalizedRecordings.add(recordingId);
+          logger.info(`Recording finalized via socket: ${recordingId}`);
+        } catch (err) {
+          logger.error("Failed to fix WebM metadata", err);
+        }
+      }
     }
   });
 
@@ -1014,85 +1033,95 @@ io.on("connection", (socket) => {
         logger.error(`Invalid streamId format: ${streamId}`);
         return;
       }
-      const webmPath = path.join("/tmp/recordings", `${streamId}.webm`);
-
-      // check if file exists
-      try {
-        await fs.promises.access(webmPath);
-      } catch (error) {
-        logger.warn(`No recordings found for stream ${streamId}`);
-        return;
-      }
-
-      // Validate file size
-      const fileStats = await fs.promises.stat(webmPath);
-      if (fileStats.size < 1000) {
-        logger.warn(`Recording too small (${fileStats.size} bytes), skipping`);
-        await fs.promises.unlink(webmPath);
-        return;
-      }
-
-      // Validate WebM with ffprobe (safe - no shell)
-      const { execFile } = require("child_process");
-      try {
-        await new Promise((resolve, reject) => {
-          execFile("ffprobe", [webmPath], (error) => {
-            if (error) reject(new Error("Invalid WebM"));
-            else resolve(true);
-          });
-        });
-      } catch (error) {
-        logger.error(`Invalid WebM for ${streamId}: ${error.message}`);
-        await fs.promises.unlink(webmPath);
-        return;
-      }
 
       const stream = await Stream.findOne({ id: streamId });
       if (!stream) {
         logger.warn(`Stream ${streamId} not found in DB`);
-        await fs.promises.unlink(webmPath);
         return;
       }
 
-      // DEVELOPMENT: Use RabbitMQ worker for background processing with FFmpeg
-      if (process.env.NODE_ENV === "development" && messageQueue.channel) {
-        const queued = await messageQueue.publishVODConversion({
-          streamId,
-          webmPath,
-          userId: socket.userId,
-        });
+      // Find all recording files for this stream (recordingId format: <streamId>-<timestamp>.webm)
+      const allFiles = await fs.promises.readdir("/tmp/recordings");
+      const streamFiles = allFiles
+        .filter(f => f.startsWith(streamId) && f.endsWith(".webm"))
+        .sort() // timestamp suffix ensures chronological order
+        .filter(f => finalizedRecordings.has(f.replace(".webm", "")));
 
-        if (queued) {
-          logger.info(`VOD queued for worker: ${streamId}`);
-          return;
-        }
-        logger.warn(`RabbitMQ unavailable, falling back to sync processing`);
+      if (streamFiles.length === 0) {
+        logger.warn(`No recordings found for stream ${streamId}`);
+        return;
       }
 
-      // PRODUCTION: Process synchronously (upload WebM directly, no conversion)
-      logger.info(`Processing VOD synchronously: ${streamId}`);
+      logger.info(`Found ${streamFiles.length} recording(s) for stream ${streamId}`);
 
-      const r2Key = `vods/${streamId}/${Date.now()}.webm`;
-      await r2Service.uploadFile(webmPath, r2Key);
-      const stats = await fs.promises.stat(webmPath);
+      const { execFile } = require("child_process");
 
-      await VOD.create({
-        streamId,
-        userId: stream.userId,
-        title: stream.title,
-        description: stream.description,
-        category: stream.category,
-        thumbnail: stream.thumbnail,
-        r2Key,
-        fileSize: stats.size,
-        filename: `${streamId}_${Date.now()}.webm`,
-        status: "ready",
-      });
+      for (const file of streamFiles) {
+        const webmPath = path.join("/tmp/recordings", file);
 
-      await fs.promises.unlink(webmPath).catch(() => {});
+        // Validate file size
+        const fileStats = await fs.promises.stat(webmPath);
+        if (fileStats.size < 1000) {
+          logger.warn(`Recording ${file} too small (${fileStats.size} bytes), skipping`);
+          await fs.promises.unlink(webmPath).catch(() => {});
+          continue;
+        }
+
+        // Validate WebM with ffprobe (safe - no shell)
+        try {
+          await new Promise((resolve, reject) => {
+            execFile("ffprobe", [webmPath], (error) => {
+              if (error) reject(new Error("Invalid WebM"));
+              else resolve(true);
+            });
+          });
+        } catch (error) {
+          logger.error(`Invalid WebM for ${file}: ${error.message}`);
+          await fs.promises.unlink(webmPath).catch(() => {});
+          continue;
+        }
+
+        // DEVELOPMENT: Use RabbitMQ worker for background processing with FFmpeg
+        if (process.env.NODE_ENV === "development" && messageQueue.channel) {
+          const queued = await messageQueue.publishVODConversion({
+            streamId,
+            webmPath,
+            userId: socket.userId,
+          });
+
+          if (queued) {
+            logger.info(`VOD queued for worker: ${file}`);
+            continue;
+          }
+          logger.warn(`RabbitMQ unavailable, falling back to sync processing`);
+        }
+
+        // PRODUCTION: Upload WebM directly (no conversion)
+        logger.info(`Processing VOD synchronously: ${file}`);
+
+        const r2Key = `vods/${streamId}/${file}`;
+        await r2Service.uploadFile(webmPath, r2Key);
+        const stats = await fs.promises.stat(webmPath);
+
+        await VOD.create({
+          streamId,
+          userId: stream.userId,
+          title: stream.title,
+          description: stream.description,
+          category: stream.category,
+          thumbnail: stream.thumbnail,
+          r2Key,
+          fileSize: stats.size,
+          filename: file,
+          status: "ready",
+        });
+
+        await fs.promises.unlink(webmPath).catch(() => {});
+        finalizedRecordings.delete(file.replace(".webm", ""));
+        logger.info(`VOD ready: ${file}`);
+      }
 
       io.to(`user:${stream.userId}`).emit("vod-ready", { streamId });
-      logger.info(`VOD ready: ${streamId}`);
     } catch (error) {
       logger.error("Stream ended processing error", error);
     }
