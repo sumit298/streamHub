@@ -1,6 +1,7 @@
-const mongoose = require('mongoose');
+import mongoose from "mongoose";
+import type { IStream } from "@appTypes/stream.types";
 
-const streamSchema = new mongoose.Schema({
+const streamSchema = new mongoose.Schema<IStream>({
     id: {
         type: String,
         required: true,
@@ -164,16 +165,16 @@ streamSchema.virtual('formattedDuration').get(function () {
     return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
 })
 
-streamSchema.methods.canUserView = function (userId) {
-    if (!this.isPrivate) return true;
-    if (this.userId.toString() === userId.toString()) return true;
+// streamSchema.methods.canUserView = function (userId: string) {
+//     if (!this.isPrivate) return true;
+//     if (this.userId.toString() === userId.toString()) return true;
    
-    return false;
-}
+//     return false;
+// }
 
-streamSchema.methods.isUserBlocked = function (userId) {
-    return this.blockedUsers.includes(userId);
-}
+// streamSchema.methods.isUserBlocked = function (userId: string) {
+//     return this.blockedUsers.includes(userId);
+// }
 
 streamSchema.methods.getPublicInfo = function () {
     return {
@@ -196,4 +197,4 @@ streamSchema.methods.getPublicInfo = function () {
     };
 };
 
-module.exports = mongoose.model('Stream', streamSchema);
+export default mongoose.model<IStream>('Stream', streamSchema);

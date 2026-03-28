@@ -1,6 +1,23 @@
-const mongoose = require("mongoose");
+import mongoose, { Document, Types } from "mongoose";
 
-const notificationSchema = new mongoose.Schema(
+interface INotification extends Document {
+  userId: Types.ObjectId;
+  type: "stream-live" | "chat-mention" | "new-follower";
+  title: string;
+  message: string;
+  read: boolean;
+  data: {
+    streamId?: string;
+    streamTitle?: string;
+    followerId?: Types.ObjectId;
+    followerUsername?: string;
+    followerAvatar?: string;
+  };
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+const notificationSchema = new mongoose.Schema<INotification>(
   {
     userId: {
       type: mongoose.Schema.Types.ObjectId,
@@ -43,4 +60,7 @@ const notificationSchema = new mongoose.Schema(
 notificationSchema.index({ userId: 1, read: 1, createdAt: -1 });
 notificationSchema.index({ createdAt: 1 }, { expireAfterSeconds: 2592000 }); // 30 days TTL
 
-module.exports = mongoose.model("Notification", notificationSchema);
+export default mongoose.model<INotification>(
+  "Notification",
+  notificationSchema,
+);

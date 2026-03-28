@@ -1,6 +1,25 @@
-const mongoose = require("mongoose");
+import mongoose, { Document, Types } from "mongoose";
 
-const vodSchema = new mongoose.Schema(
+interface IVOD extends Document {
+  streamId: string;
+  userId: Types.ObjectId;
+  title: string;
+  description?: string;
+  category?: string;
+  thumbnail?: string;
+
+  filename?: string;
+  fileSize?: number;
+  duration?: number;
+
+  r2Key: string;
+
+  status: "recording" | "processing" | "ready" | "failed";
+  views: number;
+  recordedAt: Date;
+}
+
+const vodSchema = new mongoose.Schema<IVOD>(
   {
     streamId: {
       type: String,
@@ -45,4 +64,4 @@ const vodSchema = new mongoose.Schema(
 vodSchema.index({ userId: 1, createdAt: -1 });
 vodSchema.index({ status: 1, createdAt: -1 });
 
-module.exports = mongoose.model("VOD", vodSchema);
+export default mongoose.model<IVOD>("VOD", vodSchema);
