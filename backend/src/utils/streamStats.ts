@@ -1,4 +1,19 @@
-const { Stream } = require('../models');
+import { Stream } from '@models/Stream';
+
+
+async function updateViewerStats(streamId: string, currentViewers: number): Promise<void> {
+  const updates: Record<string, number> = {
+    currentViewers,
+    peakViewers: currentViewers, // your existing logic here
+  };
+  await Stream.findByIdAndUpdate(streamId, { $set: updates });
+}
+
+async function incrementChatMessages(streamId: string): Promise<void> {
+  await Stream.findByIdAndUpdate(streamId, { $inc: { chatMessages: 1 } });
+}
+
+export { updateViewerStats, incrementChatMessages };
 
 /**
  * Update stream viewer stats

@@ -1,6 +1,7 @@
-const mongoose = require("mongoose");
+import mongoose, { Types } from "mongoose";
+import type { IChatMessage } from "@appTypes/chat.types";
 
-const chatMessageSchema = new mongoose.Schema(
+const chatMessageSchema = new mongoose.Schema<IChatMessage>(
   {
     id: {
       type: String,
@@ -25,7 +26,7 @@ const chatMessageSchema = new mongoose.Schema(
       trim: true,
       maxlength: 500,
     },
-    mentions: [{ type: mongoose.Schema.Types.ObjectId, ref: "User"}],
+    mentions: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
     originalContent: {
       type: String, // Store original before sanitization for moderation
       maxlength: 500,
@@ -125,11 +126,6 @@ const chatMessageSchema = new mongoose.Schema(
         country: String,
         region: String,
       },
-      device: {
-        type: String,
-        enum: ["desktop", "mobile", "tablet", "tv"],
-        default: "desktop",
-      },
       contentLength: {
         type: Number,
         default: 0,
@@ -153,9 +149,8 @@ const chatMessageSchema = new mongoose.Schema(
         default: 0,
       },
     },
-
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 // Compound indexes for efficient queries
@@ -176,7 +171,7 @@ chatMessageSchema.pre("save", function (next) {
   if (this.isModified("reactions")) {
     this.analytics.reactionCount = Array.from(this.reactions.values()).reduce(
       (sum, reactions) => sum + reactions.length,
-      0
+      0,
     );
   }
   next();
@@ -185,18 +180,22 @@ chatMessageSchema.pre("save", function (next) {
 chatMessageSchema.virtual("totalReactions").get(function () {
   return Array.from(this.reactions.values()).reduce(
     (sum, reactions) => sum + reactions.length,
-    0
+    0,
   );
 });
 
-chatMessageSchema.methods.addReaction = function (emoji, userId) {
+chatMessageSchema.methods.addReaction = function (
+  emoji: string,
+  userId: Types.ObjectId,
+) {
   if (!this.reactions.has(emoji)) {
     this.reactions.set(emoji, []);
   }
 
   const reactions = this.reactions.get(emoji);
   const existingReaction = reactions.find(
-    (r) => r.userId.toString() === userId.toString()
+    (r: { userId: Types.ObjectId }) =>
+      r.userId.toString() === userId.toString(),
   );
 
   if (!existingReaction) {
@@ -207,11 +206,15 @@ chatMessageSchema.methods.addReaction = function (emoji, userId) {
   return false;
 };
 
-chatMessageSchema.methods.removeReaction = function (emoji, userId) {
+chatMessageSchema.methods.removeReaction = function (
+  emoji: string,
+  userId: Types.ObjectId,
+) {
   if (!this.reactions.has(emoji)) return false;
   const reactions = this.reactions.get(emoji);
   const filteredReactions = reactions.filter(
-    (r) => r.userId.toString() !== userId.toString()
+    (r: { userId: Types.ObjectId }) =>
+      r.userId.toString() !== userId.toString(),
   );
 
   if (filteredReactions.length === 0) {
@@ -222,7 +225,10 @@ chatMessageSchema.methods.removeReaction = function (emoji, userId) {
   return true;
 };
 
-chatMessageSchema.methods.flagMessage = function (userId, reason) {
+chatMessageSchema.methods.flagMessage = function (
+  userId: Types.ObjectId,
+  reason: string,
+) {
   this.moderation.flagged = true;
   this.moderation.flaggedBy.push({
     userId,
@@ -248,4 +254,4 @@ chatMessageSchema.methods.getSafeMessage = function () {
   };
 };
 
-module.exports = mongoose.model("ChatMessage", chatMessageSchema);
+export default mongoose.model<IChatMessage>("ChatMessage", chatMessageSchema);
