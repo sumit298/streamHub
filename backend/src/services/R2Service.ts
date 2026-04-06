@@ -1,26 +1,34 @@
-const {
+import {
   S3Client,
   PutObjectCommand,
   GetObjectCommand,
-} = require("@aws-sdk/client-s3");
-const { getSignedUrl } = require("@aws-sdk/s3-request-presigner");
-const fs = require("fs").promises;
+} from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+import { promises as fs } from "fs";
+import type { Logger } from "winston";
 
 class R2Service {
-  constructor(logger) {
+  private logger: Logger;
+  private client: S3Client;
+  private bucket: string;
+  constructor(logger: Logger) {
     this.logger = logger;
     this.client = new S3Client({
       region: "auto",
       endpoint: `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
       credentials: {
-        accessKeyId: process.env.R2_ACCESS_KEY_ID,
-        secretAccessKey: process.env.R2_SECRET_ACCESS_KEY,
+        accessKeyId: process.env.R2_ACCESS_KEY_ID as string,
+        secretAccessKey: process.env.R2_SECRET_ACCESS_KEY as string,
       },
     });
-    this.bucket = process.env.R2_BUCKET_NAME;
+    this.bucket = process.env.R2_BUCKET_NAME as string;
   }
 
-  async uploadBuffer(buffer, key, contentType) {
+  async uploadBuffer(
+    buffer: Buffer,
+    key: string,
+    contentType: string,
+  ): Promise<string> {
     await this.client.send(
       new PutObjectCommand({
         Bucket: this.bucket,
@@ -37,7 +45,7 @@ class R2Service {
     return `https://${this.bucket}.${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com/${key}`;
   }
 
-  async uploadFile(filePath, key) {
+  async uploadFile(filePath: string, key: string): Promise<string> {
     const fileContent = await fs.readFile(filePath);
 
     await this.client.send(
@@ -51,10 +59,9 @@ class R2Service {
 
     this.logger.info(`Uploaded ${key} to R2`);
     return `https://${this.bucket}.${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com/${key}`;
-
   }
 
-  async getSignedUrl(key, expiresIn = 86400) {
+  async getSignedUrl(key: string, expiresIn: number = 86400): Promise<string> {
     if (process.env.R2_PUBLIC_URL) {
       return `${process.env.R2_PUBLIC_URL}/${key}`;
     }
@@ -66,4 +73,4 @@ class R2Service {
   }
 }
 
-module.exports = R2Service;
+export default R2Service;

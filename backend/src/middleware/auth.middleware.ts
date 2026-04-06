@@ -1,6 +1,8 @@
-const jwt = require("jsonwebtoken");
-const { User } = require("../models");
-const logger = require("../utils/logger");
+import User from "@models/User";
+import jwt from "jsonwebtoken";
+import { Request, Response, NextFunction } from "express";
+import { Socket } from "socket.io";
+import Logger from "@utils/logger";
 
 if (!process.env.JWT_SECRET) {
   if (process.env.NODE_ENV === "production") {
@@ -8,11 +10,34 @@ if (!process.env.JWT_SECRET) {
       "JWT_SECRET environment variable is required in production",
     );
   }
-  logger.warn("JWT_SECRET environment variable is not set.");
+  Logger.warn("JWT_SECRET environment variable is not set.");
+}
+
+interface JWTPayload {
+  userId: string;
+  username: string;
+  iat: number;
+  exp: number;
+  iss: string;
+  aud: string;
+}
+
+interface AuthenticatedSocket extends Socket {
+  userId?: string;
+  user?: {
+    id: string;
+    username: string;
+    email: string;
+    role: "viewer" | "streamer" | "admin";
+  };
 }
 
 class AuthMiddleWare {
-  static async authenticate(req, res, next) {
+  static async authenticate(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> {
     try {
       const authHeader = req.headers.authorization;
       const cookieToken = req.cookies.token;
@@ -22,24 +47,28 @@ class AuthMiddleWare {
         cookieToken || (authHeader && authHeader.replace("Bearer ", ""));
 
       if (!token) {
-        return res
+        res
           .status(401)
           .json({ message: "Access denied, Invalid token format." });
+        return;
       }
 
       try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        const decoded = jwt.verify(
+          token,
+          process.env.JWT_SECRET as string,
+        ) as JWTPayload;
 
         const user = await User.findById(decoded.userId);
 
         if (!user || !user.isActive) {
-          return res
-            .status(401)
-            .json({ message: "User not found or inactive." });
+          res.status(401).json({ message: "User not found or inactive." });
+          return;
         }
 
         if (decoded.exp * 1000 < Date.now()) {
-          return res.status(401).json({ message: "Token expired." });
+          res.status(401).json({ message: "Token expired." });
+          return;
         }
 
         req.userId = decoded.userId;
@@ -48,26 +77,31 @@ class AuthMiddleWare {
           id: decoded.userId,
           username: decoded.username,
           email: user.email,
-          role: user.role || "user", //todo: see if it feasible then not return this
+          role: user.role || "viewer",
         };
 
         next();
       } catch (jwtError) {
-        if (jwtError.name === "TokenExpiredError") {
-          return res.status(401).json({ error: "Token expired." });
-        } else if (jwtError.name === "JsonWebTokenError") {
-          return res.status(401).json({ error: "Invalid token." });
+        if (jwtError instanceof Error && jwtError.name === "TokenExpiredError") {
+          res.status(401).json({ error: "Token expired." });
+          return;
+        } else if (jwtError instanceof Error && jwtError.name === "JsonWebTokenError") {
+          res.status(401).json({ error: "Invalid token." });
+          return;
         } else {
           throw jwtError;
         }
       }
     } catch (error) {
-      logger.error("Authentication error:", error);
-      return res.status(500).json({ error: "Authentication service error." });
+      Logger.error("Authentication error:", error);
+      res.status(500).json({ error: "Authentication service error." });
     }
   }
 
-  static socketAuth(socket, next) {
+  static socketAuth(
+    socket: AuthenticatedSocket,
+    next: (err?: Error) => void,
+  ): void {
     try {
       // Try cookie first (web), then auth query param (mobile)
       const cookieToken = socket.request.headers.cookie
@@ -83,41 +117,48 @@ class AuthMiddleWare {
       }
 
       // If token exists, verify it
-      jwt.verify(token, process.env.JWT_SECRET, async (err, decoded) => {
-        if (err) {
-          return next(new Error("Invalid token"));
-        }
-
-        try {
-          const user = await User.findById(decoded.userId);
-          if (!user || !user.isActive) {
-            return next(new Error("User not found or inactive"));
+      jwt.verify(
+        token,
+        process.env.JWT_SECRET as string,
+        async (err: jwt.VerifyErrors | null, decoded: string | jwt.JwtPayload | undefined) => {
+          if (err) {
+            return next(new Error("Invalid token"));
           }
 
-          socket.userId = decoded.userId;
-          socket.user = {
-            id: decoded.userId,
-            username: decoded.username,
-            email: user.email,
-            role: user.role || "user",
-          };
+          const payload = decoded as JWTPayload;
 
-          next();
-        } catch (dbError) {
-          logger.error("Socket auth database error:", dbError);
-          return next(new Error("Authentication failed"));
-        }
-      });
+          try {
+            const user = await User.findById(payload.userId);
+            if (!user || !user.isActive) {
+              return next(new Error("User not found or inactive"));
+            }
+
+            socket.userId = payload.userId;
+            socket.user = {
+              id: payload.userId,
+              username: payload.username,
+              email: user.email,
+              role: user.role || "viewer",
+            };
+
+            next();
+          } catch (dbError) {
+            Logger.error("Socket auth database error:", dbError);
+            return next(new Error("Authentication failed"));
+          }
+        },
+      );
     } catch (error) {
-      logger.error("Socket authentication error:", error);
+      Logger.error("Socket authentication error:", error);
       return next(new Error("Authentication failed"));
     }
   }
 
-  static requiredRoles(roles) {
-    return (req, res, next) => {
+  static requiredRoles(roles: string | string[]) {
+    return (req: Request, res: Response, next: NextFunction): void => {
       if (!req.user) {
-        return res.status(401).json({ error: "Authentication required" });
+        res.status(401).json({ error: "Authentication required" });
+        return;
       }
 
       const userRole = req.user.role || "viewer";
@@ -131,40 +172,48 @@ class AuthMiddleWare {
     };
   }
 
-  static requireAdmin(req, res, next) {
+  static requireAdmin(req: Request, res: Response, next: NextFunction): void {
     if (!req.user) {
-      return res.status(401).json({ error: "Authentication required" });
+      res.status(401).json({ error: "Authentication required" });
+      return;
     }
 
     if (req.user.role !== "admin") {
-      return res.status(403).json({ error: "Admin access required" });
+      res.status(403).json({ error: "Admin access required" });
+      return;
     }
 
     next();
   }
 
-  static requireStreamer(req, res, next) {
+  static requireStreamer(req: Request, res: Response, next: NextFunction): void {
     if (!req.user) {
-      return res.status(401).json({ error: "Authentication required" });
+      res.status(401).json({ error: "Authentication required" });
+      return;
     }
 
     if (req.user.role !== "streamer" && req.user.role !== "admin") {
-      return res.status(403).json({ error: "Streamer access required" });
+      res.status(403).json({ error: "Streamer access required" });
+      return;
     }
 
     next();
   }
 
-  static requireStreamOwnership(req, res, next) {
+  static requireStreamOwnership(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): void {
     // This middleware should be used after authenticate
     // It will be implemented in the route handler since it needs stream data
     next();
   }
 
-  static createToken(user) {
+  static createToken(user: { id: string; username: string }): string {
     return jwt.sign(
       { userId: user.id, username: user.username },
-      process.env.JWT_SECRET,
+      process.env.JWT_SECRET as string,
       {
         expiresIn: "2h",
         issuer: "ils-platform",
@@ -174,11 +223,11 @@ class AuthMiddleWare {
     );
   }
 
-  static refreshToken(token) {
+  static refreshToken(token: string): string {
     try {
-      const decoded = jwt.verify(token, process.env.JWT_SECRET, {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET as string, {
         ignoreExpiration: true,
-      });
+      }) as JWTPayload;
 
       // checking token if it is not too old
       const tokenAge = Date.now() / 1000 - decoded.iat;
@@ -191,9 +240,10 @@ class AuthMiddleWare {
         username: decoded.username,
       });
     } catch (error) {
-      throw new Error("Cannot refresh token: " + error.message);
+      const message = error instanceof Error ? error.message : "Unknown error";
+      throw new Error("Cannot refresh token: " + message);
     }
   }
 }
 
-module.exports = AuthMiddleWare;
+export default AuthMiddleWare;
