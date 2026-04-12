@@ -13,7 +13,7 @@
   "dependencies": {
     "@aws-sdk/client-s3": "^3.989.0",
     "@aws-sdk/s3-request-presigner": "^3.989.0",
-    "amqplib": "^0.10.3",
+    "amqplib": "^1.0.3",
     "bcrypt": "^6.0.0",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
@@ -39,7 +39,7 @@
     "winston": "^3.10.0"
   },
   "devDependencies": {
-    "@types/amqplib": "^0.10.8",
+    "@types/amqplib": "^0.10.4",
     "@types/bcrypt": "^6.0.0",
     "@types/cookie-parser": "^1.4.10",
     "@types/cors": "^2.8.19",
@@ -50,6 +50,7 @@
     "@types/node": "^25.5.0",
     "@types/nodemailer": "^7.0.11",
     "@types/sanitize-html": "^2.16.1",
+    "@types/uuid": "^10.0.0",
     "axios": "^1.5.0",
     "socket.io-client": "^4.8.1",
     "tsx": "^4.21.0",

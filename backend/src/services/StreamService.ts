@@ -1,15 +1,206 @@
-const { v4: uuidv4 } = require("uuid");
-const { Stream, User, Follow, Notification } = require("../models");
+import { v4 as uuidv4 } from "uuid";
+import type { Types } from "mongoose";
+import { User, Stream, Follow, Notification } from "@models/index";
+import MediaService from "./MediaService";
+import MessageQueue from "./MessageQueue";
+import CacheService from "./CacheService";
+import type { Logger } from "winston";
+import type { Server as SocketIOServer } from "socket.io";
+import {
+  DtlsParameters,
+  RtpCapabilities,
+  RtpParameters,
+} from "mediasoup/types";
+
+interface StreamStats {
+  viewers: number;
+  maxViewers: number;
+  totalViews: number;
+  chatMessages: number;
+  likes: number;
+  shares: number;
+}
+
+interface CreateStreamData {
+  title: string;
+  description?: string;
+  category?: string;
+  isPrivate?: boolean;
+  chatEnabled?: boolean;
+  recordingEnabled?: boolean;
+  tags?: string[];
+  thumbnail?: string | null;
+}
+
+// stream object structure
+
+interface StreamObject {
+  id: string;
+  userId: string | Types.ObjectId;
+  streamUserName: string;
+  title: string;
+  description: string;
+  category: string;
+  isLive: boolean;
+  isPending: boolean;
+  isPrivate: boolean;
+  chatEnabled: boolean;
+  recordingEnabled: boolean;
+  tags: string[];
+  thumbnail: string | null;
+  stats: StreamStats;
+  startedAt?: Date | string | null;
+  endedAt?: Date | string | null;
+  duration?: number;
+  maxViewers?: number;
+  totalViews?: number;
+  totalChatMessages?: number;
+}
+
+interface JoinStreamResult {
+  stream: StreamObject;
+  viewers: number;
+  messages: unknown[];
+  stats: {
+    viewers: number;
+    views: number;
+    chatCount: number;
+  };
+}
+
+/**
+ * Transport direction - discriminated union for type safety
+ */
+type TransportDirection = "send" | "recv";
+
+/**
+ * WebRTC transport data returned from MediaService
+ */
+interface TransportData {
+  id: string;
+  iceParameters: unknown;
+  iceCandidates: unknown[];
+  dtlsParameters: unknown;
+}
+
+/**
+ * Producer data returned from MediaService
+ */
+interface ProducerData {
+  id: string;
+  kind: "audio" | "video";
+}
+
+/**
+ * Consumer data returned from MediaService
+ */
+interface ConsumerData {
+  id: string;
+  producerId: string;
+  kind: "audio" | "video";
+  rtpParameters: unknown;
+}
+
+interface StreamUpdateData {
+  isLive?: boolean;
+  isPending?: boolean;
+  endedAt?: Date | string;
+  duration?: number;
+  maxViewers?: number;
+  totalViews?: number;
+  totalChatMessages?: number;
+  title?: string;
+  description?: string;
+  category?: string;
+  thumbnail?: string | null;
+}
+
+/**
+ * Options for querying streams
+ */
+interface GetStreamsOptions {
+  status?: "live" | "ended" | "pending";
+  category?: string;
+  filter?: "my" | "community";
+  userId?: string;
+  limit?: number;
+  offset?: number;
+  includeEnded?: boolean;
+}
+
+// transformed stream with streamer info
+interface TransformedStream extends Partial<StreamObject> {
+  streamer: {
+    username: string;
+  };
+}
+
+// result of stream query with pagination
+interface StreamQueryResult {
+  total: number;
+  streams: TransformedStream[];
+}
+
+/**
+ * Populated user data in stream
+ */
+interface PopulatedUser {
+  _id: Types.ObjectId;
+  username: string;
+  email?: string;
+  avatar?: string;
+}
+
+/**
+ * Stream with populated user
+ */
+interface PopulatedStream extends Omit<StreamObject, "userId"> {
+  userId: PopulatedUser;
+}
+
+type StreamWithUser = {
+  userId: {
+    username: string;
+    avatar?: string;
+  };
+} & StreamObject;
 
 class StreamService {
-  constructor(mediaService, messageQueue, cacheService, logger) {
+  private readonly mediaService: MediaService;
+  private readonly messageQueue: MessageQueue | null;
+  private readonly cacheService: CacheService | null;
+  private readonly logger: Logger;
+  private io: SocketIOServer | null = null;
+  constructor(
+    mediaService: MediaService,
+    messageQueue: MessageQueue | null,
+    cacheService: CacheService | null,
+    logger: Logger,
+  ) {
     this.mediaService = mediaService;
     this.messageQueue = messageQueue;
     this.cacheService = cacheService;
     this.logger = logger;
   }
 
-  async createStream(userId, streamData) {
+  /**
+   * Set Socket.IO instance for real-time notifications
+   * Called from server.ts after initialization
+   */
+  setSocketIO(io: SocketIOServer): void {
+    this.io = io;
+  }
+
+  /**
+   * Create a new stream
+   *
+   * LEARNING: Notice how we handle optional properties with || operator
+   * and provide default values. TypeScript ensures all required fields exist.
+   */
+  async createStream(
+    userId: string,
+    streamData: CreateStreamData,
+  ): Promise<StreamObject> {
     try {
       const streamId = uuidv4();
       const user = await User.findById(userId);
@@ -70,14 +261,24 @@ class StreamService {
     }
   }
 
-  async joinStream(userId, streamId) {
+  /**
+   * Join an existing stream
+   *
+   * LEARNING: Notice .toObject() to convert Mongoose Document to plain object
+   * This is crucial for TypeScript type compatibility
+   */
+  async joinStream(
+    userId: string,
+    streamId: string,
+  ): Promise<JoinStreamResult> {
     try {
-      let stream = null;
+      let stream: StreamObject | null = null;
 
       // Get stream from database since cache is disabled
       try {
         const streamDoc = await Stream.findOne({ id: streamId });
         if (streamDoc) {
+          // LEARNING: .toObject() converts Mongoose Document to plain object
           stream = streamDoc.toObject();
         }
       } catch (dbError) {
@@ -94,7 +295,7 @@ class StreamService {
 
       // Cache and message queue disabled for testing
       let viewersCount = 1;
-      let messages = [];
+      let messages: unknown[] = [];
       let stats = { viewers: 1, views: 1, chatCount: 0 };
 
       if (this.cacheService) {
@@ -130,8 +331,19 @@ class StreamService {
     }
   }
 
-  async createTransport(roomId, userId, direction) {
+  /**
+   * Create WebRTC transport
+   *
+   * LEARNING: Using discriminated union (TransportDirection) ensures
+   * only valid values ('send' | 'recv') can be passed
+   */
+  async createTransport(
+    roomId: string,
+    userId: string,
+    direction: TransportDirection,
+  ): Promise<TransportData> {
     try {
+      // LEARNING: Type guard - runtime validation that matches TypeScript type
       if (!["send", "recv"].includes(direction)) {
         throw new Error("Invalid transport direction");
       }
@@ -152,7 +364,17 @@ class StreamService {
     }
   }
 
-  async connectTransport(roomId, userId, transportId, dtlsParameters) {
+  /**
+   * Connect WebRTC transport
+   *
+   * LEARNING: Promise<void> for operations that don't return data
+   */
+  async connectTransport(
+    roomId: string,
+    userId: string,
+    transportId: string,
+    dtlsParameters: DtlsParameters,
+  ): Promise<void> {
     try {
       await this.mediaService.connectTransport(
         roomId,
@@ -169,14 +391,17 @@ class StreamService {
     }
   }
 
+  /**
+   * Produce media (audio/video/screen)
+   */
   async produce(
-    roomId,
-    userId,
-    transportId,
-    rtpParameters,
-    kind,
+    roomId: string,
+    userId: string,
+    transportId: string,
+    rtpParameters: RtpParameters,
+    kind: "audio" | "video",
     isScreenShare = false,
-  ) {
+  ): Promise<ProducerData | null> {
     try {
       const producer = await this.mediaService.produce(
         roomId,
@@ -189,7 +414,7 @@ class StreamService {
 
       // Update database to mark stream as live
       try {
-        const stream = await Stream.findOneAndUpdate(
+        const stream = (await Stream.findOneAndUpdate(
           { id: roomId },
           {
             isLive: true,
@@ -197,7 +422,7 @@ class StreamService {
             startedAt: new Date(),
           },
           { new: true },
-        ).populate("userId", "username avatar");
+        ).populate("userId", "username avatar")) as unknown as PopulatedStream;
 
         if (kind === "video" && !isScreenShare && stream) {
           const followers = await Follow.find({
@@ -206,7 +431,9 @@ class StreamService {
 
           const followerIds = followers.map((f) => f.followerId);
 
-          this.logger.info(`Found ${followerIds.length} followers for user ${userId}`);
+          this.logger.info(
+            `Found ${followerIds.length} followers for user ${userId}`,
+          );
 
           if (followerIds.length > 0) {
             const notifications = followerIds.map((followerId) => ({
@@ -225,14 +452,17 @@ class StreamService {
               read: false,
             }));
 
-            const createdNotifications = await Notification.insertMany(notifications);
-            this.logger.info(`Created ${createdNotifications.length} notifications in database`);
+            const createdNotifications =
+              await Notification.insertMany(notifications);
+            this.logger.info(
+              `Created ${createdNotifications.length} notifications in database`,
+            );
 
             if (this.io) {
               followerIds.forEach((followerId) => {
-                this.io
-                  .to(`user:${followerId.toString()}`)
-                  .emit("notification", {
+                this.io!.to(`user:${followerId.toString()}`).emit(
+                  "notification",
+                  {
                     type: "stream-live",
                     title: `${stream.userId.username} is live!`,
                     message: stream.title,
@@ -244,7 +474,8 @@ class StreamService {
                       streamTitle: stream.title,
                       streamCategory: stream.category,
                     },
-                  });
+                  },
+                );
               });
             }
             this.logger.info(
@@ -284,7 +515,12 @@ class StreamService {
     }
   }
 
-  async consume(roomId, userId, producerId, rtcCapabilities) {
+  async consume(
+    roomId: string,
+    userId: string,
+    producerId: string,
+    rtcCapabilities: RtpCapabilities,
+  ): Promise<ConsumerData> {
     try {
       const consumerData = await this.mediaService.consume(
         roomId,
@@ -314,7 +550,11 @@ class StreamService {
     }
   }
 
-  async resumeConsumer(roomId, userId, consumerId) {
+  async resumeConsumer(
+    roomId: string,
+    userId: string,
+    consumerId: string,
+  ): Promise<void> {
     try {
       await this.mediaService.resumeConsumer(roomId, userId, consumerId);
       this.logger.debug(`Consumer resumed: ${consumerId} for user ${userId}`);
@@ -324,9 +564,9 @@ class StreamService {
     }
   }
 
-  async endStream(streamId, userId) {
+  async endStream(streamId: string, userId: string): Promise<StreamUpdateData> {
     try {
-      let stream = null;
+      let stream: StreamObject | null = null;
       let finalStats = { maxViewers: 0, views: 0, chatMessages: 0 };
 
       // // Get stream from cache or database
@@ -401,7 +641,7 @@ class StreamService {
       // Clean up cache after delay (allow viewers to see end message)
       if (this.cacheService) {
         setTimeout(async () => {
-          await this.cacheService.deleteStream(streamId);
+          await this.cacheService!.deleteStream(streamId);
         }, 30000); // 30 seconds
       }
 
@@ -412,7 +652,7 @@ class StreamService {
     }
   }
 
-  async handleUserDisconnect(streamId, userId) {
+  async handleUserDisconnect(streamId: string, userId: string): Promise<void> {
     try {
       // Cache service disabled for testing
       if (this.cacheService) {
@@ -436,7 +676,7 @@ class StreamService {
     }
   }
 
-  async getStreamInfo(streamId) {
+  async getStreamInfo(streamId: string): Promise<StreamObject | null> {
     try {
       const streamDoc = await Stream.findOne({ id: streamId }).populate(
         "userId",
@@ -453,9 +693,11 @@ class StreamService {
     }
   }
 
-  async getActiveStreams(options = {}) {
+  async getActiveStreams(
+    options: GetStreamsOptions = {},
+  ): Promise<StreamQueryResult> {
     try {
-      const query = {};
+      const query: Record<string, unknown> = {};
 
       if (options.status === "live") {
         query.isLive = true;
@@ -478,6 +720,7 @@ class StreamService {
 
       const total = await Stream.countDocuments(query);
 
+      // LEARNING: .lean() returns plain objects (faster than .toObject())
       const streams = await Stream.find(query)
         .limit(options.limit || 20)
         .skip(options.offset || 0)
@@ -502,9 +745,12 @@ class StreamService {
     }
   }
 
-  async searchStreams(searchQuery, options = {}) {
+  async searchStreams(
+    searchQuery: string,
+    options: GetStreamsOptions = {},
+  ): Promise<StreamQueryResult> {
     try {
-      const query = {
+      const query: Record<string, unknown> = {
         $or: [
           { title: { $regex: searchQuery, $options: "i" } },
           { description: { $regex: searchQuery, $options: "i" } },
@@ -533,7 +779,7 @@ class StreamService {
         .lean();
 
       // Transform userId to streamer object
-      const transformedStreams = streams.map((stream) => ({
+      const transformedStreams: TransformedStream[] = streams.map((stream) => ({
         ...stream,
         streamer: {
           username: stream.streamUserName || "Unknown",
@@ -550,7 +796,7 @@ class StreamService {
     }
   }
 
-  async getUserActiveStreams(userId) {
+  async getUserActiveStreams(userId: string): Promise<unknown> {
     try {
       return await Stream.find({ userId, isLive: true });
     } catch (error) {
@@ -559,7 +805,10 @@ class StreamService {
     }
   }
 
-  async updateStream(streamId, updateData) {
+  async updateStream(
+    streamId: string,
+    updateData: Partial<StreamObject>,
+  ): Promise<StreamObject | null> {
     try {
       // await this.cacheService.updateStream(streamId, updateData);
       await Stream.updateOne({ id: streamId }, updateData);
@@ -570,8 +819,11 @@ class StreamService {
     }
   }
 
-  async getDetailedStats(streamId) {
+  async getDetailedStats(streamId: string): Promise<Record<string, unknown>> {
     try {
+      if (!this.cacheService) {
+        return {};
+      }
       return await this.cacheService.getStreamStats(streamId);
     } catch (error) {
       this.logger.error("Error getting detailed stats:", error);
@@ -579,9 +831,12 @@ class StreamService {
     }
   }
 
-  async getUserStreams(userId, options = {}) {
+  async getUserStreams(
+    userId: string,
+    options: GetStreamsOptions = {},
+  ): Promise<unknown> {
     try {
-      const query = { userId };
+      const query: Record<string, unknown> = { userId };
       if (!options.includeEnded) {
         query.isLive = true;
       }
@@ -595,4 +850,4 @@ class StreamService {
   }
 }
 
-module.exports = StreamService;
+export default StreamService;

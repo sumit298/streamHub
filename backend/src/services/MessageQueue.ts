@@ -1,28 +1,39 @@
-const aqmp = require('amqplib')
+import amqp, { Connection, Channel, ConsumeMessage } from 'amqplib';
+import type { Logger } from 'winston';
 
-// may remove it in implementation
+interface VODConversionData {
+    streamId: string;
+    webmPath: string;
+    userId: string;
+}
 
 class MessageQueue {
-    constructor(logger) {
+    private logger: Logger;
+    public connection: Connection | null;
+    public channel: Channel | null;
+    private reconnectDelay: number;
+    private maxReconnectAttempts: number;
+    private reconnectAttempts: number;
+    constructor(logger: Logger) {
         this.logger = logger
         this.connection = null
         this.channel = null
         this.reconnectDelay = 5000
-        this.maxReconnectAttemps = 10;
+        this.maxReconnectAttempts = 10;
         this.reconnectAttempts = 0;
     }
 
-    async connect() {
+    async connect(): Promise<void> {
         try {
-            this.connection = await aqmp.connect(
+            this.connection = await amqp.connect(
                 process.env.RABBITMQ_URL || 'amqp://localhost:5672',
                 {
                     heartbeat: 60,
-                    connectionTimeout: 10000,
+                    timeout: 10000,
                 }
             )
 
-            this.connection.on('error', (err) => {
+            this.connection.on('error', (err: Error) => {
                 this.logger.error('RabbitMQ connection error:', err);
                 this.handleReconnect();
             });
@@ -35,9 +46,9 @@ class MessageQueue {
             this.channel = await this.connection.createChannel();
             await this.setupExchanges();
 
-            await this.setUpQueues();
+            await this.setupQueues();
 
-            this.reconnectAttemts = 0;
+            this.reconnectAttempts = 0;
             this.logger.info('RabbitMQ connected')
 
         } catch (error) {
@@ -46,15 +57,16 @@ class MessageQueue {
         }
     }
 
-    async setupExchanges() {
+    private async setupExchanges(): Promise<void> {
+        if(!this.channel) return;
         // stream events exchange
-        await this.channel.assertExchange('stream.events', 'topic', { durable: true, autoDelete: false })
+        await this.channel!.assertExchange('stream.events', 'topic', { durable: true, autoDelete: false })
 
         //chat message exchange
-        await this.channel.assertExchange('chat.message', 'fanout', { durable: true, autoDelete: false });
+        await this.channel!.assertExchange('chat.messages', 'fanout', { durable: true, autoDelete: false });
 
         //analytics message exchange
-        await this.channel.assertExchange('analytics.event', 'direct', {
+        await this.channel!.assertExchange('analytics.events', 'direct', {
             durable: true,
             autoDelete: false
         })
@@ -66,7 +78,8 @@ class MessageQueue {
         })
     }
 
-    async setUpQueues() {
+    private async setupQueues(): Promise<void> {
+        if(!this.channel) return;
         //stream lifecycle queues
         await this.channel.assertQueue('stream.started', {
             durable: true,
@@ -112,21 +125,21 @@ class MessageQueue {
 
     }
 
-    async handleReconnect() {
-        if (this.reconnectAttempts >= this.maxReconnectAttemps) {
+    private handleReconnect(): void {
+        if (this.reconnectAttempts >= this.maxReconnectAttempts) {
             this.logger.error('Max reconnect attempts reached. Exiting...')
             return;
         }
 
         this.reconnectAttempts++;
 
-        this.logger.info(`Attempting RabbitMQ reconnection ${this.reconnectAttempts}/${this.maxReconnectAttemps}`)
+        this.logger.info(`Attempting RabbitMQ reconnection ${this.reconnectAttempts}/${this.maxReconnectAttempts}`)
         setTimeout(() => {
             this.connect();
         }, this.reconnectDelay * this.reconnectAttempts)
     }
 
-    async publishStreamEvent(event, data) {
+    async publishStreamEvent(event:string, data: Record<string, unknown>): Promise<void> {
         if (!this.channel) {
             this.logger.error('RabbitMQ channel not initialized')
             return;
@@ -141,7 +154,7 @@ class MessageQueue {
             }
 
             await this.channel.publish('stream.events', routingKey, Buffer.from(JSON.stringify(message)), {
-                persistant: true,
+                persistent: true,
                 messageId: `${event}-${data.streamId || data.id}-${Date.now()}`,
                 timestamp: Date.now()
             })
@@ -153,7 +166,7 @@ class MessageQueue {
         }
     }
 
-    async publishChatMessage(message) {
+    async publishChatMessage(data: Record<string, unknown>): Promise<void> {
         if (!this.channel) {
             this.logger.error('RabbitMQ channel not initialized')
             return;
@@ -181,7 +194,7 @@ class MessageQueue {
         }
     }
 
-    async publishAnalyticsEvent(event, data) {
+    async publishAnalyticsEvent(event: string, data: Record<string, unknown>): Promise<void> {
         if (!this.channel) {
             this.logger.error('Cannot publish: RabbitMQ channel not available');
             return;
@@ -211,7 +224,7 @@ class MessageQueue {
         }
     }
 
-    async publishUserPresence(action, data) {
+    async publishUserPresence(action:string, data: Record<string, unknown>): Promise<void> {
         if (!this.channel) {
             this.logger.error('Cannot publish: RabbitMQ channel not available');
             return;
@@ -241,7 +254,7 @@ class MessageQueue {
         }
     }
 
-    async subscribeStreamEvents(callback) {
+    async subscribeStreamEvents(callback: (routingKey: string, data: Record<string, unknown>) => void): Promise<void> {
         if (!this.channel) {
             this.logger.error('Cannot subscribe: RabbitMQ channel not available');
             return;
@@ -255,16 +268,16 @@ class MessageQueue {
 
             await this.channel.bindQueue(queue.queue, 'stream.events', 'stream.*');
 
-            this.channel.consume(queue.queue, (msg) => {
+            this.channel.consume(queue.queue, (msg: ConsumeMessage | null) => {
                 if (msg) {
                     try {
                         const data = JSON.parse(msg.content.toString());
                         const routingKey = msg.fields.routingKey;
                         callback(routingKey, data);
-                        this.channel.ack(msg);
+                        this.channel!.ack(msg);
                     } catch (error) {
                         this.logger.error('Error processing stream event:', error);
-                        this.channel.nack(msg, false, false);
+                        this.channel!.nack(msg, false, false);
                     }
                 }
             });
@@ -274,7 +287,7 @@ class MessageQueue {
             this.logger.error('Error subscribing to stream events:', error);
         }
     }
-    async subscribeChatMessages(callback) {
+    async subscribeChatMessages(callback: (data: unknown)=> void): Promise<void> {
         if (!this.channel) {
             this.logger.error('Cannot subscribe: RabbitMQ channel not available');
             return;
@@ -288,15 +301,15 @@ class MessageQueue {
 
             await this.channel.bindQueue(queue.queue, 'chat.messages', '');
 
-            this.channel.consume(queue.queue, (msg) => {
+            this.channel.consume(queue.queue, (msg: ConsumeMessage | null) => {
                 if (msg) {
                     try {
                         const data = JSON.parse(msg.content.toString());
                         callback(data);
-                        this.channel.ack(msg);
+                        this.channel!.ack(msg);
                     } catch (error) {
                         this.logger.error('Error processing chat message:', error);
-                        this.channel.nack(msg, false, false);
+                        this.channel!.nack(msg, false, false);
                     }
                 }
             }, { noAck: false });
@@ -307,7 +320,7 @@ class MessageQueue {
         }
     }
 
-    async close() {
+    async close(): Promise<void> {
         try {
             if (this.channel) {
                 await this.channel.close();
@@ -321,7 +334,7 @@ class MessageQueue {
         }
     }
 
-    async publishVODConversion(data){
+    async publishVODConversion(data: VODConversionData): Promise<boolean>{
         if(!this.channel){
             this.logger.warn(`RabbitMQ not available, skipping queue`);
             return false;
@@ -340,4 +353,4 @@ class MessageQueue {
 }
 
 
-module.exports = MessageQueue;
+export default MessageQueue;

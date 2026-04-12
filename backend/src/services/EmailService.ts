@@ -1,7 +1,9 @@
-const nodemailer = require("nodemailer");
+import nodemailer from "nodemailer";
+import SMTPTransport from "nodemailer/lib/smtp-transport";
 
 class EmailService {
-  async sendPasswordReset(email, resetUrl) {
+  
+  async sendPasswordReset(email:string, resetUrl:string): Promise<SMTPTransport.SentMessageInfo> {
      if (!process.env.MAIL_FROM) {
       throw new Error("MAIL_FROM is required");
     }
@@ -42,4 +44,5 @@ class EmailService {
   }
 }
 
-module.exports = new EmailService();
+export default new EmailService();
+

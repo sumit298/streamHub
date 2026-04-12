@@ -1,24 +1,52 @@
-const { v4: uuidv4 } = require("uuid");
-const { ChatMessage, User } = require("../models");
-const sanitizeHtml = require("sanitize-html");
+import { v4 as uuidv4 } from "uuid";
+import { ChatMessage, User } from "@models/index";
+import sanitizeHtml from "sanitize-html";
+import type { Logger } from "winston";
+import type MessageQueue from "./MessageQueue";
+import type CacheService from "./CacheService";
 
+
+interface MessageData {
+  id: string;
+  userId: string;
+  username: string;
+  avatar?: string;
+  streamId: string;
+  mentions: string[];
+  content: string;
+  type: string;
+  timestamp: string;
+  edited: boolean;
+  deleted: boolean;
+  reactions: Record<string, unknown>;
+  [key: string]: unknown;
+}
 
 class ChatService {
-  constructor(messageQueue, cacheService, logger) {
+  private messageQueue: MessageQueue;
+  public cacheService: CacheService;
+  private logger: Logger;
+  private messageTypes: string[];
+
+  constructor(messageQueue: MessageQueue, cacheService: CacheService, logger: Logger) {
     this.messageQueue = messageQueue;
     this.cacheService = cacheService;
     this.logger = logger;
     this.messageTypes = ["text", "emoji", "system", "gif", "sticker"];
   }
 
-  async sendMessage(userId, streamId, content, type = "text", username = null) {
+  async sendMessage(
+    userId: string,
+    streamId: string,
+    content: string,
+    type: string = "text",
+    username: string | null = null
+  ): Promise<MessageData> {
     try {
-      // Validate message type
       if (!this.messageTypes.includes(type)) {
         throw new Error("Invalid message type");
       }
 
-      // Validate content
       if (!content || content.trim().length === 0) {
         throw new Error("Message content cannot be empty");
       }
@@ -28,31 +56,20 @@ class ChatService {
       }
 
       const mentionRegex = /@(\w+)/g;
-      const mentions = [];
+      const mentions: string[] = [];
       let match;
-      while((match = mentionRegex.exec(content))!== null){
-        const mentionedUser = await User.findOne({username: match[1]});
-        if(mentionedUser) mentions.push(mentionedUser._id);
+      while ((match = mentionRegex.exec(content)) !== null) {
+        const mentionedUser = await User.findOne({ username: match[1] });
+        if (mentionedUser) mentions.push(mentionedUser._id.toString());
       }
 
-      // Get user avatar
-      const user = await User.findById(userId).select('avatar');
+      const user = await User.findById(userId).select("avatar");
 
-      // Check rate limit (disabled for testing)
-      if (this.cacheService) {
-        // const rateLimitKey = `chat:ratelimit:${userId}`;
-        // const isAllowed = await this.cacheService.checkRateLimit(rateLimitKey, 10, 60000);
-        // if (!isAllowed) {
-        //   throw new Error('Rate limit exceeded. Please wait before sending another message.');
-        // }
-      }
-
-      // Create message
-      const message = {
+      const message: MessageData = {
         id: uuidv4(),
         userId,
-        username,
-        avatar: user?.avatar,
+        username: username || "Anonymous",  // Fix: Remove null
+        ...(user?.avatar && { avatar: user.avatar }),  // Only include if exists
         streamId,
         mentions,
         content: sanitizeHtml(content.trim(), {
@@ -66,12 +83,10 @@ class ChatService {
         reactions: {},
       };
 
-      // Add to cache (disabled for testing)
       if (this.cacheService) {
-        await this.cacheService.addChatMessage(streamId, message);
+        await this.cacheService.addChatMessage(streamId, message);  // Fix: Type assertion
       }
 
-      // Save to database
       try {
         const messageDoc = new ChatMessage(message);
         await messageDoc.save();
@@ -79,21 +94,7 @@ class ChatService {
         this.logger.warn("Chat message database save failed:", dbError);
       }
 
-      // Publish message (disabled for testing)
-      if (this.messageQueue) {
-        // await this.messageQueue.publishChatMessage(message);
-        // await this.messageQueue.publishAnalyticsEvent('chat.message', {
-        //   streamId,
-        //   userId,
-        //   type,
-        //   messageLength: content.length,
-        //   timestamp: Date.now()
-        // });
-      }
-
-      this.logger.debug(
-        `Chat message sent: ${message.id} in stream ${streamId}`
-      );
+      this.logger.debug(`Chat message sent: ${message.id} in stream ${streamId}`);
       return message;
     } catch (error) {
       this.logger.error("Error sending chat message:", error);
@@ -101,13 +102,16 @@ class ChatService {
     }
   }
 
-  async getMessages(streamId, limit = 50, before = null) {
+  async getMessages(
+    streamId: string,
+    limit: number = 50,
+    before: string | null = null
+  ): Promise<any[]> {
     try {
-      let messages = [];
+      let messages: any[] = [];
 
-      // Get from database since cache is disabled
       try {
-        const query = { streamId, deleted: false };
+        const query: any = { streamId, deleted: false };
         if (before) {
           query.timestamp = { $lt: before };
         }
@@ -128,25 +132,27 @@ class ChatService {
     }
   }
 
-  async deleteMessage(messageId, userId, isModeratorOrOwner = false) {
+  async deleteMessage(
+    messageId: string,
+    userId: string,
+    isModeratorOrOwner: boolean = false
+  ): Promise<boolean> {
     try {
       const message = await ChatMessage.findOne({ id: messageId });
       if (!message) {
         throw new Error("Message not found");
       }
 
-      // Check permissions
-      if (message.userId !== userId && !isModeratorOrOwner) {
+      // Fix: Convert ObjectId to string for comparison
+      if (message.userId.toString() !== userId && !isModeratorOrOwner) {
         throw new Error("Unauthorized to delete this message");
       }
 
-      // Mark as deleted
       message.deleted = true;
       message.deletedAt = new Date();
-      message.deletedBy = userId;
+      message.deletedBy = userId as any;
       await message.save();
 
-      // Create system message about deletion
       const systemMessage = {
         id: uuidv4(),
         userId: "system",
@@ -160,7 +166,6 @@ class ChatService {
       await this.cacheService.addChatMessage(message.streamId, systemMessage);
       await this.messageQueue.publishChatMessage(systemMessage);
 
-      // Publish analytics event
       await this.messageQueue.publishAnalyticsEvent("chat.message.deleted", {
         streamId: message.streamId,
         messageId,
@@ -176,7 +181,7 @@ class ChatService {
     }
   }
 
-  async addReaction(messageId, userId, emoji) {
+  async addReaction(messageId: string, userId: string, emoji: string): Promise<any> {
     try {
       const message = await ChatMessage.findOne({
         id: messageId,
@@ -186,50 +191,58 @@ class ChatService {
         throw new Error("Message not found");
       }
 
-      // Initialize reactions if not exists
+      // Fix: Use Map methods instead of bracket notation
       if (!message.reactions) {
-        message.reactions = {};
+        message.reactions = new Map();
       }
 
-      // Add or remove reaction
-      if (!message.reactions[emoji]) {
-        message.reactions[emoji] = [];
-      }
+      const currentReactions = message.reactions.get(emoji) || [];
+      const userIdObj = userId as any;
+      const userIndex = currentReactions.findIndex((entry: any) => 
+        entry.userId.toString() === userId
+      );
 
-      const userIndex = message.reactions[emoji].indexOf(userId);
       if (userIndex === -1) {
-        message.reactions[emoji].push(userId);
+        currentReactions.push({
+          userId: userIdObj,
+          timestamp: new Date(),
+        });
+        message.reactions.set(emoji, currentReactions);
       } else {
-        message.reactions[emoji].splice(userIndex, 1);
-        if (message.reactions[emoji].length === 0) {
-          delete message.reactions[emoji];
+        currentReactions.splice(userIndex, 1);
+        if (currentReactions.length === 0) {
+          message.reactions.delete(emoji);
+        } else {
+          message.reactions.set(emoji, currentReactions);
         }
       }
 
       await message.save();
 
-      // Publish reaction update
       await this.messageQueue.publishChatMessage({
         type: "reaction_update",
         messageId,
-        reactions: message.reactions,
+        reactions: Object.fromEntries(message.reactions),
         streamId: message.streamId,
         timestamp: new Date().toISOString(),
       });
 
       this.logger.debug(
-        `Reaction ${emoji} ${
-          userIndex === -1 ? "added" : "removed"
-        } by user ${userId}`
+        `Reaction ${emoji} ${userIndex === -1 ? "added" : "removed"} by user ${userId}`
       );
-      return message.reactions;
+      return Object.fromEntries(message.reactions);
     } catch (error) {
       this.logger.error("Error adding reaction:", error);
       throw error;
     }
   }
 
-  async moderateMessage(messageId, action, moderatorId, reason = "") {
+  async moderateMessage(
+    messageId: string,
+    action: string,
+    moderatorId: string,
+    reason: string = ""
+  ): Promise<any> {
     try {
       const validActions = ["delete", "timeout", "warn"];
       if (!validActions.includes(action)) {
@@ -241,11 +254,10 @@ class ChatService {
         throw new Error("Message not found");
       }
 
-      // Create moderation record
       const moderationEvent = {
         id: uuidv4(),
         messageId,
-        userId: message.userId,
+        userId: message.userId.toString(),
         streamId: message.streamId,
         action,
         moderatorId,
@@ -253,29 +265,22 @@ class ChatService {
         timestamp: new Date().toISOString(),
       };
 
-      // Apply moderation action
       switch (action) {
         case "delete":
           await this.deleteMessage(messageId, moderatorId, true);
           break;
         case "timeout":
-          // Implement user timeout logic
-          await this.cacheService.client.setex(
+          await this.cacheService.client!.setex(
             `timeout:user:${message.userId}`,
             300,
             "true"
-          ); // 5 min timeout
+          );
           break;
         case "warn":
-          // Send warning to user
           break;
       }
 
-      // Publish moderation event
-      await this.messageQueue.publishAnalyticsEvent(
-        "chat.moderation",
-        moderationEvent
-      );
+      await this.messageQueue.publishAnalyticsEvent("chat.moderation", moderationEvent);
 
       this.logger.info(
         `Message moderated: ${messageId}, action: ${action} by ${moderatorId}`
@@ -287,11 +292,9 @@ class ChatService {
     }
   }
 
-  async isUserTimedOut(userId) {
+  async isUserTimedOut(userId: string): Promise<boolean> {
     try {
-      const timeout = await this.cacheService.client.get(
-        `timeout:user:${userId}`
-      );
+      const timeout = await this.cacheService.client!.get(`timeout:user:${userId}`);
       return !!timeout;
     } catch (error) {
       this.logger.error("Error checking user timeout:", error);
@@ -299,11 +302,10 @@ class ChatService {
     }
   }
 
-  async getChatStats(streamId) {
+  async getChatStats(streamId: string): Promise<any> {
     try {
       const stats = await this.cacheService.getStreamStats(streamId);
 
-      // Get additional chat statistics from database
       const [totalMessages, uniqueUsers, recentActivity] = await Promise.all([
         ChatMessage.countDocuments({ streamId, deleted: false }),
         ChatMessage.distinct("userId", { streamId, deleted: false }),
@@ -313,10 +315,9 @@ class ChatService {
           .select("timestamp"),
       ]);
 
-      // Calculate messages per minute for recent activity
       const now = Date.now();
       const recentMessages = recentActivity.filter(
-        (msg) => now - new Date(msg.timestamp).getTime() < 300000 // Last 5 minutes
+        (msg: any) => now - new Date(msg.timestamp).getTime() < 300000
       );
 
       return {
@@ -337,17 +338,22 @@ class ChatService {
     }
   }
 
-  async isMessageOwner(messageId, userId) {
+  async isMessageOwner(messageId: string, userId: string): Promise<boolean> {
     try {
       const message = await ChatMessage.findOne({ id: messageId });
-      return message && message.userId === userId;
+      return message ? message.userId.toString() === userId : false;
     } catch (error) {
       this.logger.error("Error checking message ownership:", error);
       return false;
     }
   }
 
-  async flagMessage(messageId, userId, reason, details = "") {
+  async flagMessage(
+    messageId: string,
+    userId: string,
+    reason: string,
+    details: string = ""
+  ): Promise<any> {
     try {
       const message = await ChatMessage.findOne({ id: messageId });
       if (!message) {
@@ -363,10 +369,7 @@ class ChatService {
         timestamp: new Date().toISOString(),
       };
 
-      await this.messageQueue.publishAnalyticsEvent(
-        "chat.message.flagged",
-        flag
-      );
+      await this.messageQueue.publishAnalyticsEvent("chat.message.flagged", flag);
       this.logger.info(`Message flagged: ${messageId} by user ${userId}`);
       return flag;
     } catch (error) {
@@ -376,4 +379,4 @@ class ChatService {
   }
 }
 
-module.exports = ChatService;
+export default ChatService;
