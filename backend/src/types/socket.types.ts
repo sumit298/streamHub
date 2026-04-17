@@ -1,3 +1,14 @@
+import type { Socket as SocketIOSocket} from 'socket.io';
+
+export interface AuthenticatedSocket extends SocketIOSocket {
+  userId: string;
+  user?: {
+    _id: string;
+    username: string;
+    email?: string;
+  };
+}
+
 // Payloads for socket.io events
 export interface CreateStreamPayload {
     title: string;

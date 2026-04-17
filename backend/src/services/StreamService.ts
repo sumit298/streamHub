@@ -170,7 +170,7 @@ class StreamService {
   private readonly messageQueue: MessageQueue | null;
   private readonly cacheService: CacheService | null;
   private readonly logger: Logger;
-  private io: SocketIOServer | null = null;
+  public io: SocketIOServer | null = null;
   constructor(
     mediaService: MediaService,
     messageQueue: MessageQueue | null,

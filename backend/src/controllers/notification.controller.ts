@@ -1,10 +1,26 @@
-const Notification = require("../models/Notification");
+import Notification from "@models/Notification";
+import type { Request, Response } from "express";
+import Logger from "@utils/logger";
+import {
+  normalizeError,
+  AuthenticationError,
+  NotFoundError,
+} from "../types/error.types";
+
+interface GetNotificationsQuery {
+  limit?: string;
+  unreadOnly?: string;
+}
 
 const NotificationController = {
-  getAllNotifications: async (req, res) => {
+  getAllNotifications: async (req: Request, res: Response): Promise<void> => {
     try {
-      const { limit = 20, unreadOnly = false } = req.query;
-      const query = { userId: req.user.id };
+      if (!req.user?.id) {
+        throw new AuthenticationError("User not authenticated");
+      }
+      const { limit = "20", unreadOnly = "false" } =
+        req.query as GetNotificationsQuery;
+      const query: any = { userId: req.user.id };
       if (unreadOnly === "true") query.read = false;
 
       const notifications = await Notification.find(query)
@@ -22,36 +38,75 @@ const NotificationController = {
 
       res.json({ notifications, unreadCount });
     } catch (error) {
-      req.logger?.error("Get notifications error:", error); 
-      res.status(500).json({ error: "Failed to fetch notifications" });
+      Logger.error("Get notifications error:", error);
+      const appError = normalizeError(error);
+      res.status(appError.statusCode).json({
+        success: false,
+        error: {
+          message: appError.message,
+          code: appError.code,
+          statusCode: appError.statusCode,
+        },
+      });
     }
   },
 
-  markAsRead: async (req, res) => {
+  markAsRead: async (req: Request, res: Response): Promise<void> => {
     try {
-      await Notification.findOneAndUpdate(
+      if (!req.user?.id) {
+        throw new AuthenticationError("User not authenticated");
+      }
+      const notification = await Notification.findOneAndUpdate(
         { _id: req.params.id, userId: req.user.id },
-        { read: true }
+        { read: true },
+        { new: true },
       );
-      res.json({ success: true });
+
+      if (!notification) {
+        throw new NotFoundError("Notification not found");
+      }
+      res.json({ success: true, message: "Notification marked as read" });
     } catch (error) {
-      req.logger?.error("Mark as read error:", error); 
-      res.status(500).json({ error: "Failed to mark as read" });
+      Logger.error("Mark as read error:", error);
+      const appError = normalizeError(error);
+      res.status(appError.statusCode).json({
+        success: false,
+        error: {
+          message: appError.message,
+          code: appError.code,
+          statusCode: appError.statusCode,
+        },
+      });
     }
   },
 
-  markAllAsRead: async (req, res) => {
+  markAllAsRead: async (req: Request, res: Response): Promise<void> => {
     try {
-      await Notification.updateMany(
+      if (!req.user?.id) {
+        throw new AuthenticationError("User not authenticated");
+      }
+      const result = await Notification.updateMany(
         { userId: req.user.id, read: false },
-        { read: true }
+        { read: true },
       );
-      res.json({ success: true });
+      res.json({
+        success: true,
+        message: "All notifications marked as read",
+        count: result.modifiedCount,
+      });
     } catch (error) {
-      req.logger?.error("Mark all as read error:", error); 
-      res.status(500).json({ error: "Failed to mark all as read" });
+      Logger.error("Mark all as read error:", error);
+      const appError = normalizeError(error);
+      res.status(appError.statusCode).json({
+        success: false,
+        error: {
+          message: appError.message,
+          code: appError.code,
+          statusCode: appError.statusCode,
+        },
+      });
     }
   },
 };
 
-module.exports = NotificationController;
+export default NotificationController;

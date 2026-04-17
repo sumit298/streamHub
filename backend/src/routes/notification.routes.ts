@@ -1,13 +1,28 @@
-const express = require("express");
-const NotificationController = require("../controllers/notification.controller");
-const { authenticate } = require("../middleware/middleware.auth");
+import express, { Router } from "express";
+import AuthMiddleware from "@middleware/auth.middleware";
+import NotificationController from "@controllers/notification.controller";
 
+const router: Router = express.Router();
 
+// GET /api/notifications - Get all notifications for authenticated user
+router.get(
+  "/",
+  AuthMiddleware.authenticate,
+  NotificationController.getAllNotifications,
+);
 
-const NotificationRouter = express.Router();
+// PATCH /api/notifications/read-all - Mark all notifications as read
+router.patch(
+  "/read-all",
+  AuthMiddleware.authenticate,
+  NotificationController.markAllAsRead,
+);
 
-NotificationRouter.get("/", authenticate, NotificationController.getAllNotifications);
-NotificationRouter.patch("/read-all", authenticate, NotificationController.markAllAsRead);
-NotificationRouter.patch("/:id/read", authenticate, NotificationController.markAsRead);
+// PATCH /api/notifications/:id/read - Mark specific notification as read
+router.patch(
+  "/:id/read",
+  AuthMiddleware.authenticate,
+  NotificationController.markAsRead,
+);
 
-module.exports = NotificationRouter;
+export default router;

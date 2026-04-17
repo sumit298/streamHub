@@ -13,7 +13,11 @@ import type {
 } from "mediasoup/types";
 import * as os from "os";
 import type { Logger } from "winston";
-import { RTC_MIN_PORT, RTC_MAX_PORT, MAX_WORKERS } from "../config/mediasoup.config";
+import {
+  RTC_MIN_PORT,
+  RTC_MAX_PORT,
+  MAX_WORKERS,
+} from "../config/mediasoup.config";
 
 // ============================================================================
 // TYPE DEFINITIONS - Understanding MediaSoup's Type System
@@ -142,6 +146,20 @@ class MediaService {
    * Map provides O(1) lookup performance
    */
   private readonly rooms: Map<string, Room>;
+
+  /**
+   * Get room by ID (public accessor)
+   */
+  public getRoom(roomId: string): Room | undefined {
+    return this.rooms.get(roomId);
+  }
+
+  /**
+   * Get all rooms (public accessor)
+   */
+  public getRooms(): Map<string, Room> {
+    return this.rooms;
+  }
 
   /**
    * LEARNING: Limit consumers per router to prevent overload
