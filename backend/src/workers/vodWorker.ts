@@ -1,20 +1,30 @@
-const mongoose = require("mongoose");
-const amqp = require("amqplib");
-const { spawn } = require("child_process");
-const fs = require("fs");
-const path = require("path");
-const logger = require("../utils/logger");
-const R2Service = require("../services/R2Service");
-const { Vod, Stream } = require("../models");
+import mongoose from "mongoose";
+import amqp, { Channel, Connection, ConsumeMessage } from "amqplib";
+import { spawn } from "child_process";
+import fs from "fs";
+import path from "path";
+import logger from "../utils/logger";
+import R2Service from "../services/R2Service";
+import { Vod, Stream } from "../models";
+
+interface VODJobData {
+  streamId: string;
+  webmPath: string;
+  userId: string;
+}
 
 class VODWorker {
+  private connection: Connection | null;
+  private channel: Channel | null;
+  private r2Service: R2Service | null;
+
   constructor() {
     this.connection = null;
     this.channel = null;
     this.r2Service = null;
   }
 
-  async start() {
+  async start(): Promise<void> {
     try {
       await mongoose.connect(
         process.env.DATABASE_URL || "mongodb://localhost:27018/streamhub"
@@ -37,16 +47,16 @@ class VODWorker {
 
       logger.info("VOD Worker: Started, waiting for jobs...");
 
-      this.channel.consume("vod.conversion", async (msg) => {
+      this.channel.consume("vod.conversion", async (msg: ConsumeMessage | null) => {
         if (!msg) return;
 
         try {
-          const data = JSON.parse(msg.content.toString());
+          const data: VODJobData = JSON.parse(msg.content.toString());
           await this.processVOD(data);
-          this.channel.ack(msg);
+          this.channel?.ack(msg);
         } catch (error) {
           logger.error("VOD processing failed", error);
-          this.channel.nack(msg, false, false);
+          this.channel?.nack(msg, false, false);
         }
       });
     } catch (error) {
@@ -55,7 +65,7 @@ class VODWorker {
     }
   }
 
-  async processVOD(data) {
+  async processVOD(data: VODJobData): Promise<void> {
     const { streamId, webmPath, userId } = data;
     const recordingsDir = "/tmp/recordings";
     const mp4Path = path.join(recordingsDir, `${streamId}.mp4`);
@@ -72,8 +82,8 @@ class VODWorker {
         return;
       }
 
-      // ---- FFmpeg conversion (PRODUCTION SAFE) ----
-      await new Promise((resolve, reject) => {
+      // FFmpeg conversion
+      await new Promise<void>((resolve, reject) => {
         const ffmpeg = spawn("ffmpeg", [
           "-y",
           "-fflags", "+genpts",
@@ -84,16 +94,16 @@ class VODWorker {
           mp4Path,
         ]);
 
-        ffmpeg.stderr.on("data", (data) => {
+        ffmpeg.stderr.on("data", (data: Buffer) => {
           logger.info(`[ffmpeg] ${data.toString()}`);
         });
 
-        ffmpeg.on("error", (err) => {
+        ffmpeg.on("error", (err: Error) => {
           logger.error("FFmpeg spawn error", err);
           reject(err);
         });
 
-        ffmpeg.on("close", (code) => {
+        ffmpeg.on("close", (code: number | null) => {
           if (code !== 0) {
             reject(new Error(`FFmpeg exited with code ${code}`));
           } else {
@@ -101,17 +111,16 @@ class VODWorker {
           }
         });
       });
-      // --------------------------------------------
 
       const r2Key = `vods/${streamId}/${Date.now()}.mp4`;
-      await this.r2Service.uploadFile(mp4Path, r2Key);
+      await this.r2Service!.uploadFile(mp4Path, r2Key);
 
       const stats = await fs.promises.stat(mp4Path);
 
       // Get duration via ffprobe
       let duration = 0;
       try {
-        const ffprobeOut = await new Promise((resolve, reject) => {
+        const ffprobeOut = await new Promise<string>((resolve, reject) => {
           const ffprobe = spawn("ffprobe", [
             "-v", "error",
             "-show_entries", "format=duration",
@@ -119,13 +128,14 @@ class VODWorker {
             mp4Path,
           ]);
           let out = "";
-          ffprobe.stdout.on("data", (d) => { out += d.toString(); });
-          ffprobe.on("close", (code) => code === 0 ? resolve(out.trim()) : reject(new Error(`ffprobe exited ${code}`)));
+          ffprobe.stdout.on("data", (d: Buffer) => { out += d.toString(); });
+          ffprobe.on("close", (code: number | null) => code === 0 ? resolve(out.trim()) : reject(new Error(`ffprobe exited ${code}`)));
           ffprobe.on("error", reject);
         });
         duration = Math.round(parseFloat(ffprobeOut));
       } catch (e) {
-        logger.warn("ffprobe failed, duration unknown", e.message);
+        const error = e as Error;
+        logger.warn("ffprobe failed, duration unknown", error.message);
       }
 
       await Vod.create({
@@ -152,7 +162,7 @@ class VODWorker {
     }
   }
 
-  async stop() {
+  async stop(): Promise<void> {
     await this.channel?.close();
     await this.connection?.close();
     await mongoose.disconnect();
