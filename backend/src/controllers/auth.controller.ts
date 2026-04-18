@@ -5,14 +5,14 @@ import EmailService from "@services/EmailService";
 import type CacheService from "@services/CacheService";
 import type R2Service from "@services/R2Service";
 import Logger from "@utils/logger";
-import crypto from 'crypto';
-import bcrypt from 'bcrypt';
-import { 
-  normalizeError, 
-  AuthenticationError, 
-  NotFoundError, 
+import crypto from "crypto";
+import bcrypt from "bcrypt";
+import {
+  normalizeError,
+  AuthenticationError,
+  NotFoundError,
   ValidationError,
-  DuplicateError 
+  DuplicateError,
 } from "../types/error.types";
 
 interface RegisterBody {
@@ -55,18 +55,24 @@ interface AuthenticatedRequest extends Request {
 const AuthController = {
   register: async (req: Request, res: Response): Promise<void> => {
     try {
-      const { username, email, password, role = 'viewer' } = req.body as RegisterBody;
+      const {
+        username,
+        email,
+        password,
+        role = "viewer",
+      } = req.body as RegisterBody;
 
       // Check for existing user
       const existingUser = await User.findOne({
-        $or: [{ email }, { username }]
+        $or: [{ email }, { username }],
       });
 
       if (existingUser) {
-        const field = existingUser.email === email ? 'email' : 'username';
-        const message = existingUser.email === email 
-          ? "Email already registered" 
-          : "Username already taken";
+        const field = existingUser.email === email ? "email" : "username";
+        const message =
+          existingUser.email === email
+            ? "Email already registered"
+            : "Username already taken";
         throw new DuplicateError(message, field);
       }
 
@@ -81,10 +87,28 @@ const AuthController = {
 
       await user.save();
 
-      // Generate token
-      const token = AuthMiddleware.createToken({
+      const accessToken = AuthMiddleware.createAccessToken({
         id: user._id.toString(),
-        username: user.username
+        username: user.username,
+        role: user.role,
+      });
+
+      const refreshToken = AuthMiddleware.createRefreshToken({
+        id: user._id.toString(),
+      });
+
+      res.cookie("accessToken", accessToken, {
+        httpOnly: true,
+        secure: true,
+        sameSite: "none",
+        maxAge: 15 * 60 * 1000,
+      });
+
+      res.cookie("refreshToken", refreshToken, {
+        httpOnly: true,
+        secure: true,
+        sameSite: "none",
+        maxAge: 7 * 24 * 60 * 60 * 1000,
       });
 
       Logger.info(`User ${username} registered successfully`);
@@ -93,7 +117,6 @@ const AuthController = {
         success: true,
         message: "User created successfully",
         user: user.getPublicProfile(),
-        token
       });
     } catch (error) {
       Logger.error("Registration error:", error);
@@ -103,8 +126,8 @@ const AuthController = {
         error: {
           message: appError.message,
           code: appError.code,
-          statusCode: appError.statusCode
-        }
+          statusCode: appError.statusCode,
+        },
       });
     }
   },
@@ -114,7 +137,7 @@ const AuthController = {
       const { email, password } = req.body as LoginBody;
 
       // Find user with password field
-      const user = await User.findOne({ email }).select('+password');
+      const user = await User.findOne({ email }).select("+password");
       if (!user) {
         throw new AuthenticationError("Invalid email or password");
       }
@@ -134,10 +157,28 @@ const AuthController = {
       user.lastLogin = new Date();
       await user.save();
 
-      // Generate token
-      const token = AuthMiddleware.createToken({
+      const accessToken = AuthMiddleware.createAccessToken({
         id: user._id.toString(),
-        username: user.username
+        username: user.username,
+        role: user.role,
+      });
+
+      const refreshToken = AuthMiddleware.createRefreshToken({
+        id: user._id.toString(),
+      });
+
+      res.cookie("accessToken", accessToken, {
+        httpOnly: true,
+        secure: true,
+        sameSite: "none",
+        maxAge: 15 * 60 * 1000,
+      });
+
+      res.cookie("refreshToken", refreshToken, {
+        httpOnly: true,
+        secure: true,
+        sameSite: "none",
+        maxAge: 7 * 24 * 60 * 60 * 1000,
       });
 
       Logger.info(`User ${user.username} logged in successfully`);
@@ -146,7 +187,6 @@ const AuthController = {
         success: true,
         message: "Login successful",
         user: user.getPublicProfile(),
-        token
       });
     } catch (error) {
       Logger.error("Login error:", error);
@@ -156,27 +196,39 @@ const AuthController = {
         error: {
           message: appError.message,
           code: appError.code,
-          statusCode: appError.statusCode
-        }
+          statusCode: appError.statusCode,
+        },
       });
     }
   },
 
   refreshToken: async (req: Request, res: Response): Promise<void> => {
     try {
-      const token = req.cookies?.token || req.headers.authorization?.replace('Bearer ', '');
+      const token = req.cookies?.refreshToken;
 
       if (!token) {
-        throw new AuthenticationError("No token found");
+        throw new AuthenticationError("No refresh token found");
       }
 
-      const newToken = AuthMiddleware.refreshToken(token);
+      const decoded = AuthMiddleware.verifyRefreshToken(token);
+
+      const newAccessToken = AuthMiddleware.createAccessToken({
+        id: decoded.userId,
+        username: decoded.username,
+        role: decoded.role,
+      });
+
+      res.cookie("accessToken", newAccessToken, {
+        httpOnly: true,
+        secure: true,
+        sameSite: "none",
+        maxAge: 15 * 60 * 1000,
+      });
 
       Logger.info("Token refreshed successfully");
 
       res.status(200).json({
         success: true,
-        token: newToken
       });
     } catch (error) {
       Logger.error("Token refresh error:", error);
@@ -186,8 +238,8 @@ const AuthController = {
         error: {
           message: appError.message,
           code: appError.code,
-          statusCode: appError.statusCode
-        }
+          statusCode: appError.statusCode,
+        },
       });
     }
   },
@@ -205,7 +257,7 @@ const AuthController = {
 
       res.status(200).json({
         success: true,
-        user: user.getSafeProfile()
+        user: user.getSafeProfile(),
       });
     } catch (error) {
       Logger.error("Get profile error:", error);
@@ -215,13 +267,16 @@ const AuthController = {
         error: {
           message: appError.message,
           code: appError.code,
-          statusCode: appError.statusCode
-        }
+          statusCode: appError.statusCode,
+        },
       });
     }
   },
 
-  updateProfile: async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  updateProfile: async (
+    req: AuthenticatedRequest,
+    res: Response,
+  ): Promise<void> => {
     try {
       if (!req.userId) {
         throw new AuthenticationError("User not authenticated");
@@ -243,11 +298,11 @@ const AuthController = {
 
       // Handle avatar upload if file exists
       if (req.file && req.r2Service) {
-        const key = `avatars/${req.userId}-${Date.now()}.${req.file.mimetype.split('/')[1]}`;
+        const key = `avatars/${req.userId}-${Date.now()}.${req.file.mimetype.split("/")[1]}`;
         const avatarUrl = await req.r2Service.uploadBuffer(
           req.file.buffer,
           key,
-          req.file.mimetype
+          req.file.mimetype,
         );
         user.avatar = avatarUrl;
         Logger.info(`Avatar uploaded for user ${req.userId}`);
@@ -265,7 +320,7 @@ const AuthController = {
       res.status(200).json({
         success: true,
         message: "Profile updated successfully",
-        user: user.getPublicProfile()
+        user: user.getPublicProfile(),
       });
     } catch (error) {
       Logger.error("Profile update error:", error);
@@ -275,8 +330,8 @@ const AuthController = {
         error: {
           message: appError.message,
           code: appError.code,
-          statusCode: appError.statusCode
-        }
+          statusCode: appError.statusCode,
+        },
       });
     }
   },
@@ -292,15 +347,27 @@ const AuthController = {
 
       // Calculate stats
       const totalStreams = streams.length;
-      const totalViews = streams.reduce((sum, s) => sum + ((s as any).stats?.maxViewers || 0), 0);
-      const totalStreamTime = streams.reduce((sum, s) => sum + ((s as any).duration || 0), 0);
-      const totalChatMessages = streams.reduce((sum, s) => sum + ((s as any).stats?.chatMessages || 0), 0);
+      const totalViews = streams.reduce(
+        (sum, s) => sum + ((s as any).stats?.maxViewers || 0),
+        0,
+      );
+      const totalStreamTime = streams.reduce(
+        (sum, s) => sum + ((s as any).duration || 0),
+        0,
+      );
+      const totalChatMessages = streams.reduce(
+        (sum, s) => sum + ((s as any).stats?.chatMessages || 0),
+        0,
+      );
 
       // Get recent streams
       const recentStreams = streams
-        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+        .sort(
+          (a, b) =>
+            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+        )
         .slice(0, 10)
-        .map(s => ({
+        .map((s) => ({
           id: s._id.toString(),
           title: s.title,
           category: s.category,
@@ -319,7 +386,7 @@ const AuthController = {
           totalStreamTime,
           totalChatMessages,
         },
-        recentStreams
+        recentStreams,
       });
     } catch (error) {
       Logger.error("Get user stats error:", error);
@@ -329,8 +396,8 @@ const AuthController = {
         error: {
           message: appError.message,
           code: appError.code,
-          statusCode: appError.statusCode
-        }
+          statusCode: appError.statusCode,
+        },
       });
     }
   },
@@ -344,9 +411,12 @@ const AuthController = {
 
       Logger.info(`User ${req.userId} logged out`);
 
+      res.clearCookie("accessToken");
+      res.clearCookie("refreshToken");
+
       res.status(200).json({
         success: true,
-        message: "Logged out successfully"
+        message: "Logged out successfully",
       });
     } catch (error) {
       Logger.error("Logout error:", error);
@@ -356,13 +426,16 @@ const AuthController = {
         error: {
           message: appError.message,
           code: appError.code,
-          statusCode: appError.statusCode
-        }
+          statusCode: appError.statusCode,
+        },
       });
     }
   },
 
-  forgotPassword: async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  forgotPassword: async (
+    req: AuthenticatedRequest,
+    res: Response,
+  ): Promise<void> => {
     try {
       const { email } = req.body as ForgotPasswordBody;
 
@@ -371,22 +444,26 @@ const AuthController = {
       }
 
       const user = await User.findOne({ email: email.toLowerCase() });
-      
+
       // Don't reveal if user exists for security
       if (!user) {
         res.status(200).json({
           success: true,
-          message: "If the email exists, a reset link has been sent"
+          message: "If the email exists, a reset link has been sent",
         });
         return;
       }
 
       // Generate reset token
-      const token = crypto.randomBytes(32).toString('hex');
-      
+      const token = crypto.randomBytes(32).toString("hex");
+
       // Store token in cache (Redis) if available
       if (req.cacheService?.client) {
-        await req.cacheService.client.setex(`reset:${token}`, 3600, user._id.toString());
+        await req.cacheService.client.setex(
+          `reset:${token}`,
+          3600,
+          user._id.toString(),
+        );
       }
 
       // Send email
@@ -397,7 +474,7 @@ const AuthController = {
 
       res.status(200).json({
         success: true,
-        message: "If the email exists, a reset link has been sent"
+        message: "If the email exists, a reset link has been sent",
       });
     } catch (error) {
       Logger.error("Forgot password error:", error);
@@ -407,13 +484,16 @@ const AuthController = {
         error: {
           message: appError.message,
           code: appError.code,
-          statusCode: appError.statusCode
-        }
+          statusCode: appError.statusCode,
+        },
       });
     }
   },
 
-  resetPassword: async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  resetPassword: async (
+    req: AuthenticatedRequest,
+    res: Response,
+  ): Promise<void> => {
     try {
       const { token, password } = req.body as ResetPasswordBody;
 
@@ -422,9 +502,13 @@ const AuthController = {
       }
 
       // Validate password strength
-      if (password.length < 8 || !/[A-Z]/.test(password) || !/[0-9]/.test(password)) {
+      if (
+        password.length < 8 ||
+        !/[A-Z]/.test(password) ||
+        !/[0-9]/.test(password)
+      ) {
         throw new ValidationError(
-          "Password must be at least 8 characters and contain at least one uppercase letter and one number"
+          "Password must be at least 8 characters and contain at least one uppercase letter and one number",
         );
       }
 
@@ -440,7 +524,7 @@ const AuthController = {
 
       // Hash new password
       const hashed = await bcrypt.hash(password, 12);
-      
+
       // Update user password
       await User.findByIdAndUpdate(userId, { password: hashed });
 
@@ -453,7 +537,7 @@ const AuthController = {
 
       res.status(200).json({
         success: true,
-        message: "Password reset successful"
+        message: "Password reset successful",
       });
     } catch (error) {
       Logger.error("Reset password error:", error);
@@ -463,11 +547,11 @@ const AuthController = {
         error: {
           message: appError.message,
           code: appError.code,
-          statusCode: appError.statusCode
-        }
+          statusCode: appError.statusCode,
+        },
       });
     }
-  }
+  },
 };
 
 export default AuthController;

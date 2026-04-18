@@ -6,7 +6,7 @@
   "scripts": {
     "build": "tsc && tsc-alias",
     "start": "node --env-file=.env dist/server.js",
-    "dev": "tsx --env-file=.env.local watch server.ts",
+    "dev": "tsx --env-file=.env.local --watch server.ts",
     "seed": "tsx seed-data.js",
     "worker": "tsx --env-file=.env.local src/workers/vodWorker.ts"
   },

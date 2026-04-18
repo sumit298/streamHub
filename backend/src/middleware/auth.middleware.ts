@@ -39,17 +39,11 @@ class AuthMiddleWare {
     next: NextFunction,
   ): Promise<void> {
     try {
-      const authHeader = req.headers.authorization;
-      const cookieToken = req.cookies.token;
-
       // Try cookie first (more secure), then header (fallback)
-      const token =
-        cookieToken || (authHeader && authHeader.replace("Bearer ", ""));
+      const token = req.cookies.accessToken;
 
       if (!token) {
-        res
-          .status(401)
-          .json({ message: "Access denied, Invalid token format." });
+        res.status(401).json({ message: "Not authenticated" });
         return;
       }
 
@@ -82,10 +76,16 @@ class AuthMiddleWare {
 
         next();
       } catch (jwtError) {
-        if (jwtError instanceof Error && jwtError.name === "TokenExpiredError") {
+        if (
+          jwtError instanceof Error &&
+          jwtError.name === "TokenExpiredError"
+        ) {
           res.status(401).json({ error: "Token expired." });
           return;
-        } else if (jwtError instanceof Error && jwtError.name === "JsonWebTokenError") {
+        } else if (
+          jwtError instanceof Error &&
+          jwtError.name === "JsonWebTokenError"
+        ) {
           res.status(401).json({ error: "Invalid token." });
           return;
         } else {
@@ -106,7 +106,7 @@ class AuthMiddleWare {
       // Try cookie first (web), then auth query param (mobile)
       const cookieToken = socket.request.headers.cookie
         ?.split(";")
-        .find((c) => c.trim().startsWith("token="))
+        .find((c) => c.trim().startsWith("accessToken="))
         ?.split("=")[1];
 
       const token = cookieToken || socket.handshake.auth.token;
@@ -120,7 +120,10 @@ class AuthMiddleWare {
       jwt.verify(
         token,
         process.env.JWT_SECRET as string,
-        async (err: jwt.VerifyErrors | null, decoded: string | jwt.JwtPayload | undefined) => {
+        async (
+          err: jwt.VerifyErrors | null,
+          decoded: string | jwt.JwtPayload | undefined,
+        ) => {
           if (err) {
             return next(new Error("Invalid token"));
           }
@@ -186,7 +189,11 @@ class AuthMiddleWare {
     next();
   }
 
-  static requireStreamer(req: Request, res: Response, next: NextFunction): void {
+  static requireStreamer(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): void {
     if (!req.user) {
       res.status(401).json({ error: "Authentication required" });
       return;
@@ -210,39 +217,34 @@ class AuthMiddleWare {
     next();
   }
 
-  static createToken(user: { id: string; username: string }): string {
+  static createAccessToken(user: {
+    id: string;
+    username: string;
+    role?: string;
+  }) {
     return jwt.sign(
-      { userId: user.id, username: user.username },
+      {
+        userId: user.id,
+        username: user.username,
+        role: user.role || "viewer",
+      },
       process.env.JWT_SECRET as string,
       {
-        expiresIn: "2h",
+        expiresIn: "15m",
         issuer: "ils-platform",
         audience: "ils-users",
-        algorithm: "HS256",
       },
     );
   }
 
-  static refreshToken(token: string): string {
-    try {
-      const decoded = jwt.verify(token, process.env.JWT_SECRET as string, {
-        ignoreExpiration: true,
-      }) as JWTPayload;
+  static createRefreshToken(user: { id: string }) {
+    return jwt.sign({ userId: user.id }, process.env.JWT_SECRET as string, {
+      expiresIn: "7d",
+    });
+  }
 
-      // checking token if it is not too old
-      const tokenAge = Date.now() / 1000 - decoded.iat;
-      if (tokenAge > 7 * 24 * 60 * 60) {
-        throw new Error("token too old to refresh");
-      }
-
-      return AuthMiddleWare.createToken({
-        id: decoded.userId,
-        username: decoded.username,
-      });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Unknown error";
-      throw new Error("Cannot refresh token: " + message);
-    }
+  static verifyRefreshToken(token: string) {
+    return jwt.verify(token, process.env.JWT_SECRET as string) as any;
   }
 }
 

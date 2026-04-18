@@ -5,7 +5,7 @@ import axios from "axios";
 
 interface AuthContextType {
   user: any;
-  login: (email: string, password: string) => Promise<any>;
+  login: (email: string, password: string) => void;
   logout: () => void;
   loading: boolean;
 }
@@ -20,10 +20,29 @@ const api = axios.create({
   },
 });
 
+type QueueItems = {
+  resolve: () => void;
+  reject: (error: unknown) => void;
+};
+
+
+let isRefreshing = false;
+let failedQueue: QueueItems[] = []
+const processQueue = (error: Error | null) => {
+  failedQueue.forEach((p) => {
+    if (error) p.reject(error);
+    else p.resolve();
+  });
+  failedQueue = [];
+};
+
+
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
-    const originalRequest = error.config;
+    const originalRequest = error.config as typeof error.config & {
+      _retry?: boolean;
+    };
 
     // Silently handle 401 on /me endpoint (user not logged in)
     if (
@@ -39,15 +58,29 @@ api.interceptors.response.use(
       !originalRequest._retry &&
       !originalRequest.url?.includes("/refresh-token")
     ) {
+      if (isRefreshing) {
+        return new Promise((resolve, reject) => {
+          failedQueue.push({
+            resolve: () => resolve(api(originalRequest)),
+            reject,
+          });
+        });
+      }
       originalRequest._retry = true;
+      isRefreshing = true;
 
       try {
         await api.post("/api/auth/refresh-token");
+        processQueue(null);
         return api(originalRequest);
       } catch (refreshError) {
         window.location.href = "/login";
+        processQueue(refreshError as Error);
         return Promise.reject(refreshError);
+      } finally {
+        isRefreshing = false;
       }
+
     }
     return Promise.reject(error);
   },
