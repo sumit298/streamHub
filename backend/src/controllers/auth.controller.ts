@@ -19,7 +19,6 @@ interface RegisterBody {
   username: string;
   email: string;
   password: string;
-  role?: "viewer" | "streamer" | "admin";
 }
 
 interface LoginBody {
@@ -55,16 +54,19 @@ interface AuthenticatedRequest extends Request {
 const AuthController = {
   register: async (req: Request, res: Response): Promise<void> => {
     try {
-      const {
-        username,
-        email,
-        password,
-        role = "viewer",
-      } = req.body as RegisterBody;
+      const { username, email, password } = req.body as RegisterBody;
+
+      if (
+        typeof email !== "string" ||
+        typeof username !== "string" ||
+        typeof password !== "string"
+      ) {
+        throw new ValidationError("Invalid registration data");
+      }
 
       // Check for existing user
       const existingUser = await User.findOne({
-        $or: [{ email }, { username }],
+        $or: [{ email: { $eq: email } }, { username: { $eq: username } }],
       });
 
       if (existingUser) {
@@ -81,7 +83,7 @@ const AuthController = {
         username,
         email,
         password,
-        role,
+        role: "viewer",
         avatar: `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(username)}`,
       });
 
@@ -136,8 +138,14 @@ const AuthController = {
     try {
       const { email, password } = req.body as LoginBody;
 
+      if (typeof email !== "string" || typeof password !== "string") {
+        throw new ValidationError("Invalid login data");
+      }
+
       // Find user with password field
-      const user = await User.findOne({ email }).select("+password");
+      const user = await User.findOne({ email: { $eq: email } }).select(
+        "+password",
+      );
       if (!user) {
         throw new AuthenticationError("Invalid email or password");
       }
@@ -211,7 +219,7 @@ const AuthController = {
       }
 
       const decoded = AuthMiddleware.verifyRefreshToken(token);
-      
+
       // Fetch user to get username and role
       const user = await User.findById(decoded.userId);
       if (!user || !user.isActive) {

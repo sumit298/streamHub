@@ -43,8 +43,7 @@ const registerValidation = [
     .matches(/[A-Z]/)
     .withMessage("Password must contain at least one uppercase letter")
     .matches(/[0-9]/)
-    .withMessage("Password must contain at least one number"),
-  body("role").isIn(["viewer", "streamer", "admin"]).optional(),
+    .withMessage("Password must contain at least one number")
 ];
 
 const loginValidation = [

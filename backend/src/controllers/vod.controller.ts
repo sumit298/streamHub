@@ -2,6 +2,7 @@ import Vod from "@models/Vod";
 import R2Service from "@services/R2Service";
 import Logger from "@utils/logger";
 import {
+  ForbiddenError,
   normalizeError,
   NotFoundError,
   ValidationError,
@@ -11,6 +12,7 @@ import path from "path";
 import { promises as fs } from "fs";
 import fixWebmDurationNode from "@utils/fixWebmDurationNode";
 import { finalizedRecordings } from "@utils/recordingState";
+import { Stream } from "../models/index";
 
 const RECORDINGS_ROOT = "/tmp/recordings";
 const RESOLVED_RECORDINGS_ROOT = path.resolve(RECORDINGS_ROOT);
@@ -51,13 +53,25 @@ const VodController = {
       } = req.query as GetVodQuery;
       const query: any = { status: "ready" };
 
-      if (category) query.category = category;
-      if (userId) query.userId = userId;
+      if (typeof category === "string" && category.trim().length > 0) {
+        query.category = { $eq: category.trim() };
+      }
+      if (typeof userId === "string" && userId.trim().length > 0) {
+        query.userId = { $eq: userId.trim() };
+      }
+
+      // ✅ FIX: Validate numeric parameters
+      const parsedSkip = Number.parseInt(skip, 10);
+      const parsedLimit = Number.parseInt(limit, 10);
+      const safeSkip =
+        Number.isNaN(parsedSkip) || parsedSkip < 0 ? 0 : parsedSkip;
+      const safeLimit =
+        Number.isNaN(parsedLimit) || parsedLimit < 1 ? 20 : parsedLimit;
 
       const vods = await Vod.find(query)
         .sort({ createdAt: -1 })
-        .skip(parseInt(skip))
-        .limit(parseInt(limit))
+        .skip(safeSkip)
+        .limit(safeLimit)
         .populate("userId", "username avatar");
 
       const total = await Vod.countDocuments(query);
@@ -67,9 +81,9 @@ const VodController = {
         vods,
         total,
         pagination: {
-          limit: parseInt(limit),
-          skip: parseInt(skip),
-          hasMore: parseInt(skip) + vods.length < total,
+          limit: safeLimit,
+          skip: safeSkip,
+          hasMore: safeSkip + vods.length < total,
         },
       });
     } catch (error) {
@@ -157,6 +171,15 @@ const VodController = {
         );
       }
 
+      const stream = await Stream.findOne({
+        _id: streamId,
+        userId: req.userId,
+      });
+
+      if (!stream) {
+        throw new NotFoundError("Stream not found");
+      }
+
       if (!RECORDING_ID_RE.test(recordingId)) {
         throw new ValidationError("Invalid recording format");
       }
@@ -198,6 +221,16 @@ const VodController = {
         throw new ValidationError(
           "Missing required fields: streamId, recordingId",
         );
+      }
+
+      // ✅ FIX: Verify ownership
+      const stream = await Stream.findOne({
+        _id: streamId,
+        userId: req.userId,
+      });
+
+      if (!stream) {
+        throw new ForbiddenError("You don't own this stream");
       }
 
       if (!RECORDING_ID_RE.test(recordingId)) {
