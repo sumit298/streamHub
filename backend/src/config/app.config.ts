@@ -7,6 +7,7 @@ import cookieParser from "cookie-parser";
 import requestMiddleware from "@middleware/requestId.middleware";
 import { specs, swaggerUi } from "../../swagger";
 import followRoutes from "../routes/follow.routes";
+import { requireCustomHeader } from "@middleware/csrf.middleware";
 
 /**
  * Create and configure Express application
@@ -35,6 +36,7 @@ export function createExpressApp(): express.Application {
   app.use(morgan("dev"));
   app.use(express.json({ limit: "10mb" }));
   app.use(cookieParser());
+  app.use("/api", requireCustomHeader);
 
   // Rate limiters
   const generateLimiter = rateLimit({
