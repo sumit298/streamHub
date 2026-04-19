@@ -10,7 +10,7 @@ import BottomControlBar from "@/components/BottomControlBar";
 import ViewerStats from "@/components/ViewerStats";
 import MediaStatsOverlay from "@/components/MediaStatsOverlay";
 
-const StreamsPage = ({isStreamer = true}) => {
+const StreamsPage = ({ isStreamer = true }) => {
   const params = useParams();
   const { user } = useAuth();
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -81,14 +81,13 @@ const StreamsPage = ({isStreamer = true}) => {
     };
     checkMobile();
 
-    
+
 
     // Fetch stream info
     const fetchStreamInfo = async () => {
       try {
         const response = await fetch(
-          `${
-            process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001"
+          `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001"
           }/api/streams/${params.id}`,
           {
             credentials: "include",
@@ -106,16 +105,16 @@ const StreamsPage = ({isStreamer = true}) => {
   }, [params.id]);
 
   useEffect(() => {
-  if (!isStreaming) return;
+    if (!isStreaming) return;
 
-  const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-    e.preventDefault();
-    e.returnValue = 'You are currently live. End your stream before leaving.';
-  };
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = 'You are currently live. End your stream before leaving.';
+    };
 
-  window.addEventListener('beforeunload', handleBeforeUnload);
-  return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-}, [isStreaming]);
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [isStreaming]);
 
 
   useEffect(() => {
@@ -248,7 +247,7 @@ const StreamsPage = ({isStreamer = true}) => {
       // setConnectionTested(false);
       toast.error(
         error.message ||
-          "Connection test failed. Please check your network and try again.",
+        "Connection test failed. Please check your network and try again.",
         { position: "bottom-left" }
       );
     } finally {
@@ -274,12 +273,12 @@ const StreamsPage = ({isStreamer = true}) => {
       const devices = await navigator.mediaDevices.enumerateDevices();
       const cameras = devices.filter(device => device.kind === 'videoinput');
       const microphones = devices.filter(device => device.kind === 'audioinput');
-      
+
       console.log('Available cameras:', cameras);
       console.log('Available microphones:', microphones);
-      
+
       setAvailableDevices({ cameras, microphones });
-      
+
       // Set default selected devices
       const videoTrack = mediaStream.getVideoTracks()[0];
       const audioTrack = mediaStream.getAudioTracks()[0];
@@ -294,28 +293,28 @@ const StreamsPage = ({isStreamer = true}) => {
 
   const changeCamera = async (deviceId: string) => {
     if (!stream) return;
-    
+
     try {
       const audioTrack = stream.getAudioTracks()[0];
       const audioEnabled = audioTrack?.enabled ?? true;
-      
+
       const newStream = await navigator.mediaDevices.getUserMedia({
         video: { deviceId: { exact: deviceId } },
         audio: { deviceId: { exact: selectedDevices.microphoneId } },
       });
-      
+
       // Restore audio state
       const newAudioTrack = newStream.getAudioTracks()[0];
       if (newAudioTrack) {
         newAudioTrack.enabled = audioEnabled;
       }
-      
+
       // Stop old tracks
       stream.getTracks().forEach(track => track.stop());
-      
+
       setStream(newStream);
       setSelectedDevices(prev => ({ ...prev, cameraId: deviceId }));
-      
+
       if (videoRef.current) {
         videoRef.current.srcObject = newStream;
       }
@@ -327,18 +326,18 @@ const StreamsPage = ({isStreamer = true}) => {
 
   const changeMicrophone = async (deviceId: string) => {
     if (!stream) return;
-    
+
     try {
       const videoTrack = stream.getVideoTracks()[0];
       const audioTrack = stream.getAudioTracks()[0];
       const videoEnabled = videoTrack?.enabled ?? true;
       const audioEnabled = audioTrack?.enabled ?? true;
-      
+
       const newStream = await navigator.mediaDevices.getUserMedia({
         video: { deviceId: { exact: selectedDevices.cameraId } },
         audio: { deviceId: { exact: deviceId } },
       });
-      
+
       // Restore track states
       const newVideoTrack = newStream.getVideoTracks()[0];
       const newAudioTrack = newStream.getAudioTracks()[0];
@@ -348,13 +347,13 @@ const StreamsPage = ({isStreamer = true}) => {
       if (newAudioTrack) {
         newAudioTrack.enabled = audioEnabled;
       }
-      
+
       // Stop old tracks
       stream.getTracks().forEach(track => track.stop());
-      
+
       setStream(newStream);
       setSelectedDevices(prev => ({ ...prev, microphoneId: deviceId }));
-      
+
       if (videoRef.current) {
         videoRef.current.srcObject = newStream;
       }
@@ -366,7 +365,7 @@ const StreamsPage = ({isStreamer = true}) => {
 
   const startStream = async () => {
     if (isStarting) return;
-    
+
     if (!stream || !device || !socket) {
       toast.error("Please enable camera and test connection first", { position: "bottom-left" });
       return;
@@ -499,14 +498,16 @@ const StreamsPage = ({isStreamer = true}) => {
       setProducer({ video: videoProducer, audio: audioProducer });
 
       const patchResponse = await fetch(
-        `${
-          process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001"
+        `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001"
         }/api/streams/${params.id}`,
         {
           method: "PATCH",
           credentials: "include",
+
           headers: {
             "Content-Type": "application/json",
+            "X-Requested-With": "XMLHttpRequest",  // ADD
+
           },
           body: JSON.stringify({
             isLive: true,
@@ -533,10 +534,10 @@ const StreamsPage = ({isStreamer = true}) => {
 
   const stopStream = async () => {
     if (isStopping) return;
-    
+
     setShowEndStreamModal(false);
     setIsStopping(true);
-    
+
     try {
       if (mediaRecorder && isRecording) {
         mediaRecorder.stop();
@@ -549,16 +550,20 @@ const StreamsPage = ({isStreamer = true}) => {
         setProducer(null);
       }
 
-      if(isScreenSharing){
+      if (isScreenSharing) {
         stopScreenShare()
       }
 
       const response = await fetch(
-        `${
-          process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001"
+        `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001"
         }/api/streams/${params.id}/end`,
         {
           method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-Requested-With": "XMLHttpRequest",
+          },
+
           credentials: "include",
         }
       );
@@ -590,7 +595,7 @@ const StreamsPage = ({isStreamer = true}) => {
         // Fallback: use current duration state
         toast.success(`Stream ended. Duration: ${formatDuration(duration)}`, { position: "bottom-left" });
       }
-      
+
       // Redirect to dashboard after stream ends
       setTimeout(() => {
         window.location.href = '/dashboard';
@@ -617,7 +622,9 @@ const StreamsPage = ({isStreamer = true}) => {
           await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001"}/api/vods/recording-end`, {
             method: 'POST',
             credentials: 'include',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json',
+              'X-Requested-With': 'XMLHttpRequest',
+             },
             body: JSON.stringify({ streamId: params.id, recordingId: recordingIdRef.current, durationMs }),
           });
         } catch (err) {
@@ -644,10 +651,10 @@ const StreamsPage = ({isStreamer = true}) => {
     recordingStartTimeRef.current = Date.now();
 
     const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=h264,opus')
-    ? 'video/webm;codecs=h264,opus'
-    : 'video/webm;codecs=vp8,opus';
+      ? 'video/webm;codecs=h264,opus'
+      : 'video/webm;codecs=vp8,opus';
 
-      console.log('🎥 Recording with:', mimeType, 'id:', recordingId);
+    console.log('🎥 Recording with:', mimeType, 'id:', recordingId);
 
 
     const recorder = new MediaRecorder(recordStream, {
@@ -665,6 +672,9 @@ const StreamsPage = ({isStreamer = true}) => {
         fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001"}/api/vods/upload-chunk`, {
           method: 'POST',
           credentials: 'include',
+          headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+          },
           body: formData,
         }).catch(err => console.error('Upload chunk failed:', err));
       }
@@ -702,7 +712,10 @@ const StreamsPage = ({isStreamer = true}) => {
           fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001"}/api/vods/recording-end`, {
             method: 'POST',
             credentials: 'include',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+              'Content-Type': 'application/json',
+              'X-Requested-With': 'XMLHttpRequest',
+            },
             body: JSON.stringify({ streamId: params.id, recordingId: recordingIdRef.current, durationMs }),
           }).catch(err => console.error('recording-end (camera→screen) failed:', err));
         }
@@ -732,6 +745,9 @@ const StreamsPage = ({isStreamer = true}) => {
             fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001"}/api/vods/upload-chunk`, {
               method: 'POST',
               credentials: 'include',
+              headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+              },
               body: formData,
             }).catch(err => console.error('Upload chunk failed:', err));
           }
@@ -826,7 +842,7 @@ const StreamsPage = ({isStreamer = true}) => {
         : 'video/webm;codecs=vp8,opus';
 
       console.log('🎥 Camera recording with:', mimeType);
-      const cameraRecorder = new MediaRecorder(stream, { 
+      const cameraRecorder = new MediaRecorder(stream, {
         mimeType,
         videoBitsPerSecond: 500000,  // 500 kbps
         audioBitsPerSecond: 128000   // 128 kbps audio
@@ -836,10 +852,13 @@ const StreamsPage = ({isStreamer = true}) => {
           const formData = new FormData();
           formData.append('chunk', e.data);
           formData.append('streamId', params.id as string);
-          
+
           fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001"}/api/vods/upload-chunk`, {
             method: 'POST',
             credentials: 'include',
+            headers: {
+              'X-Requested-With': 'XMLHttpRequest',
+            },
             body: formData,
           }).catch(err => console.error('Upload chunk failed:', err));
         }
@@ -983,18 +1002,16 @@ const StreamsPage = ({isStreamer = true}) => {
             {/* Connection status badge (pre-live) */}
             {!isStreaming && permissions.camera && (
               <div className="absolute top-3 right-3">
-                <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium backdrop-blur-sm ${
-                  connectionStatus === "connected" ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
-                  : connectionStatus === "connecting" || isTestingConnection ? "bg-yellow-500/20 text-yellow-400 border border-yellow-500/30"
-                  : connectionStatus === "failed" ? "bg-red-500/20 text-red-400 border border-red-500/30"
-                  : "bg-black/50 text-gray-400 border border-gray-700/50"
-                }`}>
-                  <span className={`w-1.5 h-1.5 rounded-full ${
-                    connectionStatus === "connected" ? "bg-emerald-400"
-                    : connectionStatus === "connecting" || isTestingConnection ? "bg-yellow-400 animate-pulse"
-                    : connectionStatus === "failed" ? "bg-red-400"
-                    : "bg-gray-500"
-                  }`} />
+                <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium backdrop-blur-sm ${connectionStatus === "connected" ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
+                    : connectionStatus === "connecting" || isTestingConnection ? "bg-yellow-500/20 text-yellow-400 border border-yellow-500/30"
+                      : connectionStatus === "failed" ? "bg-red-500/20 text-red-400 border border-red-500/30"
+                        : "bg-black/50 text-gray-400 border border-gray-700/50"
+                  }`}>
+                  <span className={`w-1.5 h-1.5 rounded-full ${connectionStatus === "connected" ? "bg-emerald-400"
+                      : connectionStatus === "connecting" || isTestingConnection ? "bg-yellow-400 animate-pulse"
+                        : connectionStatus === "failed" ? "bg-red-400"
+                          : "bg-gray-500"
+                    }`} />
                   {isTestingConnection ? "Testing..." : connectionStatus === "connected" ? "Ready" : connectionStatus === "failed" ? "Failed" : "Disconnected"}
                 </div>
               </div>
@@ -1093,12 +1110,11 @@ const StreamsPage = ({isStreamer = true}) => {
               <div className="flex items-center justify-between mb-2">
                 <span className="text-xs font-semibold text-gray-500 uppercase tracking-widest">Connection</span>
                 <div className="flex items-center gap-1.5">
-                  <span className={`w-2 h-2 rounded-full ${
-                    connectionStatus === "connected" ? "bg-emerald-500"
-                    : connectionStatus === "connecting" || isTestingConnection ? "bg-yellow-500 animate-pulse"
-                    : connectionStatus === "failed" ? "bg-red-500"
-                    : "bg-gray-600"
-                  }`} />
+                  <span className={`w-2 h-2 rounded-full ${connectionStatus === "connected" ? "bg-emerald-500"
+                      : connectionStatus === "connecting" || isTestingConnection ? "bg-yellow-500 animate-pulse"
+                        : connectionStatus === "failed" ? "bg-red-500"
+                          : "bg-gray-600"
+                    }`} />
                   <span className="text-xs text-gray-400">
                     {isTestingConnection ? "Testing..." : connectionStatus === "connected" ? "Connected" : connectionStatus === "failed" ? "Failed" : "Disconnected"}
                   </span>
