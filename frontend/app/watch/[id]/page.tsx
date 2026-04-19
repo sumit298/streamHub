@@ -897,7 +897,12 @@ const WatchPage = () => {
 
       const t8 = performance.now();
       console.log("📹 [VIEWER] Consuming video producer:", videoProducer.id);
-      const videoConsumer = (await new Promise((resolve) => {
+      const videoConsumer = await new Promise<{
+        id: string;
+        producerId: string;
+        kind: string;
+        rtpParameters: types.RtpParameters;
+      }>((resolve) => {
         socket?.emit(
           "consume",
           {
@@ -907,7 +912,7 @@ const WatchPage = () => {
           },
           resolve,
         );
-      })) as any;
+      });
       console.log(
         `✅ [VIEWER] Video consumer created (${(performance.now() - t8).toFixed(0)}ms):`,
         videoConsumer,
@@ -918,7 +923,7 @@ const WatchPage = () => {
         const consumer = await recvTransport.consume({
           id: videoConsumer.id,
           producerId: videoConsumer.producerId,
-          kind: videoConsumer.kind,
+          kind: videoConsumer.kind as types.MediaKind,
           rtpParameters: videoConsumer.rtpParameters,
         });
         console.log(
@@ -1168,7 +1173,7 @@ const WatchPage = () => {
               >
                 <video
                   ref={pipVideoRef}
-                  // autoPlay
+                  autoPlay
                   playsInline
                   muted={isMuted}
                   className="w-full h-full object-cover"
@@ -1297,7 +1302,7 @@ const WatchPage = () => {
             >
               <video
                 ref={videoRef}
-                // autoPlay
+                autoPlay
                 playsInline
                 muted={isMuted}
                 className="w-full h-full object-cover"

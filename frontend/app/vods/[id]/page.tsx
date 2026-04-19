@@ -35,7 +35,7 @@ export default function VodPlayerPage() {
 
   const { data: vod, isLoading: loading} = useQuery<Vod>({
     queryKey: ['vod', params.id],
-    queryFn: () => api.get(`/api/vods/${params.id}`).then(res=> res.data),
+    queryFn: () => api.get(`/api/vods/${params.id}`).then(res=> res.data.vod),
   })
 
   const togglePlay = () => {

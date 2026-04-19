@@ -211,11 +211,17 @@ const AuthController = {
       }
 
       const decoded = AuthMiddleware.verifyRefreshToken(token);
+      
+      // Fetch user to get username and role
+      const user = await User.findById(decoded.userId);
+      if (!user || !user.isActive) {
+        throw new AuthenticationError("User not found or inactive");
+      }
 
       const newAccessToken = AuthMiddleware.createAccessToken({
         id: decoded.userId,
-        username: decoded.username,
-        role: decoded.role,
+        username: user.username,
+        role: user.role,
       });
 
       res.cookie("accessToken", newAccessToken, {

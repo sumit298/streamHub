@@ -113,14 +113,17 @@ export function registerChatHandlers(
           });
         }
 
-        const socketUser = (socket as Socket & { user?: SocketUser }).user;
+        // Get username from socket.data or socket.user
+        const username = socket.data?.username || socket.user?.username || "Anonymous";
+        
+        logger.info(`[CHAT] Sending message - userId: ${socket.userId}, username from socket.data: ${socket.data?.username}, username from socket.user: ${socket.user?.username}, final username: ${username}`);
 
         const message = await chatService.sendMessage(
           socket.userId,
           data.roomId,
           data.content,
           data.type || "text",
-          socket.user?.username || "Anonymous",
+          username,
         );
 
         incrementChatMessages(data.roomId).catch((error) =>
@@ -139,7 +142,7 @@ export function registerChatHandlers(
               userId: mentionedUserId,
               type: "chat-mention",
               title: "New Mention",
-              message: `${socketUser?.username} mentioned you`,
+              message: `${username} mentioned you`,
               data: { streamId: data.roomId },
             });
             logger.info(`Emitting notification to user-${mentionedUserId}`);

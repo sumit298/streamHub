@@ -154,6 +154,8 @@ export function registerRecordingHandlers(
 
         // Validate file size
         const fileStats = await fs.promises.stat(webmPath);
+        logger.info(`Recording ${file} size: ${fileStats.size} bytes`);
+        
         if (fileStats.size < 1000) {
           logger.warn(
             `Recording ${file} too small (${fileStats.size} bytes), skipping`,
@@ -162,7 +164,57 @@ export function registerRecordingHandlers(
           continue;
         }
 
-        // Validate WebM with ffprobe
+        // Validate WebM with detailed ffprobe output
+        let isValidWebm = false;
+        try {
+          await new Promise((resolve, reject) => {
+            execFile("ffprobe", ["-v", "error", "-show_format", "-show_streams", webmPath], (error: Error, stdout: string, stderr: string) => {
+              if (error instanceof Error) {
+                logger.error(`ffprobe validation failed for ${file}:`);
+                logger.error(`  Error: ${error.message}`);
+                logger.error(`  Stderr: ${stderr}`);
+                logger.error(`  Stdout: ${stdout}`);
+                reject(new Error("Invalid WebM"));
+              } else {
+                logger.info(`ffprobe validation passed for ${file}`);
+                logger.info(`  Format info: ${stdout.substring(0, 200)}...`);
+                resolve(true);
+              }
+            });
+          });
+          isValidWebm = true;
+        } catch (error) {
+          const err = error as Error;
+          logger.error(`WebM validation failed for ${file}: ${err.message}`);
+          
+          // In development, try to process anyway if file is large enough
+          if (process.env.NODE_ENV === "development" && fileStats.size > 10000) {
+            logger.warn(`Development mode: Attempting to process despite validation failure`);
+            isValidWebm = true;
+          } else {
+            await fs.promises.unlink(webmPath).catch(() => {});
+            continue;
+          }
+        }
+
+        if (!isValidWebm) continue;
+
+        // DEVELOPMENT: Send to worker for MP4 conversion (skip validation, ffmpeg is forgiving)
+        if (process.env.NODE_ENV === "development" && messageQueue.channel) {
+          const queued = await messageQueue.publishVODConversion({
+            streamId,
+            webmPath,
+            userId: socket.userId,
+          });
+
+          if (queued) {
+            logger.info(`VOD queued for worker (WebM→MP4): ${file}`);
+            continue;
+          }
+          logger.warn(`RabbitMQ unavailable, falling back to production mode`);
+        }
+
+        // PRODUCTION: Validate WebM before uploading directly
         try {
           await new Promise((resolve, reject) => {
             execFile("ffprobe", [webmPath], (error: Error) => {
@@ -175,21 +227,6 @@ export function registerRecordingHandlers(
           logger.error(`Invalid WebM for ${file}: ${err.message}`);
           await fs.promises.unlink(webmPath).catch(() => {});
           continue;
-        }
-
-        // DEVELOPMENT: Use RabbitMQ worker for background processing
-        if (process.env.NODE_ENV === "development" && messageQueue.channel) {
-          const queued = await messageQueue.publishVODConversion({
-            streamId,
-            webmPath,
-            userId: socket.userId,
-          });
-
-          if (queued) {
-            logger.info(`VOD queued for worker: ${file}`);
-            continue;
-          }
-          logger.warn(`RabbitMQ unavailable, falling back to sync processing`);
         }
 
         // PRODUCTION: Upload WebM directly

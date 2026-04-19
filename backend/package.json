@@ -7,6 +7,11 @@
     "build": "tsc && tsc-alias",
     "start": "node --env-file=.env dist/server.js",
     "dev": "tsx --env-file=.env.local --watch server.ts",
+    "dev:full": "./start-dev.sh",
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down",
+    "docker:logs": "docker-compose logs -f",
+    "docker:clean": "docker-compose down -v",
     "seed": "tsx seed-data.js",
     "worker": "tsx --env-file=.env.local src/workers/vodWorker.ts"
   },

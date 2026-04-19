@@ -110,13 +110,14 @@ class AuthMiddleWare {
         ?.split("=")[1];
 
       const token = cookieToken || socket.handshake.auth.token;
+      
+      Logger.info(`[AUTH] Token found: ${!!token}`);
 
-      // Allow anonymous viewers (no token)
       if (!token) {
+        Logger.warn(`[AUTH] No token for socket: ${socket.id}`);
         return next(new Error("Authentication required"));
       }
 
-      // If token exists, verify it
       jwt.verify(
         token,
         process.env.JWT_SECRET as string,
@@ -125,14 +126,17 @@ class AuthMiddleWare {
           decoded: string | jwt.JwtPayload | undefined,
         ) => {
           if (err) {
+            Logger.error(`[AUTH] Token verify failed: ${err.message}`);
             return next(new Error("Invalid token"));
           }
 
           const payload = decoded as JWTPayload;
+          Logger.info(`[AUTH] Token decoded - userId: ${payload.userId}, username: ${payload.username}`);
 
           try {
             const user = await User.findById(payload.userId);
             if (!user || !user.isActive) {
+              Logger.warn(`[AUTH] User not found: ${payload.userId}`);
               return next(new Error("User not found or inactive"));
             }
 
@@ -143,6 +147,17 @@ class AuthMiddleWare {
               email: user.email,
               role: user.role || "viewer",
             };
+            
+            socket.data.userId = payload.userId;
+            socket.data.username = payload.username;
+            socket.data.user = {
+              id: payload.userId,
+              username: payload.username,
+              email: user.email,
+              role: user.role || "viewer",
+            };
+            
+            Logger.info(`[AUTH] SUCCESS - socket.userId: ${socket.userId}, socket.data.username: ${socket.data.username}`);
 
             next();
           } catch (dbError) {

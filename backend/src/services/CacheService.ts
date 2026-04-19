@@ -39,7 +39,6 @@ class CacheService {
       const redisConfig: RedisConfig = {
         host: process.env.REDIS_HOST || "localhost",
         port: parseInt(process.env.REDIS_PORT || "6379"),
-        password: process.env.REDIS_PASSWORD,
         db: parseInt(process.env.REDIS_DB || "0"),
         retryDelayOnFailover: 100,
         maxRetriesPerRequest: 3,
@@ -49,6 +48,11 @@ class CacheService {
         commandTimeout: 5000,
         family: 4,
       };
+
+      // Only add password if it's actually set
+      if (process.env.REDIS_PASSWORD) {
+        redisConfig.password = process.env.REDIS_PASSWORD;
+      }
 
       this.client = new Redis(redisConfig);
       this.publisher = new Redis(redisConfig);

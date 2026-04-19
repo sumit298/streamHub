@@ -338,8 +338,28 @@ const StreamController = {
     try {
       const io = req.app.get("io");
       const sockets = await io.in(`room:${req.params.id}`).fetchSockets();
-      const viewers = [...new Set(sockets.map((s: any) => s.user).filter(Boolean))];
-      res.json({ viewers });
+      
+      // Extract user data from socket.data (set during authentication)
+      const viewers = sockets
+        .map((s: any) => {
+          const userData = s.data?.user;
+          if (!userData || !userData.username) return null;
+          
+          return {
+            id: userData.id,
+            userId: userData.id,
+            username: userData.username,
+            avatar: userData.avatar
+          };
+        })
+        .filter(Boolean); // Remove null entries
+      
+      // Remove duplicates by userId
+      const uniqueViewers = Array.from(
+        new Map(viewers.map((v: any) => [v.userId, v])).values()
+      );
+      
+      res.json({ viewers: uniqueViewers });
     } catch (error) {
       Logger.error("Get viewers error", error);
       const normalizedError = normalizeError(error);

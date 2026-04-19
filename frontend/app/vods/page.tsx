@@ -22,7 +22,8 @@ export default function VodsPage() {
 
   const { data, isLoading } = useQuery<Vod[]>({
     queryKey: ['vods', page],
-    queryFn: () => api.get(`/api/vods?limit=${limit}&skip=${(page - 1) * limit}`).then(res => res.data || [])
+    queryFn: () => api.get(`/api/vods?limit=${limit}&skip=${(page - 1) * limit}`).then(res => res.data.vods || [])
+
   })
 
   const vods = data || []

@@ -154,10 +154,7 @@ export function registerWebRTCHandlers(
           data.rtpCapabilities,
         );
 
-        callback?.({
-          consumerId: consumer?.id,
-          producerId: data.producerId,
-        });
+        callback?.(consumer);
       } catch (error) {
         const err = error as Error;
         logger.error("Consume error", error);
