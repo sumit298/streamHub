@@ -36,7 +36,7 @@ export function createExpressApp(): express.Application {
   app.use(morgan("dev"));
   app.use(express.json({ limit: "10mb" }));
   app.use(cookieParser());
-  app.use("/api", requireCustomHeader);
+  // app.use("/api", requireCustomHeader);
 
   // Rate limiters
   const generateLimiter = rateLimit({

@@ -506,7 +506,7 @@ const StreamsPage = ({ isStreamer = true }) => {
 
           headers: {
             "Content-Type": "application/json",
-            "X-Requested-With": "XMLHttpRequest",  // ADD
+              // ADD
 
           },
           body: JSON.stringify({
@@ -561,7 +561,7 @@ const StreamsPage = ({ isStreamer = true }) => {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            "X-Requested-With": "XMLHttpRequest",
+            
           },
 
           credentials: "include",
@@ -623,7 +623,7 @@ const StreamsPage = ({ isStreamer = true }) => {
             method: 'POST',
             credentials: 'include',
             headers: { 'Content-Type': 'application/json',
-              'X-Requested-With': 'XMLHttpRequest',
+              
              },
             body: JSON.stringify({ streamId: params.id, recordingId: recordingIdRef.current, durationMs }),
           });
@@ -672,9 +672,6 @@ const StreamsPage = ({ isStreamer = true }) => {
         fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001"}/api/vods/upload-chunk`, {
           method: 'POST',
           credentials: 'include',
-          headers: {
-            'X-Requested-With': 'XMLHttpRequest',
-          },
           body: formData,
         }).catch(err => console.error('Upload chunk failed:', err));
       }
@@ -714,7 +711,7 @@ const StreamsPage = ({ isStreamer = true }) => {
             credentials: 'include',
             headers: {
               'Content-Type': 'application/json',
-              'X-Requested-With': 'XMLHttpRequest',
+              
             },
             body: JSON.stringify({ streamId: params.id, recordingId: recordingIdRef.current, durationMs }),
           }).catch(err => console.error('recording-end (camera→screen) failed:', err));
@@ -746,7 +743,7 @@ const StreamsPage = ({ isStreamer = true }) => {
               method: 'POST',
               credentials: 'include',
               headers: {
-                'X-Requested-With': 'XMLHttpRequest',
+                
               },
               body: formData,
             }).catch(err => console.error('Upload chunk failed:', err));
@@ -857,7 +854,7 @@ const StreamsPage = ({ isStreamer = true }) => {
             method: 'POST',
             credentials: 'include',
             headers: {
-              'X-Requested-With': 'XMLHttpRequest',
+              
             },
             body: formData,
           }).catch(err => console.error('Upload chunk failed:', err));

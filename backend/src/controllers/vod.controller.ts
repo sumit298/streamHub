@@ -172,7 +172,7 @@ const VodController = {
       }
 
       const stream = await Stream.findOne({
-        _id: streamId,
+        id: streamId,
         userId: req.userId,
       });
 
@@ -225,7 +225,7 @@ const VodController = {
 
       // ✅ FIX: Verify ownership
       const stream = await Stream.findOne({
-        _id: streamId,
+        id: streamId,
         userId: req.userId,
       });
 
