@@ -104,6 +104,7 @@ const AuthController = {
         secure: true,
         sameSite: "none",
         maxAge: 15 * 60 * 1000,
+        path: '/',
       });
 
       res.cookie("refreshToken", refreshToken, {
@@ -111,6 +112,7 @@ const AuthController = {
         secure: true,
         sameSite: "none",
         maxAge: 7 * 24 * 60 * 60 * 1000,
+        path: '/',
       });
 
       Logger.info(`User ${username} registered successfully`);
@@ -180,6 +182,7 @@ const AuthController = {
         secure: true,
         sameSite: "none",
         maxAge: 15 * 60 * 1000,
+        path: '/',
       });
 
       res.cookie("refreshToken", refreshToken, {
@@ -187,6 +190,7 @@ const AuthController = {
         secure: true,
         sameSite: "none",
         maxAge: 7 * 24 * 60 * 60 * 1000,
+        path: '/',
       });
 
       Logger.info(`User ${user.username} logged in successfully`);
@@ -237,6 +241,7 @@ const AuthController = {
         secure: true,
         sameSite: "none",
         maxAge: 15 * 60 * 1000,
+        path: '/',
       });
 
       Logger.info("Token refreshed successfully");
@@ -425,8 +430,19 @@ const AuthController = {
 
       Logger.info(`User ${req.userId} logged out`);
 
-      res.clearCookie("accessToken");
-      res.clearCookie("refreshToken");
+      res.clearCookie("accessToken", {
+        httpOnly: true,
+        secure: true,
+        sameSite: "none",
+        path: '/',
+      });
+
+      res.clearCookie("refreshToken", {
+        httpOnly: true,
+        secure: true,
+        sameSite: "none",
+        path: '/',
+      });
 
       res.status(200).json({
         success: true,
