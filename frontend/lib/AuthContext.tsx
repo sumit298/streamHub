@@ -91,32 +91,49 @@ api.interceptors.response.use(
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [token, setToken] = useState<string | null>(null);
 
   useEffect(() => {
+    const savedToken = localStorage.getItem('token');
+    if (savedToken) {
+      setToken(savedToken);
+      api.defaults.headers.common['Authorization'] = `Bearer ${savedToken}`;
+    }
+    
     api
       .get("/api/auth/me")
       .then((res) => setUser(res.data.user))
       .catch((err) => {
         console.error("Error fetching user data:", err);
+        localStorage.removeItem('token');
+        setToken(null);
       })
       .finally(() => setLoading(false));
   }, []);
 
   const login = async (email: string, password: string) => {
     const { data } = await api.post("/api/auth/login", { email, password });
-    if (data.user) setUser(data.user);
+    if (data.user) {
+      setUser(data.user);
+      if (data.token) {
+        setToken(data.token);
+        localStorage.setItem('token', data.token);
+        api.defaults.headers.common['Authorization'] = `Bearer ${data.token}`;
+      }
+    }
     return data;
   };
 
   const logout = async () => {
     await api.post("/api/auth/logout");
     setUser(null);
+    setToken(null);
+    localStorage.removeItem('token');
+    delete api.defaults.headers.common['Authorization'];
   };
 
   const getSocketAuth = () => {
-    // httpOnly cookies can't be read by JS, so we rely on withCredentials
-    // But for explicit auth parameter, we return empty object
-    return {};
+    return token ? { token } : {};
   };
 
   return (

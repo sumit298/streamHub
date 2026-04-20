@@ -185,6 +185,14 @@ const AuthController = {
         path: '/',
       });
 
+      res.cookie("socketToken", accessToken, {
+        httpOnly: false,
+        secure: true,
+        sameSite: "none",
+        maxAge: 15 * 60 * 1000,
+        path: '/',
+      });
+
       res.cookie("refreshToken", refreshToken, {
         httpOnly: true,
         secure: true,
@@ -199,6 +207,7 @@ const AuthController = {
         success: true,
         message: "Login successful",
         user: user.getPublicProfile(),
+        token: accessToken,
       });
     } catch (error) {
       Logger.error("Login error:", error);
@@ -432,6 +441,13 @@ const AuthController = {
 
       res.clearCookie("accessToken", {
         httpOnly: true,
+        secure: true,
+        sameSite: "none",
+        path: '/',
+      });
+
+      res.clearCookie("socketToken", {
+        httpOnly: false,
         secure: true,
         sameSite: "none",
         path: '/',
