@@ -1,3 +1,0 @@
-"use strict";
-// TODO: Do later after a working demo both on frontend and backend
-//# sourceMappingURL=MetricsService.js.map
