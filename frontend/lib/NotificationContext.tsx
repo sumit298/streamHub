@@ -25,7 +25,7 @@ export function NotificationProvider({
   useEffect(() => {
     if (!user) return;
 
-    const token = localStorage.getItem("token");
+    const token = sessionStorage.getItem("token");
     const newSocket = io(
       process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001",
       {
