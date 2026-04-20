@@ -116,18 +116,14 @@ const StreamsPage = ({ isStreamer = true }) => {
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [isStreaming]);
 
-
-  const socketToken = document.cookie
-  .split(';')
-  .find(c => c.trim().startsWith('socketToken='))
-  ?.split(/=(.+)/)[1];
   useEffect(() => {
+    const token = sessionStorage.getItem("accessToken") || ""
     const newSocket = io(
       process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:3001",
       {
         withCredentials: true, // Sends httpOnly cookies automatically
         transports: ["websocket", "polling"],
-        auth: { token : socketToken || ' '}
+        auth: {token}
       }
     );
     newSocket.on("connect", () => {
