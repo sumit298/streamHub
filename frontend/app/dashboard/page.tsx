@@ -52,7 +52,7 @@ const formatDuration = (ms: number) => {
 const Dashboard = () => {
   const [viewerCounts, setViewerCounts] = useState<Record<string, number>>({});
   const [socket, setSocket] = useState<Socket | null>(null);
-  const { user } = useAuth();
+  const { user, getSocketAuth } = useAuth();
   const router = useRouter();
 
   const {
@@ -85,7 +85,6 @@ const Dashboard = () => {
     : null;
 
   useEffect(() => {
-    const { getSocketAuth } = useAuth();
     const authData = getSocketAuth();
     
     const newSocket = io(
