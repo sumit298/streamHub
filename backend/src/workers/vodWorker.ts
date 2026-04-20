@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
-import amqp, { Channel, Connection, ConsumeMessage } from "amqplib";
+import amqp from "amqplib";
+import type { Channel, ChannelModel, ConsumeMessage } from "amqplib";
 import { spawn } from "child_process";
 import fs from "fs";
 import path from "path";
@@ -14,7 +15,7 @@ interface VODJobData {
 }
 
 class VODWorker {
-  private connection: Connection | null;
+  private connection: ChannelModel | null;
   private channel: Channel | null;
   private r2Service: R2Service | null;
 
