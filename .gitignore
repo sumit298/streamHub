@@ -23,3 +23,10 @@ videosdk-rtc-react-sdk-example/
 
 # Redis check script (optional)
 backend/check-redis.js
+# Build output
+backend/dist/
+frontend/.next/
+frontend/out/
+
+# Scripts
+backend/start-dev.sh
