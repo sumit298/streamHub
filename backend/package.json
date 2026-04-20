@@ -4,19 +4,21 @@
   "description": "Interactive Live Streaming Backend",
   "main": "server.js",
   "scripts": {
-    "start": "node --env-file=.env server.js",
-    "dev": "node --env-file=.env.local --watch server.js",
-    "seed": "node seed-data.js",
-    "test:basic": "node test-basic.js",
-    "test:services": "node test-services.js",
-    "test:api": "node test-api.js",
-    "test:all": "npm run test:basic && npm run test:services",
-    "worker": "node --env-file=.env.local src/workers/vodWorker.js"
+    "build": "tsc && tsc-alias",
+    "start": "node --env-file=.env dist/server.js",
+    "dev": "tsx --env-file=.env.local --watch server.ts",
+    "dev:full": "./start-dev.sh",
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down",
+    "docker:logs": "docker-compose logs -f",
+    "docker:clean": "docker-compose down -v",
+    "seed": "tsx seed-data.js",
+    "worker": "tsx --env-file=.env.local src/workers/vodWorker.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.989.0",
     "@aws-sdk/s3-request-presigner": "^3.989.0",
-    "amqplib": "^0.10.3",
+    "amqplib": "^1.0.3",
     "bcrypt": "^6.0.0",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
@@ -37,10 +39,27 @@
     "socket.io": "^4.7.2",
     "swagger-jsdoc": "^6.2.8",
     "swagger-ui-express": "^5.0.1",
+    "tsc-alias": "^1.8.16",
     "uuid": "^9.0.1",
     "winston": "^3.10.0"
   },
   "devDependencies": {
+    "@types/amqplib": "^0.10.4",
+    "@types/bcrypt": "^6.0.0",
+    "@types/cookie-parser": "^1.4.10",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
+    "@types/jsonwebtoken": "^9.0.10",
+    "@types/morgan": "^1.9.10",
+    "@types/multer": "^2.1.0",
+    "@types/node": "^25.5.0",
+    "@types/nodemailer": "^7.0.11",
+    "@types/sanitize-html": "^2.16.1",
+    "@types/uuid": "^10.0.0",
+    "axios": "^1.5.0",
+    "socket.io-client": "^4.8.1",
+    "tsx": "^4.21.0",
+    "typescript": "^6.0.2"
     "axios": "^1.15.0",
     "socket.io-client": "^4.8.1"
   }

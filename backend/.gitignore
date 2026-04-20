@@ -22,3 +22,5 @@ architecture.md
 DESIGN_BRIEF.md
 seed-data.js
 logs/
+
+start-dev.sh
