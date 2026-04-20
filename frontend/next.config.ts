@@ -8,7 +8,11 @@ const nextConfig: NextConfig = {
     return [
       {
         source: '/api/:path*',
-        destination: 'http://localhost:3001/api/:path*',
+        destination: 'https://stream-hub.duckdns.org:3001/api/:path*',
+      },
+      {
+        source: '/socket.io/:path*',
+        destination: 'https://stream-hub.duckdns.org:3001/socket.io/:path*',
       },
     ];
   },
