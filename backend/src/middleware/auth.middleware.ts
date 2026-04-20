@@ -39,8 +39,9 @@ class AuthMiddleWare {
     next: NextFunction,
   ): Promise<void> {
     try {
-      // Try cookie first (more secure), then header (fallback)
-      const token = req.cookies.accessToken;
+      // Get token from Authorization header
+      const authHeader = req.headers.authorization;
+      const token = authHeader?.startsWith('Bearer ') ? authHeader.substring(7) : null;
 
       if (!token) {
         res.status(401).json({ message: "Not authenticated" });
@@ -103,13 +104,7 @@ class AuthMiddleWare {
     next: (err?: Error) => void,
   ): void {
     try {
-      // Try cookie first (web), then auth query param (mobile)
-      const cookieToken = socket.request.headers.cookie
-        ?.split(";")
-        .find((c) => c.trim().startsWith("accessToken="))
-        ?.split("=")[1];
-
-      const token = cookieToken || socket.handshake.auth.token;
+      const token = socket.handshake.auth.token;
       
       Logger.info(`[AUTH] Token found: ${!!token}`);
 

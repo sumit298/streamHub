@@ -121,6 +121,8 @@ const AuthController = {
         success: true,
         message: "User created successfully",
         user: user.getPublicProfile(),
+        accessToken: accessToken,
+        refreshToken: refreshToken,
       });
     } catch (error) {
       Logger.error("Registration error:", error);
@@ -177,37 +179,14 @@ const AuthController = {
         id: user._id.toString(),
       });
 
-      res.cookie("accessToken", accessToken, {
-        httpOnly: true,
-        secure: true,
-        sameSite: "none",
-        maxAge: 15 * 60 * 1000,
-        path: '/',
-      });
-
-      res.cookie("socketToken", accessToken, {
-        httpOnly: false,
-        secure: true,
-        sameSite: "none",
-        maxAge: 15 * 60 * 1000,
-        path: '/',
-      });
-
-      res.cookie("refreshToken", refreshToken, {
-        httpOnly: true,
-        secure: true,
-        sameSite: "none",
-        maxAge: 7 * 24 * 60 * 60 * 1000,
-        path: '/',
-      });
-
       Logger.info(`User ${user.username} logged in successfully`);
 
       res.status(200).json({
         success: true,
         message: "Login successful",
         user: user.getPublicProfile(),
-        token: accessToken,
+        accessToken: accessToken,
+        refreshToken: refreshToken,
       });
     } catch (error) {
       Logger.error("Login error:", error);
@@ -225,7 +204,8 @@ const AuthController = {
 
   refreshToken: async (req: Request, res: Response): Promise<void> => {
     try {
-      const token = req.cookies?.refreshToken;
+      const authHeader = req.headers.authorization;
+      const token = authHeader?.startsWith('Bearer ') ? authHeader.substring(7) : null;
 
       if (!token) {
         throw new AuthenticationError("No refresh token found");
@@ -245,18 +225,11 @@ const AuthController = {
         role: user.role,
       });
 
-      res.cookie("accessToken", newAccessToken, {
-        httpOnly: true,
-        secure: true,
-        sameSite: "none",
-        maxAge: 15 * 60 * 1000,
-        path: '/',
-      });
-
       Logger.info("Token refreshed successfully");
 
       res.status(200).json({
         success: true,
+        accessToken: newAccessToken,
       });
     } catch (error) {
       Logger.error("Token refresh error:", error);
@@ -432,33 +405,11 @@ const AuthController = {
 
   logout: async (req: AuthenticatedRequest, res: Response): Promise<void> => {
     try {
-      // Clear cache if available
       if (req.userId && req.cacheService) {
         await req.cacheService.del(`user:${req.userId}`);
       }
 
       Logger.info(`User ${req.userId} logged out`);
-
-      res.clearCookie("accessToken", {
-        httpOnly: true,
-        secure: true,
-        sameSite: "none",
-        path: '/',
-      });
-
-      res.clearCookie("socketToken", {
-        httpOnly: false,
-        secure: true,
-        sameSite: "none",
-        path: '/',
-      });
-
-      res.clearCookie("refreshToken", {
-        httpOnly: true,
-        secure: true,
-        sameSite: "none",
-        path: '/',
-      });
 
       res.status(200).json({
         success: true,

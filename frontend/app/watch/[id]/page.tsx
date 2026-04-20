@@ -202,11 +202,14 @@ const WatchPage = () => {
       );
 
       const socketStart = performance.now();
+      const { getSocketAuth } = useAuth();
+      const authData = getSocketAuth();
+      
       const newSocket = io(
         process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:3001",
         {
-          withCredentials: true,
           transports: ["websocket", "polling"],
+          auth: authData,
         },
       );
       console.log(

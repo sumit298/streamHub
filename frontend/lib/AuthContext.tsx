@@ -6,6 +6,7 @@ import axios from "axios";
 interface AuthContextType {
   user: any;
   login: (email: string, password: string) => void;
+  register: (username: string, email: string, password: string) => void;
   logout: () => void;
   loading: boolean;
   getSocketAuth: () => { token?: string };
@@ -15,11 +16,17 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 const api = axios.create({
   baseURL: process.env.NEXT_PUBLIC_API_URL,
-  withCredentials: true,
   headers: {
     "Content-Type": "application/json",
-    "X-Requested-With": "XMLHttpRequest", 
   },
+});
+
+api.interceptors.request.use((config) => {
+  const token = sessionStorage.getItem('accessToken');
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
 });
 
 type QueueItems = {
@@ -72,10 +79,19 @@ api.interceptors.response.use(
       isRefreshing = true;
 
       try {
-        await api.post("/api/auth/refresh-token");
+        const refreshToken = sessionStorage.getItem('refreshToken');
+        if (!refreshToken) throw new Error('No refresh token');
+        
+        const { data } = await api.post("/api/auth/refresh-token", {}, {
+          headers: { Authorization: `Bearer ${refreshToken}` }
+        });
+        
+        sessionStorage.setItem('accessToken', data.accessToken);
         processQueue(null);
         return api(originalRequest);
       } catch (refreshError) {
+        sessionStorage.removeItem('accessToken');
+        sessionStorage.removeItem('refreshToken');
         window.location.href = "/login";
         processQueue(refreshError as Error);
         return Promise.reject(refreshError);
@@ -88,16 +104,15 @@ api.interceptors.response.use(
   },
 );
 
-export function AuthProvider({ children }: { children: React.ReactNode }) {
+export function AuthProvider({ children }: { children: React.ReactNode}) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [token, setToken] = useState<string | null>(null);
 
   useEffect(() => {
-    const savedToken = localStorage.getItem('token');
-    if (savedToken) {
-      setToken(savedToken);
-      api.defaults.headers.common['Authorization'] = `Bearer ${savedToken}`;
+    const token = sessionStorage.getItem('accessToken');
+    if (!token) {
+      setLoading(false);
+      return;
     }
     
     api
@@ -105,8 +120,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       .then((res) => setUser(res.data.user))
       .catch((err) => {
         console.error("Error fetching user data:", err);
-        localStorage.removeItem('token');
-        setToken(null);
+        sessionStorage.removeItem('accessToken');
+        sessionStorage.removeItem('refreshToken');
       })
       .finally(() => setLoading(false));
   }, []);
@@ -115,11 +130,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const { data } = await api.post("/api/auth/login", { email, password });
     if (data.user) {
       setUser(data.user);
-      if (data.token) {
-        setToken(data.token);
-        localStorage.setItem('token', data.token);
-        api.defaults.headers.common['Authorization'] = `Bearer ${data.token}`;
-      }
+      sessionStorage.setItem('accessToken', data.accessToken);
+      sessionStorage.setItem('refreshToken', data.refreshToken);
+    }
+    return data;
+  };
+
+  const register = async (username: string, email: string, password: string) => {
+    const { data } = await api.post("/api/auth/register", { username, email, password });
+    if (data.user) {
+      setUser(data.user);
+      sessionStorage.setItem('accessToken', data.accessToken);
+      sessionStorage.setItem('refreshToken', data.refreshToken);
     }
     return data;
   };
@@ -127,17 +149,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const logout = async () => {
     await api.post("/api/auth/logout");
     setUser(null);
-    setToken(null);
-    localStorage.removeItem('token');
-    delete api.defaults.headers.common['Authorization'];
+    sessionStorage.removeItem('accessToken');
+    sessionStorage.removeItem('refreshToken');
   };
 
   const getSocketAuth = () => {
+    const token = sessionStorage.getItem('accessToken');
     return token ? { token } : {};
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, loading, getSocketAuth }}>
+    <AuthContext.Provider value={{ user, login, register, logout, loading, getSocketAuth }}>
       {children}
     </AuthContext.Provider>
   );
