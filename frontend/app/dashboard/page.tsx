@@ -85,9 +85,21 @@ const Dashboard = () => {
     : null;
 
   useEffect(() => {
+    const getTokenFromCookie = () => {
+      if (typeof document === 'undefined') return null;
+      const cookies = document.cookie.split(';');
+      const tokenCookie = cookies.find(c => c.trim().startsWith('accessToken='));
+      return tokenCookie ? tokenCookie.split('=')[1] : null;
+    };
+
+    const token = getTokenFromCookie();
     const newSocket = io(
       process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001",
-      { withCredentials: true, transports: ["websocket", "polling"] },
+      { 
+        withCredentials: true, 
+        transports: ["websocket", "polling"],
+        auth: token ? { token } : undefined,
+      },
     );
 
     newSocket.on(
