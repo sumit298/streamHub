@@ -56,10 +56,8 @@
     "@types/nodemailer": "^7.0.11",
     "@types/sanitize-html": "^2.16.1",
     "@types/uuid": "^10.0.0",
-    "axios": "^1.5.0",
-    "socket.io-client": "^4.8.1",
     "tsx": "^4.21.0",
-    "typescript": "^6.0.2"
+    "typescript": "^6.0.2",
     "axios": "^1.15.0",
     "socket.io-client": "^4.8.1"
   }
