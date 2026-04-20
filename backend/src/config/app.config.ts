@@ -15,6 +15,9 @@ import { requireCustomHeader } from "@middleware/csrf.middleware";
 export function createExpressApp(): express.Application {
   const app = express();
 
+  // Trust proxy for Vercel/reverse proxies
+  app.set('trust proxy', 1);
+
   // Security middleware
   if (process.env.NODE_ENV !== "test") {
     app.use(helmet());

@@ -8,6 +8,7 @@ interface AuthContextType {
   login: (email: string, password: string) => void;
   logout: () => void;
   loading: boolean;
+  getSocketAuth: () => { token?: string };
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -112,8 +113,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(null);
   };
 
+  const getSocketAuth = () => {
+    // httpOnly cookies can't be read by JS, so we rely on withCredentials
+    // But for explicit auth parameter, we return empty object
+    return {};
+  };
+
   return (
-    <AuthContext.Provider value={{ user, login, logout, loading }}>
+    <AuthContext.Provider value={{ user, login, logout, loading, getSocketAuth }}>
       {children}
     </AuthContext.Provider>
   );

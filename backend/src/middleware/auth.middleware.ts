@@ -114,8 +114,10 @@ class AuthMiddleWare {
       Logger.info(`[AUTH] Token found: ${!!token}`);
 
       if (!token) {
-        Logger.warn(`[AUTH] No token for socket: ${socket.id}`);
-        return next(new Error("Authentication required"));
+        Logger.warn(`[AUTH] No token for socket: ${socket.id} - allowing unauthenticated connection`);
+        socket.userId = undefined;
+        socket.user = undefined;
+        return next();
       }
 
       jwt.verify(
