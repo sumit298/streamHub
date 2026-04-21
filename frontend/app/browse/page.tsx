@@ -109,15 +109,16 @@ const BrowsePage = () => {
       return;
     }
     
-    const authData = getSocketAuth();
-    
-    // Wait for token to be available before connecting
-    if (!authData.token) {
-      console.log('[BROWSE] No token yet, will retry when user is loaded');
+    // Only initialize socket when user is authenticated
+    if (!user) {
+      console.log('[BROWSE] User not loaded yet, waiting...');
       return;
     }
     
     socketInitialized.current = true;
+    const authData = getSocketAuth();
+    
+    console.log('[BROWSE] Initializing socket with auth:', !!authData.token);
 
     // Connect to Socket.IO for real-time viewer counts
     const newSocket = io(
@@ -145,7 +146,7 @@ const BrowsePage = () => {
     return () => {
       newSocket.close();
     };
-  }, [user]);
+  }, [user, getSocketAuth]);
 
   // Subscribe to viewer count updates for live streams
   useEffect(() => {

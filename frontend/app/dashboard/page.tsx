@@ -92,8 +92,16 @@ const Dashboard = () => {
       return;
     }
     
+    // Only initialize socket when user is authenticated
+    if (!user) {
+      console.log('[DASHBOARD] User not loaded yet, waiting...');
+      return;
+    }
+    
     socketInitialized.current = true;
     const authData = getSocketAuth();
+    
+    console.log('[DASHBOARD] Initializing socket with auth:', !!authData.token);
     
     const newSocket = io(
       process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001",
@@ -118,7 +126,7 @@ const Dashboard = () => {
     return () => {
       newSocket.close();
     };
-  }, []);
+  }, [user, getSocketAuth]);
 
   useEffect(() => {
     if (socket && streams.length > 0) {
