@@ -12,7 +12,7 @@ import { getAvatarUrl } from "@/lib/avatar";
 
 const WatchPage = () => {
   const params = useParams();
-  const { user } = useAuth();
+  const { user, getSocketAuth } = useAuth();
   const videoRef = useRef<HTMLVideoElement>(null);
   const pipVideoRef = useRef<HTMLVideoElement>(null);
   const cameraStreamRef = useRef<MediaStream | null>(null);
@@ -202,7 +202,6 @@ const WatchPage = () => {
       );
 
       const socketStart = performance.now();
-      const { getSocketAuth } = useAuth();
       const authData = getSocketAuth();
       
       const newSocket = io(

@@ -148,11 +148,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const login = async (email: string, password: string) => {
     const { data } = await api.post("/api/auth/login", { email, password });
+    console.log('[AUTH] Login response:', data);
     if (data.user) {
       setUser(data.user);
       // Backend must return accessToken and refreshToken in response body
-      if (data.accessToken) sessionStorage.setItem("accessToken", data.accessToken);
-      if (data.refreshToken) sessionStorage.setItem("refreshToken", data.refreshToken);
+      if (data.accessToken) {
+        sessionStorage.setItem("accessToken", data.accessToken);
+        console.log('[AUTH] Access token saved to sessionStorage');
+      }
+      if (data.refreshToken) {
+        sessionStorage.setItem("refreshToken", data.refreshToken);
+        console.log('[AUTH] Refresh token saved to sessionStorage');
+      }
     }
     return data;
   };

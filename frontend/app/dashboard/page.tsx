@@ -7,6 +7,7 @@ import type { AxiosError } from "axios";
 import { io, Socket } from "socket.io-client";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
+import { useRef } from "react";
 
 interface Stream {
   id: string;
@@ -54,6 +55,7 @@ const Dashboard = () => {
   const [socket, setSocket] = useState<Socket | null>(null);
   const { user, getSocketAuth } = useAuth();
   const router = useRouter();
+  const socketInitialized = useRef(false);
 
   const {
     data: streamsData,
@@ -85,6 +87,12 @@ const Dashboard = () => {
     : null;
 
   useEffect(() => {
+    if (socketInitialized.current) {
+      console.log('[DASHBOARD] Socket already initialized, skipping');
+      return;
+    }
+    
+    socketInitialized.current = true;
     const authData = getSocketAuth();
     
     const newSocket = io(

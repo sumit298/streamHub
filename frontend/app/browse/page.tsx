@@ -1,7 +1,7 @@
 "use client";
 import { Sidebar } from "@/components/Sidebar";
 import { Navbar } from "@/components/ui/Navbar";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { api, useAuth } from "@/lib/AuthContext";
 import { io, Socket } from "socket.io-client";
 import { useRouter } from "next/navigation";
@@ -32,6 +32,7 @@ const BrowsePage = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const socketInitialized = useRef(false);
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(searchQuery), 400);
@@ -103,7 +104,20 @@ const BrowsePage = () => {
   }, [filter]);
 
   useEffect(() => {
+    if (socketInitialized.current) {
+      console.log('[BROWSE] Socket already initialized, skipping');
+      return;
+    }
+    
     const authData = getSocketAuth();
+    
+    // Wait for token to be available before connecting
+    if (!authData.token) {
+      console.log('[BROWSE] No token yet, will retry when user is loaded');
+      return;
+    }
+    
+    socketInitialized.current = true;
 
     // Connect to Socket.IO for real-time viewer counts
     const newSocket = io(
@@ -131,7 +145,7 @@ const BrowsePage = () => {
     return () => {
       newSocket.close();
     };
-  }, []);
+  }, [user]);
 
   // Subscribe to viewer count updates for live streams
   useEffect(() => {
