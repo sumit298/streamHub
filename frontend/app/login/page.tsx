@@ -60,7 +60,7 @@ const Login = () => {
       router.push("/dashboard");
 
       // Handle successful login here
-    } catch (error) {
+    } catch (error: any) {
       if (error instanceof z.ZodError) {
         const newErrors = {
           email: "",
@@ -73,7 +73,22 @@ const Login = () => {
         });
         setErrors(newErrors);
       } else {
-        toast.error("Login failed");
+        // Handle API errors (401, 500, etc.)
+        const errorData = error?.response?.data;
+        let errorMessage = "Login failed. Please check your credentials.";
+        
+        if (typeof errorData === 'string') {
+          errorMessage = errorData;
+        } else if (errorData?.error?.message) {
+          // Backend sends: { success: false, error: { message, code, statusCode } }
+          errorMessage = errorData.error.message;
+        } else if (errorData?.message) {
+          errorMessage = errorData.message;
+        } else if (errorData?.error && typeof errorData.error === 'string') {
+          errorMessage = errorData.error;
+        }
+        
+        toast.error(errorMessage);
       }
     }
     finally{

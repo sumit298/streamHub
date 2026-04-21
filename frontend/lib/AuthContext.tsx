@@ -62,6 +62,14 @@ api.interceptors.response.use(
       return Promise.resolve({ data: { user: null } });
     }
 
+    // Don't try to refresh token for login/register endpoints
+    if (
+      originalRequest.url?.includes("/api/auth/login") ||
+      originalRequest.url?.includes("/api/auth/register")
+    ) {
+      return Promise.reject(error);
+    }
+
     // Don't retry if already retried or if this is the refresh endpoint
     if (
       error.response?.status === 401 &&
@@ -173,6 +181,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const getSocketAuth = () => {
     if (typeof window === "undefined") return {};
     const token = sessionStorage.getItem("accessToken");
+    console.log('[FRONTEND AUTH] getSocketAuth called');
+    console.log('[FRONTEND AUTH] Token found:', !!token);
+    console.log('[FRONTEND AUTH] Token (first 50):', token?.substring(0, 50));
+    console.log('[FRONTEND AUTH] Token length:', token?.length);
     return token ? { token } : {};
   };
 

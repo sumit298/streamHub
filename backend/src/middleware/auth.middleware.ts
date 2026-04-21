@@ -107,6 +107,9 @@ class AuthMiddleWare {
       const token = socket.handshake.auth.token;
       
       Logger.info(`[AUTH] Token found: ${!!token}`);
+      Logger.info(`[AUTH] Raw token (first 50): ${token?.substring(0, 50)}`);
+      Logger.info(`[AUTH] Token length: ${token?.length}`);
+      Logger.info(`[AUTH] Full auth object: ${JSON.stringify(socket.handshake.auth)}`);
 
       if (!token) {
         Logger.warn(`[AUTH] No token for socket: ${socket.id} - allowing unauthenticated connection`);

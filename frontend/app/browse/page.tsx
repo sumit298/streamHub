@@ -27,7 +27,7 @@ const BrowsePage = () => {
   const limit = 8;
   const [socket, setSocket] = useState<Socket | null>(null);
   const [filter, setFilter] = useState<"all" | "my" | "community">("all");
-  const { user } = useAuth();
+  const { user, getSocketAuth } = useAuth();
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
@@ -103,6 +103,7 @@ const BrowsePage = () => {
   }, [filter]);
 
   useEffect(() => {
+    const authData = getSocketAuth();
 
     // Connect to Socket.IO for real-time viewer counts
     const newSocket = io(
@@ -110,6 +111,7 @@ const BrowsePage = () => {
       {
         withCredentials: true,
         transports: ["websocket", "polling"],
+        auth: authData,
       },
     );
 

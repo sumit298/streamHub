@@ -100,7 +100,7 @@ const Register = () => {
             // reset the state
 
             // Handle successful registration here
-        } catch (error) {
+        } catch (error: any) {
             if (error instanceof z.ZodError) {
                 const newErrors = {
                     username: "",
@@ -115,7 +115,22 @@ const Register = () => {
                 });
                 setErrors(newErrors);
             } else {
-                toast.error("Registration failed");
+                // Handle API errors (409 for duplicate user, 500, etc.)
+                const errorData = error?.response?.data;
+                let errorMessage = "Registration failed. Please try again.";
+                
+                if (typeof errorData === 'string') {
+                    errorMessage = errorData;
+                } else if (errorData?.error?.message) {
+                    // Backend sends: { success: false, error: { message, code, statusCode } }
+                    errorMessage = errorData.error.message;
+                } else if (errorData?.message) {
+                    errorMessage = errorData.message;
+                } else if (errorData?.error && typeof errorData.error === 'string') {
+                    errorMessage = errorData.error;
+                }
+                
+                toast.error(errorMessage);
             }
         } finally {
             setIsLoading(false);

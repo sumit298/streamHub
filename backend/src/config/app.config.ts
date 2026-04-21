@@ -53,7 +53,7 @@ export function createExpressApp(): express.Application {
 
   const authLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
-    max: 200,
+    max: 500,
     message: "Too many authentication requests",
     skip: (req) => {
       return (
