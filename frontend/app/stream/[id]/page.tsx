@@ -4,7 +4,7 @@ import { useParams } from "next/navigation";
 import { Device, types } from "mediasoup-client";
 import { io, Socket } from "socket.io-client";
 import toast from "react-hot-toast";
-import { useAuth } from "@/lib/AuthContext";
+import { api, useAuth } from "@/lib/AuthContext";
 import ChatPanel from "@/components/ChatPanel";
 import BottomControlBar from "@/components/BottomControlBar";
 import ViewerStats from "@/components/ViewerStats";
@@ -86,17 +86,8 @@ const StreamsPage = ({ isStreamer = true }) => {
     // Fetch stream info
     const fetchStreamInfo = async () => {
       try {
-        const response = await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001"
-          }/api/streams/${params.id}`,
-          {
-            credentials: "include",
-          }
-        );
-        if (response.ok) {
-          const data = await response.json();
-          setStreamInfo(data.stream);
-        }
+        const { data } = await api.get(`/api/streams/${params.id}`);
+        setStreamInfo(data.stream);
       } catch (error) {
         console.error("Failed to fetch stream info:", error);
       }
@@ -498,27 +489,7 @@ const StreamsPage = ({ isStreamer = true }) => {
       audioProducerRef.current = audioProducer;
       setProducer({ video: videoProducer, audio: audioProducer });
 
-      const patchResponse = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001"
-        }/api/streams/${params.id}`,
-        {
-          method: "PATCH",
-          credentials: "include",
-
-          headers: {
-            "Content-Type": "application/json",
-              // ADD
-
-          },
-          body: JSON.stringify({
-            isLive: true,
-          }),
-        }
-      );
-
-      if (!patchResponse.ok) {
-        throw new Error("Failed to update stream status");
-      }
+      await api.patch(`/api/streams/${params.id}`, { isLive: true });
 
       setIsStreaming(true);
       toast.success("Stream started successfully", { position: "bottom-left" });
@@ -555,31 +526,10 @@ const StreamsPage = ({ isStreamer = true }) => {
         stopScreenShare()
       }
 
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001"
-        }/api/streams/${params.id}/end`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            
-          },
-
-          credentials: "include",
-        }
-      );
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        console.error("End stream error:", response.status, errorData);
-        throw new Error(errorData.error || "Failed to end stream");
-      }
+      const { data } = await api.post(`/api/streams/${params.id}/end`);
 
       // Notify backend that stream ended
       socket?.emit("stream-ended", { streamId: params.id });
-
-      // Fetch duration from backend response
-      const data = await response.json();
       console.log("🎥 STREAMER received duration:", data.duration);
       setStreamStartTime(null);
       setIsStreaming(false);
@@ -620,13 +570,10 @@ const StreamsPage = ({ isStreamer = true }) => {
           ? Date.now() - recordingStartTimeRef.current
           : 0;
         try {
-          await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001"}/api/vods/recording-end`, {
-            method: 'POST',
-            credentials: 'include',
-            headers: { 'Content-Type': 'application/json',
-              
-             },
-            body: JSON.stringify({ streamId: params.id, recordingId: recordingIdRef.current, durationMs }),
+          await api.post('/api/vods/recording-end', {
+            streamId: params.id,
+            recordingId: recordingIdRef.current,
+            durationMs
           });
         } catch (err) {
           console.error('recording-end failed:', err);
@@ -670,10 +617,8 @@ const StreamsPage = ({ isStreamer = true }) => {
         formData.append('streamId', params.id as string);
         formData.append('recordingId', recordingIdRef.current as string);
 
-        fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001"}/api/vods/upload-chunk`, {
-          method: 'POST',
-          credentials: 'include',
-          body: formData,
+        api.post('/api/vods/upload-chunk', formData, {
+          headers: { 'Content-Type': 'multipart/form-data' }
         }).catch(err => console.error('Upload chunk failed:', err));
       }
     };
@@ -707,14 +652,10 @@ const StreamsPage = ({ isStreamer = true }) => {
           const durationMs = recordingStartTimeRef.current
             ? Date.now() - recordingStartTimeRef.current
             : 0;
-          fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001"}/api/vods/recording-end`, {
-            method: 'POST',
-            credentials: 'include',
-            headers: {
-              'Content-Type': 'application/json',
-              
-            },
-            body: JSON.stringify({ streamId: params.id, recordingId: recordingIdRef.current, durationMs }),
+          api.post('/api/vods/recording-end', {
+            streamId: params.id,
+            recordingId: recordingIdRef.current,
+            durationMs
           }).catch(err => console.error('recording-end (camera→screen) failed:', err));
         }
 
@@ -740,13 +681,8 @@ const StreamsPage = ({ isStreamer = true }) => {
             formData.append('streamId', params.id as string);
             formData.append('recordingId', recordingIdRef.current as string);
 
-            fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001"}/api/vods/upload-chunk`, {
-              method: 'POST',
-              credentials: 'include',
-              headers: {
-                
-              },
-              body: formData,
+            api.post('/api/vods/upload-chunk', formData, {
+              headers: { 'Content-Type': 'multipart/form-data' }
             }).catch(err => console.error('Upload chunk failed:', err));
           }
         };
@@ -851,13 +787,8 @@ const StreamsPage = ({ isStreamer = true }) => {
           formData.append('chunk', e.data);
           formData.append('streamId', params.id as string);
 
-          fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001"}/api/vods/upload-chunk`, {
-            method: 'POST',
-            credentials: 'include',
-            headers: {
-              
-            },
-            body: formData,
+          api.post('/api/vods/upload-chunk', formData, {
+            headers: { 'Content-Type': 'multipart/form-data' }
           }).catch(err => console.error('Upload chunk failed:', err));
         }
       };
