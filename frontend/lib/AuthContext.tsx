@@ -93,8 +93,12 @@ api.interceptors.response.use(
         if (typeof window === "undefined") throw new Error("SSR");
 
         const refreshToken = sessionStorage.getItem("refreshToken");
-        if (!refreshToken) throw new Error("No refresh token");
+        if (!refreshToken) {
+          console.error('[AUTH] No refresh token found in sessionStorage');
+          throw new Error("No refresh token");
+        }
 
+        console.log('[AUTH] Attempting to refresh access token...');
         const { data } = await api.post(
           "/api/auth/refresh-token",
           {},
@@ -103,10 +107,18 @@ api.interceptors.response.use(
           }
         );
 
-        sessionStorage.setItem("accessToken", data.accessToken);
+        if (data.accessToken) {
+          sessionStorage.setItem("accessToken", data.accessToken);
+          console.log('[AUTH] Access token refreshed and saved');
+        } else {
+          console.error('[AUTH] No access token in refresh response');
+          throw new Error("No access token in refresh response");
+        }
+        
         processQueue(null);
         return api(originalRequest);
       } catch (refreshError) {
+        console.error('[AUTH] Token refresh failed:', refreshError);
         if (typeof window !== "undefined") {
           sessionStorage.removeItem("accessToken");
           sessionStorage.removeItem("refreshToken");
@@ -146,19 +158,64 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       .finally(() => setLoading(false));
   }, []);
 
+  // Proactive token refresh every 10 minutes
+  useEffect(() => {
+    if (!user) return;
+
+    const refreshInterval = setInterval(async () => {
+      try {
+        const refreshToken = sessionStorage.getItem("refreshToken");
+        if (!refreshToken) {
+          console.log('[AUTH] No refresh token, skipping proactive refresh');
+          return;
+        }
+
+        console.log('[AUTH] Proactively refreshing access token...');
+        const { data } = await api.post(
+          "/api/auth/refresh-token",
+          {},
+          {
+            headers: { Authorization: `Bearer ${refreshToken}` },
+          }
+        );
+
+        if (data.accessToken) {
+          sessionStorage.setItem("accessToken", data.accessToken);
+          console.log('[AUTH] Access token refreshed successfully');
+        }
+      } catch (error) {
+        console.error('[AUTH] Proactive token refresh failed:', error);
+        // Don't logout on proactive refresh failure - let the interceptor handle it
+      }
+    }, 10 * 60 * 1000); // Every 10 minutes
+
+    return () => clearInterval(refreshInterval);
+  }, [user]);
+
   const login = async (email: string, password: string) => {
     const { data } = await api.post("/api/auth/login", { email, password });
-    console.log('[AUTH] Login response:', data);
+    console.log('[AUTH] Login response:', {
+      hasUser: !!data.user,
+      hasAccessToken: !!data.accessToken,
+      hasRefreshToken: !!data.refreshToken,
+      accessTokenLength: data.accessToken?.length,
+      refreshTokenLength: data.refreshToken?.length,
+    });
+    
     if (data.user) {
       setUser(data.user);
       // Backend must return accessToken and refreshToken in response body
       if (data.accessToken) {
         sessionStorage.setItem("accessToken", data.accessToken);
         console.log('[AUTH] Access token saved to sessionStorage');
+      } else {
+        console.error('[AUTH] No access token in login response!');
       }
       if (data.refreshToken) {
         sessionStorage.setItem("refreshToken", data.refreshToken);
         console.log('[AUTH] Refresh token saved to sessionStorage');
+      } else {
+        console.error('[AUTH] No refresh token in login response!');
       }
     }
     return data;
