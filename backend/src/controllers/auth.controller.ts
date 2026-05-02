@@ -97,6 +97,7 @@ const AuthController = {
 
       const refreshToken = AuthMiddleware.createRefreshToken({
         id: user._id.toString(),
+        tokenVersion: user.tokenVersion,
       });
 
       Logger.info(`User ${username} registered successfully`);
@@ -161,6 +162,7 @@ const AuthController = {
 
       const refreshToken = AuthMiddleware.createRefreshToken({
         id: user._id.toString(),
+        tokenVersion: user.tokenVersion,
       });
 
       Logger.info(`User ${user.username} logged in successfully`);
@@ -189,7 +191,9 @@ const AuthController = {
   refreshToken: async (req: Request, res: Response): Promise<void> => {
     try {
       const authHeader = req.headers.authorization;
-      const token = authHeader?.startsWith('Bearer ') ? authHeader.substring(7) : null;
+      const token = authHeader?.startsWith("Bearer ")
+        ? authHeader.substring(7)
+        : null;
 
       if (!token) {
         throw new AuthenticationError("No refresh token found");
@@ -203,10 +207,21 @@ const AuthController = {
         throw new AuthenticationError("User not found or inactive");
       }
 
+      if (decoded.tokenVersion !== user.tokenVersion) {
+        throw new AuthenticationError("token has been revoked");
+      }
+      user.tokenVersion += 1;
+      await user.save();
+
       const newAccessToken = AuthMiddleware.createAccessToken({
         id: decoded.userId,
         username: user.username,
         role: user.role,
+      });
+
+      const newRefreshToken = AuthMiddleware.createRefreshToken({
+        id: decoded.userId,
+        tokenVersion: user.tokenVersion,
       });
 
       Logger.info("Token refreshed successfully");
@@ -214,6 +229,7 @@ const AuthController = {
       res.status(200).json({
         success: true,
         accessToken: newAccessToken,
+        refreshToken: newRefreshToken,
       });
     } catch (error) {
       Logger.error("Token refresh error:", error);
@@ -389,8 +405,13 @@ const AuthController = {
 
   logout: async (req: AuthenticatedRequest, res: Response): Promise<void> => {
     try {
-      if (req.userId && req.cacheService) {
-        await req.cacheService.del(`user:${req.userId}`);
+      if (req.userId) {
+        // Increment tokenVersion to invalidate all refresh tokens
+        await User.findByIdAndUpdate(req.userId, { $inc: { tokenVersion: 1 } });
+
+        if (req.cacheService) {
+          await req.cacheService.del(`user:${req.userId}`);
+        }
       }
 
       Logger.info(`User ${req.userId} logged out`);
@@ -507,7 +528,10 @@ const AuthController = {
       const hashed = await bcrypt.hash(password, 12);
 
       // Update user password
-      await User.findByIdAndUpdate(userId, { password: hashed });
+      await User.findByIdAndUpdate(userId, {
+        password: hashed,
+        $inc: { tokenVersion: 1 },
+      });
 
       // Delete reset token from cache
       if (req.cacheService?.client) {
