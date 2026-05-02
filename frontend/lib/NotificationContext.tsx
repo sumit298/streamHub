@@ -20,18 +20,18 @@ export function NotificationProvider({
   children: React.ReactNode;
 }) {
   const [socket, setSocket] = useState<Socket | null>(null);
-  const { user } = useAuth();
+  const { user, getSocketAuth } = useAuth();
 
   useEffect(() => {
     if (!user) return;
 
-    const token = sessionStorage.getItem("token");
+    const authData = getSocketAuth();
     const newSocket = io(
       process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001",
       {
         withCredentials: true,
         transports: ["websocket", "polling"],
-        auth: { token },
+        auth: authData,
       },
     );
 
