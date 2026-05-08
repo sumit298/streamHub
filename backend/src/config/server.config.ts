@@ -15,12 +15,8 @@ export function createServer(app: Application, logger: Logger): ServerConfig {
 
   if (process.env.NODE_ENV === "production") {
     const httpsOptions = {
-      key: fs.readFileSync(
-        "/etc/letsencrypt/live/stream-hub.duckdns.org-0001/privkey.pem",
-      ),
-      cert: fs.readFileSync(
-        "/etc/letsencrypt/live/stream-hub.duckdns.org-0001/fullchain.pem",
-      ),
+      key: fs.readFileSync(process.env.SSL_KEY_PATH!),
+      cert: fs.readFileSync(process.env.SSL_CERT_PATH!),
     };
 
     server = https.createServer(httpsOptions, app);
