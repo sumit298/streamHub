@@ -13,11 +13,16 @@ export interface ServerConfig {
 export function createServer(app: Application, logger: Logger): ServerConfig {
   let server: http.Server | https.Server;
 
-  if (process.env.NODE_ENV === "production" && fs.existsSync("./fullchain.pem")) {
+  if (process.env.NODE_ENV === "production") {
     const httpsOptions = {
-      key: fs.readFileSync("./privkey.pem"),
-      cert: fs.readFileSync("./fullchain.pem"),
+      key: fs.readFileSync(
+        "/etc/letsencrypt/live/stream-hub.duckdns.org-0001/privkey.pem",
+      ),
+      cert: fs.readFileSync(
+        "/etc/letsencrypt/live/stream-hub.duckdns.org-0001/fullchain.pem",
+      ),
     };
+
     server = https.createServer(httpsOptions, app);
     logger.info("Using HTTPS server");
   } else {
