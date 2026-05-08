@@ -88,24 +88,24 @@ const Dashboard = () => {
 
   useEffect(() => {
     if (socketInitialized.current) {
-      console.log('[DASHBOARD] Socket already initialized, skipping');
+      console.log("[DASHBOARD] Socket already initialized, skipping");
       return;
     }
-    
+
     // Only initialize socket when user is authenticated
     if (!user) {
-      console.log('[DASHBOARD] User not loaded yet, waiting...');
+      console.log("[DASHBOARD] User not loaded yet, waiting...");
       return;
     }
-    
+
     socketInitialized.current = true;
     const authData = getSocketAuth();
-    
-    console.log('[DASHBOARD] Initializing socket with auth:', !!authData.token);
-    
+
+    console.log("[DASHBOARD] Initializing socket with auth:", !!authData.token);
+
     const newSocket = io(
       process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001",
-      { 
+      {
         transports: ["websocket", "polling"],
         auth: authData,
       },
@@ -284,6 +284,9 @@ const Dashboard = () => {
                             <h3 className="font-semibold truncate text-sm">
                               {stream.title}
                             </h3>
+                            <p className="text-xs text-gray-400 mt-0.5">
+                              by {stream.streamer?.username || "Unknown"}
+                            </p>
                             <div className="flex items-center justify-between mt-1.5">
                               <p className="text-xs text-gray-500">
                                 {stream.isLive
