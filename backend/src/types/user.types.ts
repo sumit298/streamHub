@@ -28,6 +28,7 @@ export interface IUser extends Document {
   stats: IUserStats;
   createdAt: Date;
   updatedAt: Date;
+  tokenVersion: number;
   // instance methods
   comparePassword(candidatePassword: string): Promise<boolean>;
   getPublicProfile(): Record<string, unknown>;

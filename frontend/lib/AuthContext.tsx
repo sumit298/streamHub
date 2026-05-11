@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useEffect, useState, useContext } from "react";
+import { createContext, useEffect, useState, useContext, useRef } from "react";
 import axios from "axios";
 
 interface AuthContextType {
@@ -107,14 +107,21 @@ api.interceptors.response.use(
           }
         );
 
+        if(data.refreshToken){
+          sessionStorage.setItem("refreshToken", data.refreshToken);
+          console.log('[AUTH] Refresh token updated');
+        }
+
         if (data.accessToken) {
           sessionStorage.setItem("accessToken", data.accessToken);
           console.log('[AUTH] Access token refreshed and saved');
-        } else {
+
+        }
+        else {
           console.error('[AUTH] No access token in refresh response');
           throw new Error("No access token in refresh response");
         }
-        
+
         processQueue(null);
         return api(originalRequest);
       } catch (refreshError) {
@@ -135,10 +142,14 @@ api.interceptors.response.use(
   }
 );
 
+
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
-
+  const refreshPromiseRef = useRef<Promise<any> | null>(null);
+  const lastRefreshTime = useRef(Date.now());
+  
   useEffect(() => {
     // useEffect only runs client-side — sessionStorage is safe here
     const token = sessionStorage.getItem("accessToken");
@@ -158,65 +169,126 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       .finally(() => setLoading(false));
   }, []);
 
-  // Proactive token refresh every 10 minutes
+  // Proactive token refresh with activity detection
+  
   useEffect(() => {
     if (!user) return;
-
-    const refreshInterval = setInterval(async () => {
-      try {
-        const refreshToken = sessionStorage.getItem("refreshToken");
-        if (!refreshToken) {
-          console.log('[AUTH] No refresh token, skipping proactive refresh');
-          return;
-        }
-
-        console.log('[AUTH] Proactively refreshing access token...');
-        const { data } = await api.post(
-          "/api/auth/refresh-token",
-          {},
-          {
-            headers: { Authorization: `Bearer ${refreshToken}` },
-          }
-        );
-
-        if (data.accessToken) {
-          sessionStorage.setItem("accessToken", data.accessToken);
-          console.log('[AUTH] Access token refreshed successfully');
-        }
-      } catch (error) {
-        console.error('[AUTH] Proactive token refresh failed:', error);
-        // Don't logout on proactive refresh failure - let the interceptor handle it
+    const refreshAccessToken = async () => {
+      // ✅ MUTEX LOCK: Prevent concurrent refreshes
+      if (refreshPromiseRef.current) {
+        console.log('[AUTH] Refresh already in progress, waiting...');
+        return refreshPromiseRef.current;
       }
-    }, 10 * 60 * 1000); // Every 10 minutes
 
-    return () => clearInterval(refreshInterval);
+      refreshPromiseRef.current = (async () => {
+        try {
+          const refreshToken = sessionStorage.getItem("refreshToken");
+    
+          if (!refreshToken) {
+            console.log('[AUTH] No refresh token, skipping proactive refresh');
+            return;
+          }
+
+          console.log('[AUTH] Proactively refreshing access token...');
+          const { data } = await api.post(
+            "/api/auth/refresh-token",
+            {},
+            {
+              headers: { Authorization: `Bearer ${refreshToken}` },
+            }
+          );
+
+          if (data.accessToken) {
+            sessionStorage.setItem("accessToken", data.accessToken);
+            lastRefreshTime.current = Date.now();
+            console.log('[AUTH] Access token refreshed successfully');
+          }
+
+          if (data.refreshToken) {
+            sessionStorage.setItem("refreshToken", data.refreshToken);
+            console.log('[AUTH] Refresh token updated');
+          }
+
+          return data;
+        } catch (error) {
+          console.error('[AUTH] Proactive token refresh failed:', error);
+          throw error;
+        } finally {
+          // ✅ Always clear the promise when done
+          refreshPromiseRef.current = null;
+        }
+      })();
+
+      return refreshPromiseRef.current;
+    };
+
+    // Refresh every 10 minutes
+    let refreshInterval: NodeJS.Timeout;
+    refreshInterval = setInterval(refreshAccessToken, 10 * 60 * 1000);
+    // Refresh on visibility change (when user comes back to tab)
+
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        const timeSinceLastRefresh = Date.now() - lastRefreshTime.current;
+        // If more than 8 minutes since last refresh, refresh immediately
+        if (timeSinceLastRefresh > 8 * 60 * 1000) {
+          console.log('[AUTH] Tab became visible, refreshing token...');
+          refreshAccessToken();
+        }
+      }
+    };
+
+    // Refresh on user activity after idle period
+    const handleUserActivity = () => {
+      const timeSinceLastRefresh = Date.now() - lastRefreshTime.current;
+      // If more than 8 minutes since last refresh, refresh immediately
+      if (timeSinceLastRefresh > 8 * 60 * 1000) {
+        console.log('[AUTH] User activity detected, refreshing token...');
+        refreshAccessToken();
+      }
+    };
+
+    // Throttle activity handler to avoid too many calls
+    let activityTimeout: NodeJS.Timeout;
+    const throttledActivityHandler = () => {
+      if (activityTimeout) return;
+      activityTimeout = setTimeout(() => {
+        handleUserActivity();
+        activityTimeout = null as any;
+      }, 5000); // Check at most once every 5 seconds
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('mousemove', throttledActivityHandler);
+    window.addEventListener('keydown', throttledActivityHandler);
+    window.addEventListener('click', throttledActivityHandler);
+    window.addEventListener('scroll', throttledActivityHandler);
+
+    return () => {
+      clearInterval(refreshInterval);
+      if (activityTimeout) clearTimeout(activityTimeout);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('mousemove', throttledActivityHandler);
+      window.removeEventListener('keydown', throttledActivityHandler);
+      window.removeEventListener('click', throttledActivityHandler);
+      window.removeEventListener('scroll', throttledActivityHandler);
+    };
   }, [user]);
 
   const login = async (email: string, password: string) => {
     const { data } = await api.post("/api/auth/login", { email, password });
-    console.log('[AUTH] Login response:', {
-      hasUser: !!data.user,
-      hasAccessToken: !!data.accessToken,
-      hasRefreshToken: !!data.refreshToken,
-      accessTokenLength: data.accessToken?.length,
-      refreshTokenLength: data.refreshToken?.length,
-    });
-    
+
     if (data.user) {
-      setUser(data.user);
-      // Backend must return accessToken and refreshToken in response body
+      // Save tokens BEFORE setting user (to avoid race condition)
       if (data.accessToken) {
         sessionStorage.setItem("accessToken", data.accessToken);
-        console.log('[AUTH] Access token saved to sessionStorage');
-      } else {
-        console.error('[AUTH] No access token in login response!');
       }
       if (data.refreshToken) {
         sessionStorage.setItem("refreshToken", data.refreshToken);
-        console.log('[AUTH] Refresh token saved to sessionStorage');
-      } else {
-        console.error('[AUTH] No refresh token in login response!');
       }
+      
+      // Then set user (which triggers socket connections)
+      setUser(data.user);
     }
     return data;
   };
@@ -228,9 +300,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       password,
     });
     if (data.user) {
-      setUser(data.user);
+      // Save tokens BEFORE setting user
       if (data.accessToken) sessionStorage.setItem("accessToken", data.accessToken);
       if (data.refreshToken) sessionStorage.setItem("refreshToken", data.refreshToken);
+      
+      // Then set user
+      setUser(data.user);
     }
     return data;
   };
@@ -245,10 +320,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const getSocketAuth = () => {
     if (typeof window === "undefined") return {};
     const token = sessionStorage.getItem("accessToken");
-    console.log('[FRONTEND AUTH] getSocketAuth called');
-    console.log('[FRONTEND AUTH] Token found:', !!token);
-    console.log('[FRONTEND AUTH] Token (first 50):', token?.substring(0, 50));
-    console.log('[FRONTEND AUTH] Token length:', token?.length);
     return token ? { token } : {};
   };
 
