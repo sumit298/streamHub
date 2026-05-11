@@ -61,10 +61,8 @@
             return;
           }
 
-          if (decoded.exp * 1000 < Date.now()) {
-            res.status(401).json({ message: "Token expired." });
-            return;
-          }
+          // Token expiry is already validated by jwt.verify()
+          // No need for manual expiry check
 
           req.userId = decoded.userId;
 
@@ -106,10 +104,11 @@
       try {
         const token = socket.handshake.auth.token;
         
-        Logger.info(`[AUTH] Token found: ${!!token}`);
-        Logger.info(`[AUTH] Raw token (first 50): ${token?.substring(0, 50)}`);
-        Logger.info(`[AUTH] Token length: ${token?.length}`);
-        Logger.info(`[AUTH] Full auth object: ${JSON.stringify(socket.handshake.auth)}`);
+        // Only log in development mode
+        if (process.env.NODE_ENV === 'development') {
+          Logger.debug(`[AUTH] Token present: ${!!token}`);
+          Logger.debug(`[AUTH] Token length: ${token?.length}`);
+        }
 
         if (!token) {
           Logger.warn(`[AUTH] No token for socket: ${socket.id} - allowing unauthenticated connection`);
@@ -131,7 +130,9 @@
             }
 
             const payload = decoded as JWTPayload;
-            Logger.info(`[AUTH] Token decoded - userId: ${payload.userId}, username: ${payload.username}`);
+            if (process.env.NODE_ENV === 'development') {
+              Logger.debug(`[AUTH] Token decoded - userId: ${payload.userId}, username: ${payload.username}`);
+            }
 
             try {
               const user = await User.findById(payload.userId);
@@ -157,7 +158,9 @@
                 role: user.role || "viewer",
               };
               
-              Logger.info(`[AUTH] SUCCESS - socket.userId: ${socket.userId}, socket.data.username: ${socket.data.username}`);
+              if (process.env.NODE_ENV === 'development') {
+                Logger.debug(`[AUTH] SUCCESS - socket.userId: ${socket.userId}, socket.data.username: ${socket.data.username}`);
+              }
 
               next();
             } catch (dbError) {

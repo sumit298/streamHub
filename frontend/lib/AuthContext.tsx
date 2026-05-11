@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useEffect, useState, useContext } from "react";
+import { createContext, useEffect, useState, useContext, useRef } from "react";
 import axios from "axios";
 
 interface AuthContextType {
@@ -142,14 +142,14 @@ api.interceptors.response.use(
   }
 );
 
+
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
-
+  const refreshPromiseRef = useRef<Promise<any> | null>(null);
+  const lastRefreshTime = useRef(Date.now());
   
-
-
-
   useEffect(() => {
     // useEffect only runs client-side — sessionStorage is safe here
     const token = sessionStorage.getItem("accessToken");
@@ -170,21 +170,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   // Proactive token refresh with activity detection
+  
   useEffect(() => {
     if (!user) return;
-
-    let refreshInterval: NodeJS.Timeout;
-    let refreshPromise: Promise<any> | null = null;
-    let lastRefreshTime = Date.now();
-
     const refreshAccessToken = async () => {
       // ✅ MUTEX LOCK: Prevent concurrent refreshes
-      if (refreshPromise) {
+      if (refreshPromiseRef.current) {
         console.log('[AUTH] Refresh already in progress, waiting...');
-        return refreshPromise;
+        return refreshPromiseRef.current;
       }
 
-      refreshPromise = (async () => {
+      refreshPromiseRef.current = (async () => {
         try {
           const refreshToken = sessionStorage.getItem("refreshToken");
     
@@ -204,7 +200,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
           if (data.accessToken) {
             sessionStorage.setItem("accessToken", data.accessToken);
-            lastRefreshTime = Date.now();
+            lastRefreshTime.current = Date.now();
             console.log('[AUTH] Access token refreshed successfully');
           }
 
@@ -219,20 +215,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           throw error;
         } finally {
           // ✅ Always clear the promise when done
-          refreshPromise = null;
+          refreshPromiseRef.current = null;
         }
       })();
 
-      return refreshPromise;
+      return refreshPromiseRef.current;
     };
 
     // Refresh every 10 minutes
+    let refreshInterval: NodeJS.Timeout;
     refreshInterval = setInterval(refreshAccessToken, 10 * 60 * 1000);
-
     // Refresh on visibility change (when user comes back to tab)
+
     const handleVisibilityChange = () => {
       if (!document.hidden) {
-        const timeSinceLastRefresh = Date.now() - lastRefreshTime;
+        const timeSinceLastRefresh = Date.now() - lastRefreshTime.current;
         // If more than 8 minutes since last refresh, refresh immediately
         if (timeSinceLastRefresh > 8 * 60 * 1000) {
           console.log('[AUTH] Tab became visible, refreshing token...');
@@ -243,7 +240,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     // Refresh on user activity after idle period
     const handleUserActivity = () => {
-      const timeSinceLastRefresh = Date.now() - lastRefreshTime;
+      const timeSinceLastRefresh = Date.now() - lastRefreshTime.current;
       // If more than 8 minutes since last refresh, refresh immediately
       if (timeSinceLastRefresh > 8 * 60 * 1000) {
         console.log('[AUTH] User activity detected, refreshing token...');

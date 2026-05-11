@@ -524,14 +524,16 @@ const AuthController = {
         throw new ValidationError("Invalid or expired token");
       }
 
-      // Hash new password
-      const hashed = await bcrypt.hash(password, 12);
+      // Get user and update password (will be hashed by pre-save hook)
+      const user = await User.findById(userId);
+      if (!user) {
+        throw new NotFoundError("User not found");
+      }
 
-      // Update user password
-      await User.findByIdAndUpdate(userId, {
-        password: hashed,
-        $inc: { tokenVersion: 1 },
-      });
+      // Set new password (will be hashed by model's pre-save hook)
+      user.password = password;
+      user.tokenVersion += 1;
+      await user.save();
 
       // Delete reset token from cache
       if (req.cacheService?.client) {
