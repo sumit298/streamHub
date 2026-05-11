@@ -223,9 +223,13 @@ const VodController = {
         );
       }
 
+      if (typeof streamId !== "string") {
+        throw new ValidationError("Invalid streamId format");
+      }
+
       // ✅ FIX: Verify ownership
       const stream = await Stream.findOne({
-        id: streamId,
+        id: { $eq: streamId },
         userId: req.userId,
       });
 
