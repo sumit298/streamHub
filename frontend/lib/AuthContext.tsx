@@ -39,6 +39,9 @@ type QueueItems = {
 let isRefreshing = false;
 let failedQueue: QueueItems[] = [];
 
+// Module-level function to update lastRefreshTime from anywhere
+let updateLastRefreshTimestamp: (() => void) | null = null;
+
 const processQueue = (error: Error | null) => {
   failedQueue.forEach((p) => {
     if (error) p.reject(error);
@@ -116,6 +119,10 @@ api.interceptors.response.use(
           sessionStorage.setItem("accessToken", data.accessToken);
           console.log('[AUTH] Access token refreshed and saved');
 
+          // Update lastRefreshTime after successful token refresh
+          if (updateLastRefreshTimestamp) {
+            updateLastRefreshTimestamp();
+          }
         }
         else {
           console.error('[AUTH] No access token in refresh response');
@@ -149,7 +156,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const refreshPromiseRef = useRef<Promise<any> | null>(null);
   const lastRefreshTime = useRef(Date.now());
-  
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const logoutSentinelRef = useRef(false);
+
+  // Expose timestamp updater to module scope for interceptor use
+  updateLastRefreshTimestamp = () => {
+    lastRefreshTime.current = Date.now();
+  };
+
   useEffect(() => {
     // useEffect only runs client-side — sessionStorage is safe here
     const token = sessionStorage.getItem("accessToken");
@@ -180,10 +194,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return refreshPromiseRef.current;
       }
 
+      // Create a new AbortController for this refresh
+      const controller = new AbortController();
+      abortControllerRef.current = controller;
+
       refreshPromiseRef.current = (async () => {
         try {
           const refreshToken = sessionStorage.getItem("refreshToken");
-    
+
           if (!refreshToken) {
             console.log('[AUTH] No refresh token, skipping proactive refresh');
             return;
@@ -195,8 +213,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             {},
             {
               headers: { Authorization: `Bearer ${refreshToken}` },
+              signal: controller.signal,
             }
           );
+
+          // Check if user logged out while refresh was in flight
+          if (logoutSentinelRef.current || controller.signal.aborted) {
+            console.log('[AUTH] Refresh completed but user logged out, discarding tokens');
+            return;
+          }
 
           if (data.accessToken) {
             sessionStorage.setItem("accessToken", data.accessToken);
@@ -211,11 +236,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
           return data;
         } catch (error) {
-          console.error('[AUTH] Proactive token refresh failed:', error);
+          // Don't log error if request was aborted
+          if (!controller.signal.aborted) {
+            console.error('[AUTH] Proactive token refresh failed:', error);
+          }
           throw error;
         } finally {
           // ✅ Always clear the promise when done
           refreshPromiseRef.current = null;
+          abortControllerRef.current = null;
         }
       })();
 
@@ -272,6 +301,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       window.removeEventListener('keydown', throttledActivityHandler);
       window.removeEventListener('click', throttledActivityHandler);
       window.removeEventListener('scroll', throttledActivityHandler);
+
+      // Abort any in-flight refresh when effect cleans up
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
     };
   }, [user]);
 
@@ -279,6 +313,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const { data } = await api.post("/api/auth/login", { email, password });
 
     if (data.user) {
+      // Reset logout sentinel on login
+      logoutSentinelRef.current = false;
+
       // Save tokens BEFORE setting user (to avoid race condition)
       if (data.accessToken) {
         sessionStorage.setItem("accessToken", data.accessToken);
@@ -286,7 +323,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (data.refreshToken) {
         sessionStorage.setItem("refreshToken", data.refreshToken);
       }
-      
+
       // Then set user (which triggers socket connections)
       setUser(data.user);
     }
@@ -300,10 +337,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       password,
     });
     if (data.user) {
+      // Reset logout sentinel on register
+      logoutSentinelRef.current = false;
+
       // Save tokens BEFORE setting user
       if (data.accessToken) sessionStorage.setItem("accessToken", data.accessToken);
       if (data.refreshToken) sessionStorage.setItem("refreshToken", data.refreshToken);
-      
+
       // Then set user
       setUser(data.user);
     }
@@ -311,10 +351,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const logout = async () => {
+    // Set sentinel to prevent in-flight refreshes from writing tokens
+    logoutSentinelRef.current = true;
+
+    // Abort any in-flight refresh
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+
+    // Clear refresh promise ref
+    refreshPromiseRef.current = null;
+
     await api.post("/api/auth/logout");
     setUser(null);
     sessionStorage.removeItem("accessToken");
     sessionStorage.removeItem("refreshToken");
+
+    // Reset sentinel for potential future logins
+    logoutSentinelRef.current = false;
   };
 
   const getSocketAuth = () => {

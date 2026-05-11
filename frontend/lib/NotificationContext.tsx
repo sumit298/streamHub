@@ -25,13 +25,15 @@ export function NotificationProvider({
   useEffect(() => {
     if (!user) return;
 
-    const authData = getSocketAuth();
     const newSocket = io(
       process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001",
       {
         withCredentials: true,
         transports: ["websocket", "polling"],
-        auth: authData,
+        auth: (cb) => {
+          // Call getSocketAuth() on each connection/reconnection to get fresh token
+          cb(getSocketAuth());
+        },
       },
     );
 
