@@ -5,9 +5,9 @@ import rateLimit from "express-rate-limit";
 import morgan from "morgan";
 import cookieParser from "cookie-parser";
 import requestMiddleware from "@middleware/requestId.middleware";
+import { metricsMiddleware } from "@middleware/metric.middleware";
 import { specs, swaggerUi } from "../../swagger";
 import followRoutes from "../routes/follow.routes";
-import { requireCustomHeader } from "@middleware/csrf.middleware";
 
 /**
  * Create and configure Express application
@@ -15,15 +15,12 @@ import { requireCustomHeader } from "@middleware/csrf.middleware";
 export function createExpressApp(): express.Application {
   const app = express();
 
-  // Trust proxy for Vercel/reverse proxies
   app.set('trust proxy', 1);
 
-  // Security middleware
   if (process.env.NODE_ENV !== "test") {
     app.use(helmet());
   }
 
-  // CORS configuration
   app.use(
     cors({
       origin:
@@ -36,10 +33,13 @@ export function createExpressApp(): express.Application {
 
   // Request middleware
   app.use(requestMiddleware);
+  
+  // Metrics middleware (will auto-skip if service not initialized)
+  app.use(metricsMiddleware());
+  
   app.use(morgan("dev"));
   app.use(express.json({ limit: "10mb" }));
   app.use(cookieParser());
-  // app.use("/api", requireCustomHeader);
 
   // Rate limiters
   const generateLimiter = rateLimit({

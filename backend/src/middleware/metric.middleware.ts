@@ -1,26 +1,28 @@
-import { Request, Response, NextFunction } from "express";
-import type MetricsService from "@services/MetricsService";
+import { Request, Response, NextFunction } from 'express';
+import MetricsService from '@services/MetricsService';
 
 /**
  * Metrics Middleware - Track HTTP request metrics
- *
- * Tracks:
- * - Request duration
- * - Request count by route/method/status
- * - Error rates
+ * 
+ * Uses singleton instance, no need to pass service explicitly
  */
-export function metricsMiddleware(metricsService: MetricsService) {
+export function metricsMiddleware() {
   return (req: Request, res: Response, next: NextFunction) => {
+    const metricsService = MetricsService.getInstance();
+    
+    // Skip if metrics service not initialized
+    if (!metricsService) {
+      return next();
+    }
+
     const startTime = Date.now();
 
-    // Capture response finish event
-    res.on("finish", () => {
-      const duration = (Date.now() - startTime) / 1000; // Convert to seconds
+    res.on('finish', () => {
+      const duration = (Date.now() - startTime) / 1000;
       const route = getRoutePattern(req.route?.path || req.path);
       const method = req.method;
       const status = res.statusCode;
 
-      // Record metrics
       metricsService.recordHttpRequest(method, route, status, duration);
     });
 
@@ -30,20 +32,15 @@ export function metricsMiddleware(metricsService: MetricsService) {
 
 /**
  * Extract route pattern for consistent labeling
- * Converts /api/streams/abc123 -> /api/streams/:id
  */
 function getRoutePattern(path: string): string {
-  // Replace UUIDs with :id
   let pattern = path.replace(
     /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi,
-    ":id",
+    ':id'
   );
+  
+  pattern = pattern.replace(/[0-9a-f]{24}/gi, ':id');
+  pattern = pattern.replace(/\/\d+/g, '/:id');
 
-  // Replace MongoDB ObjectIDs with :id
-  pattern = pattern.replace(/[0-9a-f]{24}/gi, ":id");
-
-  // Replace numeric IDs with :id
-  pattern = pattern.replace(/\/\d+/g, "/:id");
-
-  return pattern || "/";
+  return pattern || '/';
 }

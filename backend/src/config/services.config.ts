@@ -8,6 +8,7 @@ import StreamService from "../services/StreamService";
 import ChatService from "../services/ChatService";
 import R2Service from "../services/R2Service";
 import { connectDatabase } from "./db";
+import MetricsService from "@services/MetricsService";
 
 export interface Services {
   mediaService: MediaService;
@@ -16,14 +17,18 @@ export interface Services {
   streamService: StreamService;
   chatService: ChatService;
   r2Service: R2Service;
+  metricsService: MetricsService;
 }
 
 export async function initializeServices(
   io: SocketIOServer,
-  logger: Logger
+  logger: Logger,
 ): Promise<Services> {
   try {
     logger.info("Initializing services...");
+
+    const metricsService = new MetricsService(logger);
+    logger.info("MetricsService initialized");
 
     await connectDatabase(logger);
 
@@ -50,7 +55,7 @@ export async function initializeServices(
       mediaService,
       messageQueue,
       cacheService,
-      logger
+      logger,
     );
     streamService.io = io;
 
@@ -65,6 +70,7 @@ export async function initializeServices(
       streamService,
       chatService,
       r2Service,
+      metricsService,
     };
   } catch (error) {
     logger.error("Failed to initialize services:", error);
