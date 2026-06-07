@@ -56,78 +56,11 @@ class MetricsService {
 
     // Store singleton instance
     MetricsService.instance = this;
-
-     if(process.env.GRAFANA_CLOUD_PUSH === "true") {
-      this.setupGrafanaCloudPush();
-    }
-
     this.logger.info("Initializing MetricsService with Prometheus client");
 
   }
 
-  /**
-   * Setup push to Grafana Cloud for production deployment
-   * Used when self-hosted Prometheus can't run (e.g., 1GB Oracle VM)
-   */
-  private setupGrafanaCloudPush(): void {
-    const url = process.env.GRAFANA_CLOUD_URL;
-    const username = process.env.GRAFANA_CLOUD_USERNAME;
-    const password = process.env.GRAFANA_CLOUD_PASSWORD;
-
-    if (!url || !username || !password) {
-      this.logger.warn(
-        "Grafana Cloud push enabled but configuration is missing",
-      );
-      return;
-    }
-
-    this.logger.info("Setting up Grafana Cloud push for metrics");
-
-    this.pushInterval = setInterval(async () => {
-      // Prevent overlapping pushes if Grafana Cloud is slow
-      if (this.isPushInFlight) {
-        this.logger.debug("Previous push still in progress, skipping");
-        return;
-      }
-
-      this.isPushInFlight = true;
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 10000); // 10s timeout
-
-      try {
-        const metrics = await this.register.metrics();
-        const auth = Buffer.from(`${username}:${password}`).toString("base64");
-
-        const response = await fetch(url, {
-          method: "POST",
-          headers: {
-            "Content-Type": "text/plain",
-            Authorization: `Basic ${auth}`,
-          },
-          body: metrics,
-          signal: controller.signal,
-        });
-
-        if (!response.ok) {
-          const text = await response.text();
-          this.logger.error(
-            `Failed to push metrics to Grafana Cloud: ${response.status} ${response.statusText} - ${text}`,
-          );
-        } else {
-          this.logger.debug("Successfully pushed metrics to Grafana Cloud");
-        }
-      } catch (error: any) {
-        if (error.name === "AbortError") {
-          this.logger.error("Grafana Cloud push timed out after 10s");
-        } else {
-          this.logger.error("Error pushing metrics to Grafana Cloud:", error);
-        }
-      } finally {
-        clearTimeout(timeout);
-        this.isPushInFlight = false;
-      }
-    }, 15000); // Push every 15 seconds
-  }
+  
 
   /**
    * Get singleton instance
