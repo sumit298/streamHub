@@ -1,0 +1,20 @@
+# Prometheus Configuration for Docker Compose (Full Stack)
+# When backend runs INSIDE Docker container
+# Use this with root docker-compose.yml
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  # Backend running in Docker
+  - job_name: 'streamhub-backend'
+    static_configs:
+      - targets: ['backend:3001']  # Service name when backend is in Docker
+    metrics_path: '/metrics'
+    scrape_interval: 10s
+
+  # Prometheus self-monitoring
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']

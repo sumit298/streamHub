@@ -6,6 +6,7 @@ import chatRoutes from "./chat.routes";
 import followRoutes from "./follow.routes";
 import notificationRoutes from "./notification.routes";
 import vodRoutes from "./vod.routes";
+import metricsRoutes from "./metrics.routes";
 import type StreamService from "@services/StreamService";
 import type ChatService from "@services/ChatService";
 import type CacheService from "@services/CacheService";
@@ -25,7 +26,10 @@ export const registerRoutes = (
 ): void => {
   const { streamService, chatService, cacheService, r2Service } = services;
 
-  // Auth routes with service injection
+  // Metrics endpoint (no auth required, for Prometheus scraping)
+  app.use("/metrics", metricsRoutes);
+
+  // Auth routes
   app.use(
     "/api/auth",
     (req: any, res, next) => {
@@ -52,7 +56,7 @@ export const registerRoutes = (
     notificationRoutes,
   );
 
-  // VOD routes with service injection
+  // VOD routes
   app.use(
     "/api/vods",
     (req: any, res, next) => {
