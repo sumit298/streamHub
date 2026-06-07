@@ -60,6 +60,8 @@ services:
       # ✅ ADD: Limit retention for development
       - "--storage.tsdb.retention.time=7d"
       - "--storage.tsdb.retention.size=1GB"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     networks:
       - streamhub-network
 

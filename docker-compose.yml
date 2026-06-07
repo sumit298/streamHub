@@ -1,4 +1,3 @@
-# /Users/sumitsinha/Courses/streamHub/docker-compose.yml
 services:
   # MongoDB Database
   mongodb:
@@ -98,7 +97,7 @@ services:
     ports:
       - "9090:9090"
     volumes:
-      - ./backend/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./backend/prometheus/prometheus-docker.yml:/etc/prometheus/prometheus.yml:ro
       - prometheus_data:/prometheus
     command:
       - "--config.file=/etc/prometheus/prometheus.yml"

@@ -12,6 +12,7 @@ class MetricsService {
   private logger: Logger;
   public register: client.Registry;
   private pushInterval?: NodeJS.Timeout;
+  private isPushInFlight = false;
 
   // Stage 2: HTTP Metrics
   public httpRequestDuration: client.Histogram;
@@ -83,6 +84,16 @@ class MetricsService {
     this.logger.info("Setting up Grafana Cloud push for metrics");
 
     this.pushInterval = setInterval(async () => {
+      // Prevent overlapping pushes if Grafana Cloud is slow
+      if (this.isPushInFlight) {
+        this.logger.debug("Previous push still in progress, skipping");
+        return;
+      }
+
+      this.isPushInFlight = true;
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 10000); // 10s timeout
+
       try {
         const metrics = await this.register.metrics();
         const auth = Buffer.from(`${username}:${password}`).toString("base64");
@@ -94,6 +105,7 @@ class MetricsService {
             Authorization: `Basic ${auth}`,
           },
           body: metrics,
+          signal: controller.signal,
         });
 
         if (!response.ok) {
@@ -102,10 +114,17 @@ class MetricsService {
             `Failed to push metrics to Grafana Cloud: ${response.status} ${response.statusText} - ${text}`,
           );
         } else {
-          this.logger.info("Successfully pushed metrics to Grafana Cloud");
+          this.logger.debug("Successfully pushed metrics to Grafana Cloud");
         }
-      } catch (error) {
-        this.logger.error("Error pushing metrics to Grafana Cloud:", error);
+      } catch (error: any) {
+        if (error.name === "AbortError") {
+          this.logger.error("Grafana Cloud push timed out after 10s");
+        } else {
+          this.logger.error("Error pushing metrics to Grafana Cloud:", error);
+        }
+      } finally {
+        clearTimeout(timeout);
+        this.isPushInFlight = false;
       }
     }, 15000); // Push every 15 seconds
   }
