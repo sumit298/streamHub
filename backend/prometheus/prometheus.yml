@@ -12,7 +12,7 @@ scrape_configs:
   - job_name: 'streamhub-backend'
     static_configs:
       # Mac/Windows Docker: Use host.docker.internal
-      - targets: ['host.docker.internal:3001']
+      - targets: ['backend:3001']
       # Linux Docker: Use 'host.docker.internal' won't work, use:
       # - targets: ['172.17.0.1:3001']  # Docker bridge IP on Linux
     metrics_path: '/metrics'
