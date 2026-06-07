@@ -20,6 +20,7 @@ export function registerShutdownHandler(
 
     io?.emit("server-shutdown");
 
+    await services.metricsService?.cleanup();
     await services.mediaService?.cleanup();
     await services.messageQueue?.close();
     await mongoose.disconnect();

@@ -1,9 +1,9 @@
-import { Logger } from 'winston';
-import client from 'prom-client';
+import { Logger } from "winston";
+import client from "prom-client";
 
 /**
  * MetricsService - Prometheus Metrics Collection
- * 
+ *
  * Stage 1: System Health Metrics (Node.js internals)
  * Stage 2: API Health Metrics (HTTP requests)
  */
@@ -11,6 +11,7 @@ class MetricsService {
   private static instance: MetricsService | null = null;
   private logger: Logger;
   public register: client.Registry;
+  private pushInterval?: NodeJS.Timeout;
 
   // Stage 2: HTTP Metrics
   public httpRequestDuration: client.Histogram;
@@ -20,43 +21,93 @@ class MetricsService {
   constructor(logger: Logger) {
     this.logger = logger;
     this.register = new client.Registry();
-
     // Stage 1: Collect default Node.js metrics
     client.collectDefaultMetrics({
       register: this.register,
-      prefix: 'streamhub_',
+      prefix: "streamhub_",
       gcDurationBuckets: [0.001, 0.01, 0.1, 1, 2, 5],
     });
 
     // Stage 2: HTTP Request Duration Histogram
     this.httpRequestDuration = new client.Histogram({
-      name: 'streamhub_http_request_duration_seconds',
-      help: 'Duration of HTTP requests in seconds',
-      labelNames: ['method', 'route', 'status'],
+      name: "streamhub_http_request_duration_seconds",
+      help: "Duration of HTTP requests in seconds",
+      labelNames: ["method", "route", "status"],
       buckets: [0.01, 0.05, 0.1, 0.5, 1, 2, 5, 10],
       registers: [this.register],
     });
 
     // Stage 2: HTTP Requests Total Counter
     this.httpRequestsTotal = new client.Counter({
-      name: 'streamhub_http_requests_total',
-      help: 'Total number of HTTP requests',
-      labelNames: ['method', 'route', 'status'],
+      name: "streamhub_http_requests_total",
+      help: "Total number of HTTP requests",
+      labelNames: ["method", "route", "status"],
       registers: [this.register],
     });
 
     // Stage 2: HTTP Errors Total Counter
     this.httpErrorsTotal = new client.Counter({
-      name: 'streamhub_http_errors_total',
-      help: 'Total number of HTTP errors (4xx and 5xx)',
-      labelNames: ['method', 'route', 'status'],
+      name: "streamhub_http_errors_total",
+      help: "Total number of HTTP errors (4xx and 5xx)",
+      labelNames: ["method", "route", "status"],
       registers: [this.register],
     });
 
     // Store singleton instance
     MetricsService.instance = this;
 
-    this.logger.info('MetricsService initialized with Stage 1 & 2 metrics');
+     if(process.env.GRAFANA_CLOUD_PUSH === "true") {
+      this.setupGrafanaCloudPush();
+    }
+
+    this.logger.info("Initializing MetricsService with Prometheus client");
+
+  }
+
+  /**
+   * Setup push to Grafana Cloud for production deployment
+   * Used when self-hosted Prometheus can't run (e.g., 1GB Oracle VM)
+   */
+  private setupGrafanaCloudPush(): void {
+    const url = process.env.GRAFANA_CLOUD_URL;
+    const username = process.env.GRAFANA_CLOUD_USERNAME;
+    const password = process.env.GRAFANA_CLOUD_PASSWORD;
+
+    if (!url || !username || !password) {
+      this.logger.warn(
+        "Grafana Cloud push enabled but configuration is missing",
+      );
+      return;
+    }
+
+    this.logger.info("Setting up Grafana Cloud push for metrics");
+
+    this.pushInterval = setInterval(async () => {
+      try {
+        const metrics = await this.register.metrics();
+        const auth = Buffer.from(`${username}:${password}`).toString("base64");
+
+        const response = await fetch(url, {
+          method: "POST",
+          headers: {
+            "Content-Type": "text/plain",
+            Authorization: `Basic ${auth}`,
+          },
+          body: metrics,
+        });
+
+        if (!response.ok) {
+          const text = await response.text();
+          this.logger.error(
+            `Failed to push metrics to Grafana Cloud: ${response.status} ${response.statusText} - ${text}`,
+          );
+        } else {
+          this.logger.info("Successfully pushed metrics to Grafana Cloud");
+        }
+      } catch (error) {
+        this.logger.error("Error pushing metrics to Grafana Cloud:", error);
+      }
+    }, 15000); // Push every 15 seconds
   }
 
   /**
@@ -87,13 +138,13 @@ class MetricsService {
     method: string,
     route: string,
     statusCode: number,
-    durationSeconds: number
+    durationSeconds: number,
   ): void {
     const status = statusCode.toString();
 
     this.httpRequestDuration.observe(
       { method, route, status },
-      durationSeconds
+      durationSeconds,
     );
 
     this.httpRequestsTotal.inc({ method, route, status });
@@ -111,9 +162,20 @@ class MetricsService {
       const metrics = await this.getMetrics();
       return metrics.length > 0;
     } catch (error) {
-      this.logger.error('MetricsService health check failed:', error);
+      this.logger.error("MetricsService health check failed:", error);
       return false;
     }
+  }
+
+  /**
+   * Cleanup resources
+   */
+  cleanup(): void {
+    if (this.pushInterval) {
+      clearInterval(this.pushInterval);
+      this.logger.info("Cleared Grafana Cloud push interval");
+    }
+    MetricsService.instance = null;
   }
 }
 

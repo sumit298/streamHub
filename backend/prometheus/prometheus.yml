@@ -1,0 +1,24 @@
+# prometheus/prometheus.yml
+# NOTE: This configuration is for LOCAL DEVELOPMENT ONLY
+# For production deployment on Oracle Cloud (1GB), use Grafana Cloud instead
+# Set GRAFANA_CLOUD_PUSH=true in .env.production
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  # Local development - Backend running on host machine
+  - job_name: 'streamhub-backend'
+    static_configs:
+      # Mac/Windows Docker: Use host.docker.internal
+      - targets: ['host.docker.internal:3001']
+      # Linux Docker: Use 'host.docker.internal' won't work, use:
+      # - targets: ['172.17.0.1:3001']  # Docker bridge IP on Linux
+    metrics_path: '/metrics'
+    scrape_interval: 10s
+
+  # Prometheus self-monitoring
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
