@@ -24,6 +24,11 @@ const api = axios.create({
 // SSR guard — sessionStorage does not exist on the server
 api.interceptors.request.use((config) => {
   if (typeof window === "undefined") return config;
+
+  if (config.url?.includes("/api/auth/refresh-token")) {
+    return config;
+  }
+
   const token = sessionStorage.getItem("accessToken");
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
