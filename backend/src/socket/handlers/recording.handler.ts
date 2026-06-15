@@ -155,7 +155,7 @@ export function registerRecordingHandlers(
         // Validate file size
         const fileStats = await fs.promises.stat(webmPath);
         logger.info(`Recording ${file} size: ${fileStats.size} bytes`);
-        
+
         if (fileStats.size < 1000) {
           logger.warn(
             `Recording ${file} too small (${fileStats.size} bytes), skipping`,
@@ -168,28 +168,37 @@ export function registerRecordingHandlers(
         let isValidWebm = false;
         try {
           await new Promise((resolve, reject) => {
-            execFile("ffprobe", ["-v", "error", "-show_format", "-show_streams", webmPath], (error: Error, stdout: string, stderr: string) => {
-              if (error instanceof Error) {
-                logger.error(`ffprobe validation failed for ${file}:`);
-                logger.error(`  Error: ${error.message}`);
-                logger.error(`  Stderr: ${stderr}`);
-                logger.error(`  Stdout: ${stdout}`);
-                reject(new Error("Invalid WebM"));
-              } else {
-                logger.info(`ffprobe validation passed for ${file}`);
-                logger.info(`  Format info: ${stdout.substring(0, 200)}...`);
-                resolve(true);
-              }
-            });
+            execFile(
+              "ffprobe",
+              ["-v", "error", "-show_format", "-show_streams", webmPath],
+              (error: Error, stdout: string, stderr: string) => {
+                if (error instanceof Error) {
+                  logger.error(`ffprobe validation failed for ${file}:`);
+                  logger.error(`  Error: ${error.message}`);
+                  logger.error(`  Stderr: ${stderr}`);
+                  logger.error(`  Stdout: ${stdout}`);
+                  reject(new Error("Invalid WebM"));
+                } else {
+                  logger.info(`ffprobe validation passed for ${file}`);
+                  logger.info(`  Format info: ${stdout.substring(0, 200)}...`);
+                  resolve(true);
+                }
+              },
+            );
           });
           isValidWebm = true;
         } catch (error) {
           const err = error as Error;
           logger.error(`WebM validation failed for ${file}: ${err.message}`);
-          
+
           // In development, try to process anyway if file is large enough
-          if (process.env.NODE_ENV === "development" && fileStats.size > 10000) {
-            logger.warn(`Development mode: Attempting to process despite validation failure`);
+          if (
+            process.env.NODE_ENV === "development" &&
+            fileStats.size > 10000
+          ) {
+            logger.warn(
+              `Development mode: Attempting to process despite validation failure`,
+            );
             isValidWebm = true;
           } else {
             await fs.promises.unlink(webmPath).catch(() => {});
@@ -236,6 +245,16 @@ export function registerRecordingHandlers(
         await r2Service.uploadFile(webmPath, r2Key);
         const stats = await fs.promises.stat(webmPath);
 
+        const recordingId = file.replace(".webm", "");
+        let duration = 0;
+        // Try to get duration from finalized recordings metadata if available
+        // Or calculate from file timestamps
+        const matches = recordingId.match(/-(\d+)$/);
+        if (matches) {
+          const startTimestamp = parseInt(matches[1]);
+          const fileTimestamp = stats.mtimeMs;
+          duration = Math.round((fileTimestamp - startTimestamp) / 1000);
+        }
         await VOD.create({
           streamId,
           userId: stream.userId,
@@ -246,6 +265,7 @@ export function registerRecordingHandlers(
           r2Key,
           fileSize: stats.size,
           filename: file,
+          duration,
           status: "ready",
         });
 
