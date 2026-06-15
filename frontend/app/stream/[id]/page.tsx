@@ -9,6 +9,7 @@ import ChatPanel from "@/components/ChatPanel";
 import BottomControlBar from "@/components/BottomControlBar";
 import ViewerStats from "@/components/ViewerStats";
 import MediaStatsOverlay from "@/components/MediaStatsOverlay";
+import { RECORDING_CONFIG, getRecorderOptions } from "@/lib/recordingConfig";
 
 const StreamsPage = ({ isStreamer = true }) => {
   const params = useParams();
@@ -598,18 +599,10 @@ const StreamsPage = ({ isStreamer = true }) => {
     recordingIdRef.current = recordingId;
     recordingStartTimeRef.current = Date.now();
 
-    const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=h264,opus')
-      ? 'video/webm;codecs=h264,opus'
-      : 'video/webm;codecs=vp8,opus';
+    const recorderOptions = getRecorderOptions();
+    console.log('🎥 Recording with:', recorderOptions.mimeType, 'id:', recordingId);
 
-    console.log('🎥 Recording with:', mimeType, 'id:', recordingId);
-
-
-    const recorder = new MediaRecorder(recordStream, {
-      mimeType,
-      videoBitsPerSecond: 500000, // 1 Mbps for 480p quality
-      audioBitsPerSecond: 128000   // 128 kbps audio
-    });
+    const recorder = new MediaRecorder(recordStream, recorderOptions);
     recorder.ondataavailable = async (e) => {
       if (e.data.size > 0) {
         const formData = new FormData();
@@ -623,7 +616,7 @@ const StreamsPage = ({ isStreamer = true }) => {
       }
     };
 
-    recorder.start(30000); // 30 second chunks
+    recorder.start(RECORDING_CONFIG.chunks.intervalMs);
     setMediaRecorder(recorder);
     setIsRecording(true);
   };
@@ -663,17 +656,10 @@ const StreamsPage = ({ isStreamer = true }) => {
         recordingIdRef.current = screenRecordingId;
         recordingStartTimeRef.current = Date.now();
 
-        const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=h264,opus')
-          ? 'video/webm;codecs=h264,opus'
-          : 'video/webm;codecs=vp8,opus';
+        const recorderOptions = getRecorderOptions();
+        console.log('🎥 Screen recording with:', recorderOptions.mimeType, 'id:', screenRecordingId);
 
-        console.log('🎥 Screen recording with:', mimeType, 'id:', screenRecordingId);
-
-        const screenRecorder = new MediaRecorder(screenMediaStream, {
-          mimeType,
-          videoBitsPerSecond: 500000,  // 500 kbps
-          audioBitsPerSecond: 128000   // 128 kbps audio
-        });
+        const screenRecorder = new MediaRecorder(screenMediaStream, recorderOptions);
         screenRecorder.ondataavailable = async (e) => {
           if (e.data.size > 0) {
             const formData = new FormData();
@@ -686,7 +672,7 @@ const StreamsPage = ({ isStreamer = true }) => {
             }).catch(err => console.error('Upload chunk failed:', err));
           }
         };
-        screenRecorder.start(30000); // 30 second chunks
+        screenRecorder.start(RECORDING_CONFIG.chunks.intervalMs);
         setMediaRecorder(screenRecorder);
       }
 
@@ -771,16 +757,10 @@ const StreamsPage = ({ isStreamer = true }) => {
     // Switch recording back to camera only if recording is active
     if (isRecording && mediaRecorder && stream) {
       mediaRecorder.stop();
-      const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=h264,opus')
-        ? 'video/webm;codecs=h264,opus'
-        : 'video/webm;codecs=vp8,opus';
+      const recorderOptions = getRecorderOptions();
+      console.log('🎥 Camera recording with:', recorderOptions.mimeType);
 
-      console.log('🎥 Camera recording with:', mimeType);
-      const cameraRecorder = new MediaRecorder(stream, {
-        mimeType,
-        videoBitsPerSecond: 500000,  // 500 kbps
-        audioBitsPerSecond: 128000   // 128 kbps audio
-      });
+      const cameraRecorder = new MediaRecorder(stream, recorderOptions);
       cameraRecorder.ondataavailable = async (e) => {
         if (e.data.size > 0) {
           const formData = new FormData();
@@ -792,7 +772,7 @@ const StreamsPage = ({ isStreamer = true }) => {
           }).catch(err => console.error('Upload chunk failed:', err));
         }
       };
-      cameraRecorder.start(30000); // 30 seconds
+      cameraRecorder.start(RECORDING_CONFIG.chunks.intervalMs);
       setMediaRecorder(cameraRecorder);
     }
 
