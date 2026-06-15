@@ -15,7 +15,7 @@ export const RECORDING_CONFIG = {
 
   // Audio quality settings
   audio: {
-    bitrate: 128000, // 128 kbps audio
+    bitrate: 192000, // 192 kbps audio
   },
 
   // Chunk settings
