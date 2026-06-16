@@ -28,10 +28,6 @@ class MessageQueue {
     try {
       this.connection = await amqp.connect(
         process.env.RABBITMQ_URL || "amqp://localhost:5672",
-        {
-          heartbeat: 60,
-          timeout: 10000,
-        },
       );
 
       if (!this.connection) {
