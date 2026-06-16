@@ -21,11 +21,11 @@
     "js-cookie": "^3.0.7",
     "lucide-react": "^0.553.0",
     "mediasoup-client": "^3.18.1",
-    "next": "16.2.6",
+    "next": "16.2.9",
     "react": "19.2.0",
     "react-dom": "19.2.0",
     "react-hot-toast": "^2.6.0",
-    "socket.io-client": "^4.8.1",
+    "socket.io-client": "^4.8.3",
     "tailwind-merge": "^3.4.0",
     "tailwindcss-animate": "^1.0.7",
     "zod": "^4.1.12"
@@ -43,5 +43,8 @@
     "postcss": "^8.5.10",
     "tailwindcss": "^4.1.17",
     "typescript": "^5"
+  },
+  "resolutions": {
+    "ws": "^8.21.0"
   }
 }
