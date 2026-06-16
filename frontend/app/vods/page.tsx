@@ -107,20 +107,26 @@ export default function VodsPage() {
                       )}
                     </div>
                     <div className="p-4">
-                      <h3 className="text-white font-semibold truncate">
+                      <h3 className="text-white font-semibold truncate mb-2">
                         {vod.title}
                       </h3>
-                      <p className="text-gray-400 text-sm">
-                        {vod.duration
-                          ? `${Math.floor(vod.duration / 60)}m ${vod.duration % 60}s`
-                          : "N/A"}
-                      </p>
-                      <p className="text-gray-500 text-xs">
-                        {vod.views || 0} views
-                      </p>
-                      <p className="text-gray-400 text-xs mt-1">
-                        by {vod.userId.username}
-                      </p>
+                      <div className="flex items-center gap-2 mb-2">
+                        <div className="w-6 h-6 rounded-full bg-linear-to-br from-emerald-400 to-cyan-600 flex items-center justify-center text-white text-xs font-bold">
+                          {vod.userId.username.charAt(0).toUpperCase()}
+                        </div>
+                        <p className="text-gray-300 text-sm truncate">
+                          {vod.userId.username}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-3 text-xs text-gray-500">
+                        <span>
+                          {vod.duration
+                            ? `${Math.floor(vod.duration / 60)}m ${vod.duration % 60}s`
+                            : "N/A"}
+                        </span>
+                        <span>•</span>
+                        <span>{vod.views || 0} views</span>
+                      </div>
                     </div>
                   </div>
                 </Link>
