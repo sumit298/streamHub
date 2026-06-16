@@ -12,8 +12,13 @@ interface Vod {
   thumbnail?: string;
   duration?: number;
   views?: number;
-  createdAt: number;
-  streamer?: { username: string };
+  createdAt: string;
+  userId: {
+    _id: string;
+    username: string;
+    avatar?: string | null;
+  };
+  category: string;
 }
 
 export default function VodsPage() {
@@ -21,15 +26,16 @@ export default function VodsPage() {
   const limit = 8;
 
   const { data, isLoading } = useQuery<Vod[]>({
-    queryKey: ['vods', page],
-    queryFn: () => api.get(`/api/vods?limit=${limit}&skip=${(page - 1) * limit}`).then(res => res.data.vods || [])
+    queryKey: ["vods", page],
+    queryFn: () =>
+      api
+        .get(`/api/vods?limit=${limit}&skip=${(page - 1) * limit}`)
+        .then((res) => res.data.vods || []),
+  });
 
-  })
-
-  const vods = data || []
+  const vods = data || [];
   const hasMore = vods.length === limit;
 
-  
   return (
     <div className="flex flex-col h-screen bg-gray-900">
       <Navbar />
@@ -111,6 +117,9 @@ export default function VodsPage() {
                       </p>
                       <p className="text-gray-500 text-xs">
                         {vod.views || 0} views
+                      </p>
+                      <p className="text-gray-400 text-xs mt-1">
+                        by {vod.userId.username}
                       </p>
                     </div>
                   </div>
