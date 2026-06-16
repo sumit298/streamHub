@@ -22,6 +22,7 @@ latency_fix.md
 
 # Redis check script (optional)
 backend/check-redis.js
+
 # Build output
 backend/dist/
 frontend/.next/
@@ -29,3 +30,7 @@ frontend/out/
 
 # Scripts
 backend/start-dev.sh
+
+# Dependency lock files - use Yarn only
+package-lock.json
+**/package-lock.json
