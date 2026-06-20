@@ -27,6 +27,17 @@ interface GetVodQuery {
   skip?: string;
 }
 
+interface PopulatedUser {
+  _id: string;
+  username: string;
+  avatar: string | null;
+}
+
+interface PopulatedVod {
+  userId: PopulatedUser;
+  [key: string]: any;
+}
+
 interface UploadChunkBody {
   streamId: string;
   recordingId: string;
@@ -41,6 +52,10 @@ interface RecordingEndBody {
 interface VodRequest extends Request {
   r2Service?: R2Service;
 }
+
+const generateAvatarUrl = (username: string): string => {
+  return `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(username)}`;
+};
 
 const VodController = {
   getVods: async (req: Request, res: Response): Promise<void> => {
@@ -74,11 +89,19 @@ const VodController = {
         .limit(safeLimit)
         .populate("userId", "username avatar");
 
+      const transformedVods = vods.map((vod) => {
+        const vodObj = vod.toObject() as PopulatedVod;
+        if (vodObj.userId && !vodObj.userId.avatar) {
+          vodObj.userId.avatar = generateAvatarUrl(vodObj.userId.username);
+        }
+        return vodObj;
+      });
+
       const total = await Vod.countDocuments(query);
 
       res.json({
         success: true,
-        vods,
+        vods: transformedVods,
         total,
         pagination: {
           limit: safeLimit,
@@ -108,12 +131,17 @@ const VodController = {
       );
       if (!vod) throw new NotFoundError("VOD not found");
 
+      const vodObj = vod.toObject() as PopulatedVod;
+      if (vodObj.userId && !vodObj.userId.avatar) {
+        vodObj.userId.avatar = generateAvatarUrl(vodObj.userId.username);
+      }
+
       let playbackUrl: string | undefined;
       if (req.r2Service && vod.r2Key) {
         playbackUrl = await req.r2Service.getSignedUrl(vod.r2Key);
       }
 
-      res.json({ success: true, vod: { ...vod.toObject(), playbackUrl } });
+      res.json({ success: true, vod: { ...vodObj, playbackUrl } });
     } catch (error) {
       const appError = normalizeError(error);
       Logger.error("Get VOD by ID error:", error);
