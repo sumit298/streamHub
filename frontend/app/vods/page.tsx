@@ -143,12 +143,12 @@ export default function VodsPage() {
                       {/* Author + Stats */}
                       <div className="flex items-center justify-between mt-4">
                         <div className="flex items-center gap-3 min-w-0">
-                          <div className="w-10 h-10 rounded-full overflow-hidden shrink-0">
+                          <div className="w-8 h-8 rounded-full overflow-hidden shrink-0">
                             <Image
                               src={vod.userId.avatar}
                               alt={vod.userId.username}
-                              width={32}
-                              height={32}
+                              width={30}
+                              height={30}
                               className="w-full h-full object-cover"
                               unoptimized
                             />
