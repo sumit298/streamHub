@@ -46,7 +46,7 @@ export default function VodsPage() {
         </div>
         <div className="flex-1 overflow-y-auto p-8">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
-            <h1 className="text-2xl sm:text-3xl font-bold text-white">
+            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-text-primary">
               Recorded Streams
             </h1>
             {!isLoading && vods.length > 0 && (
@@ -54,17 +54,17 @@ export default function VodsPage() {
                 <button
                   onClick={() => setPage((p) => Math.max(1, p - 1))}
                   disabled={page === 1}
-                  className="flex-1 sm:flex-none px-3 sm:px-4 py-2 bg-surface text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-elevated transition text-sm sm:text-base"
+                  className="flex-1 sm:flex-none px-3 sm:px-4 py-2 bg-surface border border-border text-text-primary rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:border-border-hover hover:bg-elevated transition text-sm sm:text-base"
                 >
                   Prev
                 </button>
-                <span className="flex-1 sm:flex-none px-3 sm:px-4 py-2 text-white text-center text-sm sm:text-base">
+                <span className="flex-1 sm:flex-none px-3 sm:px-4 py-2 bg-surface border border-border text-text-primary text-center text-sm sm:text-base rounded-lg font-semibold">
                   Page {page}
                 </span>
                 <button
                   onClick={() => setPage((p) => p + 1)}
                   disabled={!hasMore}
-                  className="flex-1 sm:flex-none px-3 sm:px-4 py-2 bg-surface text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-elevated transition text-sm sm:text-base"
+                  className="flex-1 sm:flex-none px-3 sm:px-4 py-2 bg-surface border border-border text-text-primary rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:border-border-hover hover:bg-elevated transition text-sm sm:text-base"
                 >
                   Next
                 </button>
@@ -74,50 +74,48 @@ export default function VodsPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
             {isLoading ? (
               Array.from({ length: limit }).map((_, i) => (
-                <div
-                  key={i}
-                  className="bg-surface rounded-lg overflow-hidden animate-pulse"
-                >
-                  <div className="w-full h-48 bg-elevated" />
+                <div key={i} className="bg-surface rounded-xl border border-border overflow-hidden">
+                  <div className="w-full h-48 shimmer" />
                   <div className="p-4 space-y-3">
-                    <div className="h-4 bg-elevated rounded w-3/4" />
-                    <div className="h-3 bg-elevated rounded w-1/2" />
-                    <div className="h-3 bg-elevated rounded w-1/4" />
+                    <div className="h-4 rounded w-3/4 shimmer" />
+                    <div className="h-3 rounded w-1/2 shimmer" />
+                    <div className="h-3 rounded w-1/4 shimmer" />
                   </div>
                 </div>
               ))
             ) : vods.length > 0 ? (
               vods.map((vod: any) => (
                 <Link key={vod._id} href={`/vods/${vod._id}`}>
-                  <div className="bg-surface rounded-xl overflow-hidden ring-1 ring-white/10 hover:ring-white/20 hover:-translate-y-1 transition-all duration-300 cursor-pointer">
+                  <div className="bg-surface rounded-xl border border-border card-hover overflow-hidden cursor-pointer">
                     {/* Thumbnail */}
-                    <div className="w-full h-44 bg-elevated flex items-center justify-center">
+                    <div className="w-full h-44 bg-elevated flex items-center justify-center relative">
                       {vod.thumbnail ? (
                         <img
                           src={vod.thumbnail}
                           alt={vod.title}
-                          className="w-full h-full object-cover"
+                          className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                         />
                       ) : (
                         <svg
-                          className="w-16 h-16 text-gray-600"
+                          className="w-16 h-16 text-text-muted"
                           fill="currentColor"
                           viewBox="0 0 20 20"
                         >
                           <path d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" />
                         </svg>
                       )}
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
                     </div>
 
                     {/* Content */}
                     <div className="p-5">
                       {/* Title + Duration */}
                       <div className="flex items-start justify-between gap-3">
-                        <h3 className="text-white text-lg font-semibold tracking-tight truncate flex-1">
+                        <h3 className="text-text-primary text-sm font-semibold leading-snug min-h-[2.5rem] line-clamp-2 flex-1">
                           {vod.title}
                         </h3>
 
-                        <span className="flex items-center gap-1 text-sm text-gray-400 shrink-0">
+                        <span className="flex items-center gap-1 text-xs text-text-tertiary shrink-0">
                           <svg
                             className="w-4 h-4"
                             fill="none"
@@ -154,12 +152,12 @@ export default function VodsPage() {
                             />
                           </div>
 
-                          <p className="text-gray-400 -ml-2 text-sm truncate">
+                          <p className="text-text-tertiary text-xs truncate">
                             {vod.userId.username}
                           </p>
                         </div>
 
-                        <div className="flex items-center gap-1 text-sm text-gray-400 shrink-0">
+                        <div className="flex items-center gap-1 text-xs text-text-tertiary shrink-0">
                           <svg
                             className="w-4 h-4"
                             fill="none"
@@ -188,7 +186,7 @@ export default function VodsPage() {
                 </Link>
               ))
             ) : (
-              <div className="col-span-full text-center text-gray-400 mt-12">
+              <div className="col-span-full text-center text-text-tertiary mt-12">
                 <p>No recorded streams available yet</p>
               </div>
             )}

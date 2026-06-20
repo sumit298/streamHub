@@ -169,10 +169,10 @@ const BrowsePage = () => {
         <main className="flex-1 overflow-y-auto">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
             <div className="mb-8">
-              <h1 className="text-3xl font-bold text-text-primary mb-2">
+              <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-text-primary mb-2">
                 Browse Streams
               </h1>
-              <p className="text-gray-400">
+              <p className="text-text-tertiary">
                 Discover streams from our community
               </p>
             </div>
@@ -186,10 +186,10 @@ const BrowsePage = () => {
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Search streams by title, category, or streamer..."
-                  className="w-full px-4 py-3 pl-12 pr-24 bg-card border border-gray-700 rounded-lg focus:ring-2 focus:ring-gray-500 focus:border-transparent text-text-primary placeholder-gray-500"
+                  className="w-full px-4 py-3 pl-12 pr-24 bg-surface border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-primary text-text-primary placeholder-text-muted"
                 />
                 <svg
-                  className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400"
+                  className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-text-muted"
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -205,7 +205,7 @@ const BrowsePage = () => {
                   <button
                     type="button"
                     onClick={clearSearch}
-                    className="absolute right-24 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-white hover:bg-gray-700 rounded-full transition"
+                    className="absolute right-24 top-1/2 -translate-y-1/2 p-1 text-text-muted hover:text-text-primary hover:bg-elevated rounded-full transition"
                     title="Clear search"
                   >
                     <svg
@@ -226,7 +226,7 @@ const BrowsePage = () => {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 px-4 py-1.5 bg-gray-700 text-white rounded-md hover:bg-gray-600 disabled:opacity-50 transition"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 px-4 py-1.5 btn-primary rounded-md disabled:opacity-50 transition text-sm"
                 >
                   {loading ? "..." : "Search"}
                 </button>
@@ -237,7 +237,7 @@ const BrowsePage = () => {
               <select
                 value={selectedCategory || ""}
                 onChange={(e) => handleCategoryChange(e.target.value)}
-                className="px-6 py-3 bg-card border border-gray-700 rounded-lg focus:ring-2 focus:ring-gray-500 focus:border-transparent text-text-primary cursor-pointer"
+                className="px-6 py-3 bg-surface border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-primary text-text-primary cursor-pointer"
               >
                 <option value="">All Categories</option>
                 <option value="gaming">🎮 Gaming</option>
@@ -252,14 +252,14 @@ const BrowsePage = () => {
             </div>
             </div>
 
-            <div className="flex gap-4 mb-6 border-b border-gray-700">
+            <div className="flex gap-4 mb-6 border-b border-border">
               <button
                 onClick={() => setFilter("all")}
                 disabled={loading}
-                className={`pb-3 px-4 font-medium transition disabled:opacity-50 disabled:cursor-not-allowed ${
+                className={`pb-3 px-4 font-semibold transition disabled:opacity-50 disabled:cursor-not-allowed ${
                   filter === "all"
-                    ? "text-gray-300 border-b-2 border-gray-300"
-                    : "text-gray-400 hover:text-gray-300"
+                    ? "text-text-primary border-b-2 border-primary"
+                    : "text-text-tertiary hover:text-text-primary"
                 }`}
               >
                 All Streams ({totalStreams})
@@ -267,10 +267,10 @@ const BrowsePage = () => {
               <button
                 onClick={() => setFilter("my")}
                 disabled={loading}
-                className={`pb-3 px-4 font-medium transition disabled:opacity-50 disabled:cursor-not-allowed ${
+                className={`pb-3 px-4 font-semibold transition disabled:opacity-50 disabled:cursor-not-allowed ${
                   filter === "my"
-                    ? "text-gray-300 border-b-2 border-gray-300"
-                    : "text-gray-400 hover:text-gray-300"
+                    ? "text-text-primary border-b-2 border-primary"
+                    : "text-text-tertiary hover:text-text-primary"
                 }`}
               >
                 My Streams ({myStreamCount})
@@ -278,10 +278,10 @@ const BrowsePage = () => {
               <button
                 onClick={() => setFilter("community")}
                 disabled={loading}
-                className={`pb-3 px-4 font-medium transition disabled:opacity-50 disabled:cursor-not-allowed ${
+                className={`pb-3 px-4 font-semibold transition disabled:opacity-50 disabled:cursor-not-allowed ${
                   filter === "community"
-                    ? "text-gray-300 border-b-2 border-gray-300"
-                    : "text-gray-400 hover:text-gray-300"
+                    ? "text-text-primary border-b-2 border-primary"
+                    : "text-text-tertiary hover:text-text-primary"
                 }`}
               >
                 Community Streams ({communityStreamsCount})
@@ -291,10 +291,10 @@ const BrowsePage = () => {
             {/* Streams Grid */}
             {error ? (
               <div className="col-span-full text-center py-12">
-                <p className="text-red-500 text-lg">{error}</p>
+                <p className="text-accent-red text-lg">{error}</p>
                 <button
                   onClick={() => refetch()}
-                  className="mt-4 px-4 py-2 bg-gray-700 text-white rounded hover:bg-gray-600"
+                  className="mt-4 px-4 py-2 btn-primary rounded-lg"
                 >
                   Retry
                 </button>
@@ -305,15 +305,15 @@ const BrowsePage = () => {
                   Array.from({ length: limit }).map((_, i) => (
                     <div
                       key={i}
-                      className="bg-card rounded-lg overflow-hidden animate-pulse"
+                      className="bg-surface rounded-xl border border-border overflow-hidden"
                     >
-                      <div className="aspect-video bg-gray-700" />
+                      <div className="aspect-video shimmer" />
                       <div className="p-4 space-y-3">
-                        <div className="h-4 bg-gray-700 rounded w-3/4" />
-                        <div className="h-3 bg-gray-700 rounded w-1/2" />
+                        <div className="h-4 rounded w-3/4 shimmer" />
+                        <div className="h-3 rounded w-1/2 shimmer" />
                         <div className="flex justify-between">
-                          <div className="h-3 bg-gray-700 rounded w-1/4" />
-                          <div className="h-3 bg-gray-700 rounded w-1/4" />
+                          <div className="h-3 rounded w-1/4 shimmer" />
+                          <div className="h-3 rounded w-1/4 shimmer" />
                         </div>
                       </div>
                     </div>
@@ -325,47 +325,51 @@ const BrowsePage = () => {
                       onClick={() =>
                         stream.isLive && router.push(`/watch/${stream.id}`)
                       }
-                      className={`bg-card rounded-lg overflow-hidden hover:scale-105 transition border ${stream.userId === user?.id ? "border-gray-600" : "border-gray-700"} ${
+                      className={`bg-surface rounded-xl border border-border card-hover overflow-hidden ${
                         stream.isLive
                           ? "cursor-pointer"
                           : "cursor-default opacity-75"
                       }`}
                     >
-                      <div className="aspect-video bg-black relative ">
+                      <div className="aspect-video bg-elevated relative">
                         {stream.thumbnail ? (
-                          <img
-                            src={stream.thumbnail}
-                            alt={stream.title}
-                            className="w-full h-full object-cover"
-                          />
+                          <>
+                            <img
+                              src={stream.thumbnail}
+                              alt={stream.title}
+                              className="w-full h-full object-cover"
+                            />
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+                          </>
                         ) : (
-                          <div className="w-full h-full flex items-center justify-center text-gray-500">
+                          <div className="w-full h-full flex items-center justify-center text-text-muted">
                             No Preview
                           </div>
                         )}
                         {stream.isLive ? (
-                          <span className="absolute top-2 left-2 bg-red-600 text-white px-2 py-1 text-xs rounded font-semibold">
-                            🔴 LIVE
+                          <span className="absolute top-3 left-3 inline-flex items-center gap-1.5 rounded-full bg-accent-red px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-white live-glow">
+                            <span className="h-1.5 w-1.5 rounded-full bg-white live-dot" />
+                            Live
                           </span>
                         ) : (
-                          <span className="absolute top-2 left-2 bg-gray-600 text-white px-2 py-1 text-xs rounded">
+                          <span className="absolute top-3 left-3 bg-elevated/80 backdrop-blur-md text-text-secondary px-2.5 py-1 text-xs rounded-full font-medium border border-border">
                             Ended
                           </span>
                         )}
                         {!!stream.duration && !stream.isLive && (
-                          <span className="absolute bottom-2 right-2 bg-black/80 text-white px-2 py-1 text-xs rounded">
+                          <span className="absolute bottom-3 right-3 bg-black/70 backdrop-blur-md text-white px-2 py-1 text-xs rounded-md">
                             ⏱️ {formatDuration(stream.duration)}
                           </span>
                         )}
                       </div>
                       <div className="p-4">
-                        <h3 className="font-semibold text-base text-text-primary mb-1 line-clamp-2 leading-tight">
+                        <h3 className="font-semibold text-sm text-text-primary mb-1 line-clamp-2 leading-snug min-h-[2.5rem]">
                           {stream.title}
                         </h3>
-                        <p className="text-sm text-gray-400 mb-3">
+                        <p className="text-xs text-text-tertiary mb-3">
                           {stream.streamer?.username || "Unknown"}
                         </p>
-                        <div className="flex items-center gap-3 text-xs text-gray-500">
+                        <div className="flex items-center gap-3 text-xs text-text-muted">
                           <span className="flex items-center gap-1">
                             <svg
                               className="w-4 h-4"
@@ -384,7 +388,7 @@ const BrowsePage = () => {
                               : `${stream.stats?.maxViewers ?? 0} views`}
                           </span>
                           <span
-                            className={`px-2 py-0.5 rounded text-xs capitalize border ${getCategoryColor(stream.category)}`}
+                            className={`px-2 py-0.5 rounded-full text-[10px] capitalize border font-semibold tracking-wide ${getCategoryColor(stream.category)}`}
                           >
                             {stream.category}
                           </span>
@@ -396,7 +400,7 @@ const BrowsePage = () => {
                               .map((tag: string, idx: number) => (
                                 <span
                                   key={idx}
-                                  className="px-2 py-0.5 bg-gray-700/50 text-gray-300 text-xs rounded"
+                                  className="px-2 py-0.5 bg-elevated/60 text-text-tertiary text-[10px] rounded-full border border-border"
                                 >
                                   {tag}
                                 </span>
@@ -408,7 +412,7 @@ const BrowsePage = () => {
                   ))
                 ) : (
                   <div className="col-span-full text-center py-12">
-                    <p className="text-gray-500 text-lg">
+                    <p className="text-text-tertiary text-lg">
                       No streams available
                     </p>
                   </div>
@@ -421,7 +425,7 @@ const BrowsePage = () => {
                 <button
                   onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
                   disabled={currentPage === 1}
-                  className="px-3 py-2 bg-card border border-gray-700 text-gray-300 rounded-lg disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gray-700 transition text-sm"
+                  className="px-3 py-2 bg-surface border border-border text-text-primary rounded-lg disabled:opacity-40 disabled:cursor-not-allowed hover:border-border-hover hover:bg-elevated transition text-sm"
                 >
                   ← Prev
                 </button>
@@ -435,15 +439,15 @@ const BrowsePage = () => {
                   }, [])
                   .map((item, idx) =>
                     item === "..." ? (
-                      <span key={`ellipsis-${idx}`} className="px-2 text-gray-500 text-sm">…</span>
+                      <span key={`ellipsis-${idx}`} className="px-2 text-text-muted text-sm">…</span>
                     ) : (
                       <button
                         key={item}
                         onClick={() => setCurrentPage(item as number)}
                         className={`w-9 h-9 rounded-lg text-sm font-medium transition ${
                           currentPage === item
-                            ? "bg-gray-600 text-white border border-gray-500"
-                            : "bg-card border border-gray-700 text-gray-400 hover:bg-gray-700 hover:text-white"
+                            ? "bg-primary text-white"
+                            : "bg-surface border border-border text-text-tertiary hover:bg-elevated hover:text-text-primary hover:border-border-hover"
                         }`}
                       >
                         {item}
@@ -454,7 +458,7 @@ const BrowsePage = () => {
                 <button
                   onClick={() => setCurrentPage(p => p + 1)}
                   disabled={currentPage === totalPages}
-                  className="px-3 py-2 bg-card border border-gray-700 text-gray-300 rounded-lg disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gray-700 transition text-sm"
+                  className="px-3 py-2 bg-surface border border-border text-text-primary rounded-lg disabled:opacity-40 disabled:cursor-not-allowed hover:border-border-hover hover:bg-elevated transition text-sm"
                 >
                   Next →
                 </button>

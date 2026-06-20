@@ -103,108 +103,113 @@ const Login = () => {
   }
 
   return (
-    <div className="flex items-center justify-center flex-col h-screen bg-linear-to-br from-accent-purple/10 via-background to-accent-pink/10">
-      <div className="flex items-center flex-col justify-center mb-4">
-        <div className="flex items-center gap-3 mb-2">
-          <img src="/favicon.svg" alt="StreamHub" className="h-10 w-10" />
-          <h1 className="text-4xl font-bold text-white">StreamHub</h1>
-        </div>
-        <span className="text-sm text-gray-600">
+    <div className="flex items-center justify-center flex-col min-h-screen bg-background relative overflow-hidden">
+      {/* Arctic ambient glow */}
+      <div className="pointer-events-none absolute inset-0">
+        <div className="absolute -top-40 -left-40 h-[480px] w-[480px] rounded-full bg-primary/10 blur-[120px]" />
+        <div className="absolute -bottom-40 -right-40 h-[480px] w-[480px] rounded-full bg-accent-blue/8 blur-[120px]" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(2,132,199,0.06),transparent_60%)]" />
+      </div>
+
+      <div className="relative flex items-center flex-col justify-center mb-6">
+        <Link href="/" className="flex items-center gap-3 mb-3 group">
+          <div className="h-10 w-10 rounded-lg bg-primary flex items-center justify-center shadow-glow-blue">
+            <img src="/favicon.svg" alt="StreamHub" className="h-6 w-6" />
+          </div>
+          <h1 className="text-3xl font-extrabold tracking-tight">
+            Stream<span className="text-primary">Hub</span>
+          </h1>
+        </Link>
+        <span className="text-sm text-text-tertiary">
           Sign in to continue streaming
         </span>
       </div>
 
-      <div className="rounded-md border border-white/10 p-6 mx-4 mt-4 w-full sm:w-96 md:w-1/2 lg:w-1/3 shadow-lg max-w-md bg-white/5 backdrop-blur-xl">
-        <div className="mb-7">
-          <p className="text-2xl font-bold">Welcome back</p>
-          <span className="text-sm text-gray-600">
+      <div className="relative rounded-2xl border border-border bg-surface/60 backdrop-blur-xl p-8 mx-4 w-full max-w-md shadow-card">
+        <div className="mb-6">
+          <p className="text-2xl font-bold tracking-tight text-text-primary">Welcome back</p>
+          <span className="text-sm text-text-tertiary">
             Enter your credentials to access your account
           </span>
         </div>
 
-        <div className="flex flex-col mb-4">
-          <Label htmlFor="email" className="mb-2">
+        <div className="flex flex-col mb-5">
+          <Label htmlFor="email" className="mb-1.5 text-xs font-medium text-text-secondary">
             Email Address
           </Label>
           <div className="relative">
-            <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+            <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-text-muted" />
             <Input
               type="email"
               name="email"
               id="email"
               onKeyPress={handleKeyPressToLogin}
               placeholder="you@example.com"
-              className="pl-9"
+              className="h-11 pl-10 bg-elevated/60 border-border focus:border-primary text-text-primary placeholder:text-text-muted"
               onChange={(e) => handleChange(e)}
               value={loginData.email}
             />
             {errors.email && (
-              <p className="mt-1 text-destructive text-sm">{errors.email}</p>
+              <p className="mt-1.5 text-accent-red text-xs">{errors.email}</p>
             )}
           </div>
         </div>
 
-        <div className="flex flex-col mb-4">
-          <Label htmlFor="password" className="mb-2">Password</Label>
+        <div className="flex flex-col mb-5">
+          <Label htmlFor="password" className="mb-1.5 text-xs font-medium text-text-secondary">Password</Label>
           <div className="relative">
-            <Lock className="absolute left-3 top-3  h-4 w-4 text-muted-foreground" />
+            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-text-muted" />
             <Input
               type={showPassword ? "text" : "password"}
               name="password"
               id="password"
-              className="pl-9 text-sm"
-              placeholder="Enter your password"
+              className="h-11 pl-10 pr-10 bg-elevated/60 border-border focus:border-primary text-text-primary placeholder:text-text-muted"
+              placeholder="••••••••"
               onChange={(e) => handleChange(e)}
               value={loginData.password}
               onKeyPress={handleKeyPressToLogin}
             />
 
-            {showPassword ? (
-              <EyeOff
-                className="absolute right-3 top-3 h-4 w-4 text-muted-foreground"
-                onClick={() => setShowPassword(!showPassword)}
-              />
-            ) : (
-              <Eye
-                className="absolute right-3 top-3 h-4 w-4 text-muted-foreground"
-                onClick={() => setShowPassword(!showPassword)}
-              />
-            )}
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-primary transition-colors"
+            >
+              {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            </button>
 
             {errors.password && (
-              <p className="mt-1 text-destructive text-sm">{errors.password}</p>
+              <p className="mt-1.5 text-accent-red text-xs">{errors.password}</p>
             )}
           </div>
         </div>
 
-        <Button
-          className="w-full bg-emerald-600 hover:bg-emerald-700 font-semibold mt-2"
+        <button
           onClick={handleSubmit}
           disabled={
             isLoading ||
             Object.values(errors).some((error) => error !== "") ||
             Object.values(loginData).some((value) => value === "")
           }
+          className="w-full h-11 rounded-lg btn-primary text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none"
         >
           {isLoading ? "Signing in..." : "Sign In"}
-        </Button>
+        </button>
 
-        <div className="text-center mt-2">
-          <Link href="/forgot-password" className="text-xs text-emerald-500 hover:underline">
+        <div className="text-center mt-4">
+          <Link href="/forgot-password" className="text-xs text-text-tertiary hover:text-accent-blue transition-colors">
             Forgot password?
           </Link>
         </div>
 
-        <div className="text-center">
-          <p className="text-sm mt-3">
-            Don't have an account?{" "}
-            <Link
-              className="text-emerald-500 font-semibold cursor-pointer"
-              href="/register"
-            >
-              Create one now
-            </Link>
-          </p>
+        <div className="pt-4 border-t border-border text-center text-sm text-text-tertiary mt-4">
+          Don't have an account?{" "}
+          <Link
+            className="text-accent-blue hover:text-accent-hover font-medium transition-colors"
+            href="/register"
+          >
+            Create one now
+          </Link>
         </div>
       </div>
     </div>

@@ -29,42 +29,53 @@ export default function ForgotPasswordPage() {
   };
 
   return (
-    <div className="flex items-center justify-center flex-col h-screen bg-linear-to-br from-accent-purple/10 via-background to-accent-pink/10">
-      <div className="flex items-center flex-col justify-center mb-4">
-        <div className="flex items-center gap-3 mb-2">
-          <img src="/favicon.svg" alt="StreamHub" className="h-10 w-10" />
-          <h1 className="text-4xl font-bold text-white">StreamHub</h1>
-        </div>
-        <span className="text-sm text-gray-600">Reset your password</span>
+    <div className="flex items-center justify-center flex-col min-h-screen bg-background relative overflow-hidden py-12">
+      {/* Arctic ambient glow */}
+      <div className="pointer-events-none absolute inset-0">
+        <div className="absolute -top-40 -left-40 h-[480px] w-[480px] rounded-full bg-primary/10 blur-[120px]" />
+        <div className="absolute -bottom-40 -right-40 h-[480px] w-[480px] rounded-full bg-accent-blue/8 blur-[120px]" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(2,132,199,0.06),transparent_60%)]" />
       </div>
 
-      <div className="rounded-md border border-white/10 p-6 mx-4 mt-4 w-full sm:w-96 md:w-1/2 lg:w-1/3 shadow-lg max-w-md bg-white/5 backdrop-blur-xl">
-        <div className="mb-7">
-          <p className="text-2xl font-bold">Forgot password?</p>
-          <span className="text-sm text-gray-600">
+      <div className="relative flex items-center flex-col justify-center mb-6">
+        <Link href="/" className="flex items-center gap-3 mb-3 group">
+          <div className="h-10 w-10 rounded-lg bg-primary flex items-center justify-center shadow-glow-blue">
+            <img src="/favicon.svg" alt="StreamHub" className="h-6 w-6" />
+          </div>
+          <h1 className="text-3xl font-extrabold tracking-tight">
+            Stream<span className="text-primary">Hub</span>
+          </h1>
+        </Link>
+        <span className="text-sm text-text-tertiary">Reset your password</span>
+      </div>
+
+      <div className="relative rounded-2xl border border-border bg-surface/60 backdrop-blur-xl p-8 mx-4 w-full max-w-md shadow-card">
+        <div className="mb-6">
+          <p className="text-2xl font-bold tracking-tight text-text-primary">Forgot password?</p>
+          <span className="text-sm text-text-tertiary">
             Enter your email and we'll send you a reset link
           </span>
         </div>
 
         {sent ? (
           <div className="text-center py-4 space-y-3">
-            <p className="text-emerald-400 font-semibold">Check your email for a reset link.</p>
-            <p className="text-sm text-gray-500">Didn't receive it? Check your spam folder.</p>
-            <Link href="/login" className="text-sm text-emerald-500 font-semibold hover:underline">
+            <p className="text-accent-green font-semibold">Check your email for a reset link.</p>
+            <p className="text-sm text-text-muted">Didn't receive it? Check your spam folder.</p>
+            <Link href="/login" className="text-sm text-primary hover:text-accent-blue font-semibold transition-colors inline-block">
               Back to login
             </Link>
           </div>
         ) : (
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-5">
             <div className="flex flex-col">
-              <Label htmlFor="email" className="mb-2">Email Address</Label>
+              <Label htmlFor="email" className="mb-1.5 text-xs font-medium text-text-secondary">Email Address</Label>
               <div className="relative">
-                <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-text-muted" />
                 <Input
                   type="email"
                   id="email"
                   placeholder="you@example.com"
-                  className="pl-9"
+                  className="h-11 pl-10 bg-elevated/60 border-border focus:border-primary text-text-primary placeholder:text-text-muted"
                   value={email}
                   onChange={e => setEmail(e.target.value)}
                   required
@@ -72,19 +83,19 @@ export default function ForgotPasswordPage() {
               </div>
             </div>
 
-            {error && <p className="text-destructive text-sm">{error}</p>}
+            {error && <p className="text-accent-red text-xs">{error}</p>}
 
-            <Button
+            <button
               type="submit"
               disabled={loading || !email}
-              className="w-full bg-emerald-600 hover:bg-emerald-700 font-semibold"
+              className="w-full h-11 rounded-lg btn-primary text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none"
             >
               {loading ? 'Sending...' : 'Send reset link'}
-            </Button>
+            </button>
 
-            <p className="text-center text-sm mt-3">
+            <p className="text-center text-sm text-text-tertiary pt-4 border-t border-border">
               Remember your password?{' '}
-              <Link href="/login" className="text-emerald-500 font-semibold">
+              <Link href="/login" className="text-primary hover:text-accent-hover font-medium transition-colors">
                 Sign in
               </Link>
             </p>

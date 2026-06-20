@@ -67,19 +67,19 @@ const FollowingPage = () => {
           <Sidebar />
         </div>
         <main className="flex-1 overflow-y-auto p-8">
-          <h1 className="text-3xl font-bold text-text-primary mb-6">
+          <h1 className="text-3xl font-extrabold text-text-primary mb-6">
             Following
           </h1>
 
           {isLoading ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {Array.from({ length: 6 }).map((_, i) => (
-                <div key={i} className="bg-card rounded-lg p-6 animate-pulse">
+                <div key={i} className="bg-surface rounded-xl border border-border p-6">
                   <div className="flex items-center gap-4">
-                    <div className="w-16 h-16 bg-gray-700 rounded-full" />
+                    <div className="w-16 h-16 shimmer rounded-full" />
                     <div className="space-y-2 flex-1">
-                      <div className="h-4 bg-gray-700 rounded w-3/4" />
-                      <div className="h-3 bg-gray-700 rounded w-1/2" />
+                      <div className="h-4 shimmer rounded w-3/4" />
+                      <div className="h-3 shimmer rounded w-1/2" />
                     </div>
                   </div>
                 </div>
@@ -87,7 +87,7 @@ const FollowingPage = () => {
             </div>
           ) : sorted.length === 0 ? (
             <div className="text-center py-12">
-              <p className="text-gray-400 text-lg">
+              <p className="text-text-tertiary text-lg">
                 You are not following anyone yet
               </p>
             </div>
@@ -103,7 +103,7 @@ const FollowingPage = () => {
                         ? router.push(`/watch/${liveStream._id}`)
                         : router.push(`/profile/${user._id}`)
                     }
-                    className="bg-card rounded-lg p-6 cursor-pointer hover:scale-105 transition"
+                    className="bg-surface rounded-xl border border-border p-6 cursor-pointer card-hover"
                   >
                     <div className="flex items-center gap-4">
                       <div className="relative">
@@ -114,12 +114,13 @@ const FollowingPage = () => {
                             alt={user.username}
                           />
                         ) : (
-                          <div className="w-16 h-16 bg-gray-700 rounded-full flex items-center justify-center text-white font-bold text-xl">
+                          <div className="w-16 h-16 bg-elevated rounded-full flex items-center justify-center text-text-primary font-bold text-xl border border-border">
                             {user.username?.slice(0, 2).toUpperCase()}
                           </div>
                         )}
                         {liveStream && (
-                          <span className="absolute -bottom-1 -right-1 bg-red-600 text-white text-xs px-1.5 py-0.5 rounded-full font-bold">
+                          <span className="absolute -bottom-1 -right-1 inline-flex items-center gap-1 bg-accent-red text-white text-[10px] px-1.5 py-0.5 rounded-full font-bold uppercase live-glow">
+                            <span className="h-1 w-1 rounded-full bg-white live-dot" />
                             LIVE
                           </span>
                         )}
@@ -129,11 +130,11 @@ const FollowingPage = () => {
                           {user.username}
                         </h3>
                         {liveStream ? (
-                          <p className="text-sm text-red-400">
+                          <p className="text-sm text-accent-red font-medium">
                             {liveStream.title}
                           </p>
                         ) : (
-                          <p className="text-sm text-gray-400">
+                          <p className="text-sm text-text-tertiary">
                             {user.stats?.followers || 0} followers
                           </p>
                         )}
