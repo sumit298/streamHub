@@ -8,6 +8,8 @@
   --color-accent-purple: #8b5cf6;
   --color-accent-pink: #ec4899;
   --color-text-secondary: #6b7280;
+  --color-surface: #1A1D3A;
+  --color-elevated: #252945;
 }
 
 @theme inline {
