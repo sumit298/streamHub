@@ -5,6 +5,9 @@ export default {
   theme: {
     extend: {
       colors: {
+        background: "#0A0E27",
+        surface: "#1A1D3A",
+        elevated: "#252945",
         gray: {
           50: "#555555",
           150: "#3f4046",
@@ -21,7 +24,7 @@ export default {
           350: "#5568FE",
         },
         red: {
-          650: "#FF5D5D",
+          650: "##FF5D5D",
         },
         green: {
           150: "#3BA55D",
