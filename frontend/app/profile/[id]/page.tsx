@@ -11,11 +11,15 @@ interface UserProfile {
   username: string;
   avatar?: string;
   bio: string;
-  stats?: { followers: number; following: number; totalStreams: number; totalViews: number}
+  stats?: {
+    followers: number;
+    following: number;
+    totalStreams: number;
+    totalViews: number;
+  };
   createdAt?: string;
   email: string;
 }
-
 
 export default function UserProfilePage() {
   const params = useParams();
@@ -23,33 +27,39 @@ export default function UserProfilePage() {
   const { user: currentUser } = useAuth();
   const queryClient = useQueryClient();
 
-  const { data: profile, isLoading: loading} = useQuery<UserProfile>({
-    queryKey: ['user-profile', params.id],
-    queryFn: () => api.get(`/api/users/${params.id}`).then(res=> res.data.user),
+  const { data: profile, isLoading: loading } = useQuery<UserProfile>({
+    queryKey: ["user-profile", params.id],
+    queryFn: () =>
+      api.get(`/api/users/${params.id}`).then((res) => res.data.user),
   });
 
-  const { data: followData } = useQuery<{ isFollowing: boolean}>({
-    queryKey: ['is-following', params.id],
-    queryFn: () => api.get(`/api/users/${params.id}/is-following`).then(res=> res.data),
+  const { data: followData } = useQuery<{ isFollowing: boolean }>({
+    queryKey: ["is-following", params.id],
+    queryFn: () =>
+      api.get(`/api/users/${params.id}/is-following`).then((res) => res.data),
     enabled: !!currentUser,
   });
 
   const isFollowing = followData?.isFollowing ?? false;
-  const { mutate: toggleFollow, isPending: followLoading} = useMutation({
-    mutationFn: () => isFollowing 
-    ? api.delete(`/api/users/${params.id}/follow`) : api.post(`/api/users/${params.id}/follow`),
+  const { mutate: toggleFollow, isPending: followLoading } = useMutation({
+    mutationFn: () =>
+      isFollowing
+        ? api.delete(`/api/users/${params.id}/follow`)
+        : api.post(`/api/users/${params.id}/follow`),
     onSuccess: () => {
-      queryClient.setQueryData(['is-following', params.id], {isFollowing: !isFollowing})
-    }
-  })
+      queryClient.setQueryData(["is-following", params.id], {
+        isFollowing: !isFollowing,
+      });
+    },
+  });
 
-  const handleFollow = ()=> {
-    if(!currentUser) {
-      router.push('/login');
+  const handleFollow = () => {
+    if (!currentUser) {
+      router.push("/login");
       return;
     }
     toggleFollow();
-  }
+  };
 
   if (loading) {
     return (
@@ -114,7 +124,11 @@ export default function UserProfilePage() {
                   <h1 className="text-2xl sm:text-3xl font-extrabold text-text-primary mb-2">
                     {profile.username}
                   </h1>
-                  <p className="text-text-tertiary text-sm sm:text-base">{profile.email}</p>
+                  {isOwnProfile && (
+                    <p className="text-text-tertiary text-sm sm:text-base">
+                      {profile.email}
+                    </p>
+                  )}
                 </div>
                 {!isOwnProfile && currentUser && (
                   <button
@@ -126,7 +140,11 @@ export default function UserProfilePage() {
                         : "btn-primary"
                     }`}
                   >
-                    {followLoading ? "..." : isFollowing ? "Unfollow" : "Follow"}
+                    {followLoading
+                      ? "..."
+                      : isFollowing
+                        ? "Unfollow"
+                        : "Follow"}
                   </button>
                 )}
                 {isOwnProfile && (
@@ -145,19 +163,25 @@ export default function UserProfilePage() {
                 <div className="text-xl sm:text-2xl md:text-3xl font-extrabold text-cyan-400 mb-1">
                   {profile.stats?.followers || 0}
                 </div>
-                <div className="text-xs sm:text-sm font-semibold uppercase tracking-wider text-text-muted">Followers</div>
+                <div className="text-xs sm:text-sm font-semibold uppercase tracking-wider text-text-muted">
+                  Followers
+                </div>
               </div>
               <div className="bg-surface rounded-xl p-3 sm:p-4 md:p-6 border border-border card-hover">
                 <div className="text-xl sm:text-2xl md:text-3xl font-extrabold text-orange-400 mb-1">
                   {profile.stats?.following || 0}
                 </div>
-                <div className="text-xs sm:text-sm font-semibold uppercase tracking-wider text-text-muted">Following</div>
+                <div className="text-xs sm:text-sm font-semibold uppercase tracking-wider text-text-muted">
+                  Following
+                </div>
               </div>
               <div className="bg-surface rounded-xl p-3 sm:p-4 md:p-6 border border-border card-hover">
                 <div className="text-xl sm:text-2xl md:text-3xl font-extrabold text-emerald-400 mb-1">
                   {profile.stats?.totalStreams || 0}
                 </div>
-                <div className="text-xs sm:text-sm font-semibold uppercase tracking-wider text-text-muted">Streams</div>
+                <div className="text-xs sm:text-sm font-semibold uppercase tracking-wider text-text-muted">
+                  Streams
+                </div>
               </div>
             </div>
 
@@ -167,7 +191,9 @@ export default function UserProfilePage() {
               </h2>
               <div className="space-y-4">
                 <div>
-                  <label className="text-sm text-text-tertiary">Member Since</label>
+                  <label className="text-sm text-text-tertiary">
+                    Member Since
+                  </label>
                   <p className="text-text-primary font-semibold">
                     {profile.createdAt
                       ? new Date(profile.createdAt).toLocaleDateString()

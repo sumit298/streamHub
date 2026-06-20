@@ -29,7 +29,7 @@ const Home = () => {
       {/* Nav */}
       <header className="glass sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
-          <Link href="/landing" className="flex items-center gap-2">
+          <Link href="/" className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-lg bg-linear-to-br from-primary to-accent-blue grid place-items-center">
               <Radio className="w-4 h-4 text-white" />
             </div>
@@ -428,7 +428,7 @@ const Home = () => {
                 h: "Product",
                 l: ["Browse Streams", "Dashboard", "Features", "Pricing"],
               },
-              { h: "Company", l: ["About", "Blog", "Careers", "Contact"] },
+              { h: "Company", l: ["About", "Blog", "Contact"] },
               { h: "Legal", l: ["Privacy", "Terms", "Guidelines", "Cookies"] },
             ].map((c) => (
               <div key={c.h}>
@@ -446,7 +446,7 @@ const Home = () => {
             ))}
           </div>
           <div className="mt-12 pt-6 border-t border-border text-center text-xs text-text-muted">
-            © 2026 StreamHub. All rights reserved.
+            © {new Date().getFullYear()} StreamHub. All rights reserved.
           </div>
         </div>
       </footer>

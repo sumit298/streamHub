@@ -86,7 +86,7 @@ export default function VodsPage() {
             ) : vods.length > 0 ? (
               vods.map((vod: any) => (
                 <Link key={vod._id} href={`/vods/${vod._id}`}>
-                  <div className="bg-surface rounded-xl border border-border card-hover overflow-hidden cursor-pointer">
+                  <div className="group bg-surface rounded-xl border border-border card-hover overflow-hidden cursor-pointer">
                     {/* Thumbnail */}
                     <div className="w-full h-44 bg-elevated flex items-center justify-center relative">
                       {vod.thumbnail ? (
