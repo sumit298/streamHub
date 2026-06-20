@@ -54,7 +54,7 @@ interface VodRequest extends Request {
 }
 
 const generateAvatarUrl = (username: string): string => {
-  return `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(username)}`;
+  return `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(username)}`;
 };
 
 const VodController = {
