@@ -169,7 +169,7 @@ const BrowsePage = () => {
         <main className="flex-1 overflow-y-auto">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
             <div className="mb-8">
-              <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-text-primary mb-2">
+              <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-text-primary mb-2">
                 Browse Streams
               </h1>
               <p className="text-text-tertiary">

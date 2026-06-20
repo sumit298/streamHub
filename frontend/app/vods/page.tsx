@@ -6,7 +6,7 @@ import { Sidebar } from "@/components/Sidebar";
 import { Navbar } from "@/components/ui/Navbar";
 import { useQuery } from "@tanstack/react-query";
 import Image from "next/image";
-import { Eye, Clock } from "lucide-react";
+import { Clock } from "lucide-react";
 
 interface Vod {
   _id: string;
@@ -121,7 +121,7 @@ export default function VodsPage() {
 
                     {/* Category */}
                     <span className="absolute top-3 right-3 rounded-full bg-ring/15 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-accent-hover backdrop-blur-md border border-ring/20">
-                      VOD
+                      {vod.category}
                     </span>
 
                     {/* Duration */}
@@ -134,19 +134,15 @@ export default function VodsPage() {
                         : "0:00"}
                     </span>
 
-                    {/* Views */}
-                    <span className="absolute bottom-3 left-3 inline-flex items-center gap-1 rounded-md bg-black/60 px-2 py-1 text-xs font-semibold text-white backdrop-blur-md">
-                      <Eye className="h-3 w-3" />
-                      {formatViewers(vod.views || 0)}
-                    </span>
+                  
                   </div>
 
                   <div className="p-4">
-                    <h3 className="line-clamp-2 text-sm font-semibold text-text-primary leading-snug min-h-10">
+                    <h3 className="line-clamp-2 text-md font-semibold text-text-primary leading-snug min-h-10">
                       {vod.title}
                     </h3>
 
-                    <div className="mt-3 flex items-center gap-2.5">
+                    <div className="mt-2 flex items-center gap-2.5">
                       <Image
                         src={vod.userId.avatar}
                         alt={vod.userId.username}
