@@ -6,6 +6,7 @@ import { Sidebar } from "@/components/Sidebar";
 import { Navbar } from "@/components/ui/Navbar";
 import { useQuery } from "@tanstack/react-query";
 import Image from "next/image";
+import { Eye, Clock } from "lucide-react";
 
 interface Vod {
   _id: string;
@@ -37,6 +38,10 @@ export default function VodsPage() {
   const vods = data || [];
   const hasMore = vods.length === limit;
 
+  function formatViewers(n: number): string {
+    if (n >= 1000) return (n / 1000).toFixed(1).replace(/\.0$/, "") + "K";
+    return String(n);
+  }
   return (
     <div className="flex flex-col h-screen bg-background">
       <Navbar />
@@ -74,7 +79,10 @@ export default function VodsPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
             {isLoading ? (
               Array.from({ length: limit }).map((_, i) => (
-                <div key={i} className="bg-surface rounded-xl border border-border overflow-hidden">
+                <div
+                  key={i}
+                  className="bg-surface rounded-xl border border-border overflow-hidden"
+                >
                   <div className="w-full h-48 shimmer" />
                   <div className="p-4 space-y-3">
                     <div className="h-4 rounded w-3/4 shimmer" />
@@ -85,17 +93,20 @@ export default function VodsPage() {
               ))
             ) : vods.length > 0 ? (
               vods.map((vod: any) => (
-                <Link key={vod._id} href={`/vods/${vod._id}`}>
-                  <div className="group bg-surface rounded-xl border border-border card-hover overflow-hidden cursor-pointer">
-                    {/* Thumbnail */}
-                    <div className="w-full h-44 bg-elevated flex items-center justify-center relative">
-                      {vod.thumbnail ? (
-                        <img
-                          src={vod.thumbnail}
-                          alt={vod.title}
-                          className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                        />
-                      ) : (
+                <Link
+                  key={vod._id}
+                  href={`/vods/${vod._id}`}
+                  className="group block overflow-hidden rounded-xl bg-surface border border-border card-hover"
+                >
+                  <div className="relative aspect-video overflow-hidden bg-elevated">
+                    {vod.thumbnail ? (
+                      <img
+                        src={vod.thumbnail}
+                        alt={vod.title}
+                        className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                      />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center">
                         <svg
                           className="w-16 h-16 text-text-muted"
                           fill="currentColor"
@@ -103,82 +114,55 @@ export default function VodsPage() {
                         >
                           <path d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" />
                         </svg>
-                      )}
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
-                    </div>
-
-                    {/* Content */}
-                    <div className="p-5">
-                      {/* Title + Duration */}
-                      <div className="flex items-start justify-between gap-3">
-                        <h3 className="text-text-primary text-sm font-semibold leading-snug min-h-[2.5rem] line-clamp-2 flex-1">
-                          {vod.title}
-                        </h3>
-
-                        <span className="flex items-center gap-1 text-xs text-text-tertiary shrink-0">
-                          <svg
-                            className="w-4 h-4"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                            />
-                          </svg>
-
-                          {vod.duration
-                            ? `${Math.floor(vod.duration / 60)}:${String(
-                                vod.duration % 60,
-                              ).padStart(2, "0")}`
-                            : "N/A"}
-                        </span>
                       </div>
+                    )}
 
-                      {/* Author + Stats */}
-                      <div className="flex items-center justify-between mt-4">
-                        <div className="flex items-center gap-3 min-w-0">
-                          <div className="w-8 h-8 rounded-full overflow-hidden shrink-0">
-                            <Image
-                              src={vod.userId.avatar}
-                              alt={vod.userId.username}
-                              width={30}
-                              height={30}
-                              className="w-full h-full object-cover"
-                              unoptimized
-                            />
-                          </div>
+                    <div className="absolute inset-0 bg-linear-to-t from-black/80 via-black/0 to-transparent" />
 
-                          <p className="text-text-tertiary text-xs truncate">
-                            {vod.userId.username}
-                          </p>
+                    {/* Category */}
+                    <span className="absolute top-3 right-3 rounded-full bg-ring/15 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-accent-hover backdrop-blur-md border border-ring/20">
+                      VOD
+                    </span>
+
+                    {/* Duration */}
+                    <span className="absolute bottom-3 right-3 inline-flex items-center gap-1 rounded-md bg-black/70 px-2 py-1 text-xs font-medium text-white backdrop-blur-md">
+                      <Clock className="h-3 w-3" />
+                      {vod.duration
+                        ? `${Math.floor(vod.duration / 60)}:${String(
+                            vod.duration % 60,
+                          ).padStart(2, "0")}`
+                        : "0:00"}
+                    </span>
+
+                    {/* Views */}
+                    <span className="absolute bottom-3 left-3 inline-flex items-center gap-1 rounded-md bg-black/60 px-2 py-1 text-xs font-semibold text-white backdrop-blur-md">
+                      <Eye className="h-3 w-3" />
+                      {formatViewers(vod.views || 0)}
+                    </span>
+                  </div>
+
+                  <div className="p-4">
+                    <h3 className="line-clamp-2 text-sm font-semibold text-text-primary leading-snug min-h-10">
+                      {vod.title}
+                    </h3>
+
+                    <div className="mt-3 flex items-center gap-2.5">
+                      <Image
+                        src={vod.userId.avatar}
+                        alt={vod.userId.username}
+                        width={28}
+                        height={28}
+                        unoptimized
+                        className="h-7 w-7 rounded-full ring-1 ring-border object-cover"
+                      />
+
+                      <div className="min-w-0">
+                        <div className="truncate text-xs font-medium text-text-secondary">
+                          {vod.userId.username}
                         </div>
 
-                        <div className="flex items-center gap-1 text-xs text-text-tertiary shrink-0">
-                          <svg
-                            className="w-4 h-4"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-                            />
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
-                            />
-                          </svg>
-
-                          {vod.views || 0}
+                        <div className="text-[11px] text-text-muted">
+                          {formatViewers(vod.views || 0)} views
                         </div>
                       </div>
                     </div>
