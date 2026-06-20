@@ -19,7 +19,7 @@ export const Sidebar = ({ onNavigate }: SidebarProps = {}) => {
   const location = usePathname();
 
   return (
-    <aside className="w-full lg:w-64 bg-gray-850 lg:border-r border-gray-700 p-4 h-full">
+    <aside className="w-full lg:w-64 bg-surface lg:border-r border-border p-4 h-full">
       <nav className="space-y-1">
         {navigation.map((item) => {
           const isActive = location === item.href;
@@ -29,13 +29,13 @@ export const Sidebar = ({ onNavigate }: SidebarProps = {}) => {
               href={item.href}
               onClick={onNavigate}
               className={cn(
-                "flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors",
+                "flex items-center space-x-3 px-4 py-3 rounded-lg transition-all duration-200",
                 isActive
-                  ? "bg-gray-700 text-white font-medium"
-                  : "text-gray-300 hover:bg-gray-800 hover:text-white"
+                  ? "bg-elevated text-text-primary font-semibold border border-primary/20"
+                  : "text-text-secondary hover:bg-elevated/60 hover:text-text-primary"
               )}
             >
-              <item.icon className="h-5 w-5" />
+              <item.icon className={cn("h-5 w-5", isActive && "text-primary")} />
               <span>{item.name}</span>
             </Link>
           );

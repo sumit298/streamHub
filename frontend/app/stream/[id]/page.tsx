@@ -793,23 +793,23 @@ const StreamsPage = ({ isStreamer = true }) => {
   };
 
   return (
-    <div className="fixed inset-0 bg-gray-950 flex flex-col">
+    <div className="fixed inset-0 bg-background flex flex-col">
       {/* End Stream Confirmation Modal */}
       {showEndStreamModal && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-gray-800 rounded-2xl p-8 max-w-sm w-full text-center border border-gray-700 shadow-2xl">
-            <div className="w-14 h-14 bg-red-500/15 rounded-full flex items-center justify-center mx-auto mb-4">
-              <svg className="w-7 h-7 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div className="bg-surface rounded-2xl p-8 max-w-sm w-full text-center border border-border shadow-card">
+            <div className="w-14 h-14 bg-accent-red/15 rounded-full flex items-center justify-center mx-auto mb-4">
+              <svg className="w-7 h-7 text-accent-red" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
               </svg>
             </div>
-            <h2 className="text-xl font-bold mb-1 text-white">End Stream?</h2>
-            <p className="text-gray-400 text-sm mb-6">This action cannot be undone.</p>
+            <h2 className="text-xl font-bold mb-1 text-text-primary">End Stream?</h2>
+            <p className="text-text-tertiary text-sm mb-6">This action cannot be undone.</p>
             <div className="flex gap-3">
-              <button onClick={() => setShowEndStreamModal(false)} className="flex-1 bg-gray-700 hover:bg-gray-600 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition">
+              <button onClick={() => setShowEndStreamModal(false)} className="flex-1 bg-surface border border-border hover:bg-elevated hover:border-border-hover text-text-primary px-4 py-2.5 rounded-xl text-sm font-semibold transition">
                 Cancel
               </button>
-              <button onClick={stopStream} disabled={isStopping} className="flex-1 bg-red-600 hover:bg-red-700 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition disabled:opacity-50">
+              <button onClick={stopStream} disabled={isStopping} className="flex-1 btn-danger px-4 py-2.5 rounded-xl text-sm font-semibold disabled:opacity-50">
                 {isStopping ? "Ending..." : "End Stream"}
               </button>
             </div>
@@ -820,10 +820,10 @@ const StreamsPage = ({ isStreamer = true }) => {
       {/* Mobile Chat Drawer */}
       <div className={`fixed inset-0 z-40 lg:hidden transition-opacity duration-300 ${showMobileChat ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}>
         <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowMobileChat(false)} />
-        <div className={`absolute top-0 right-0 h-full w-80 bg-gray-900 shadow-2xl transition-transform duration-300 flex flex-col ${showMobileChat ? 'translate-x-0' : 'translate-x-full'}`}>
-          <div className="flex items-center justify-between px-4 py-3 border-b border-gray-800">
-            <span className="text-sm font-semibold text-white">Live Chat</span>
-            <button onClick={() => setShowMobileChat(false)} className="text-gray-400 hover:text-white transition p-1">
+        <div className={`absolute top-0 right-0 h-full w-80 bg-surface shadow-card transition-transform duration-300 flex flex-col border-l border-border ${showMobileChat ? 'translate-x-0' : 'translate-x-full'}`}>
+          <div className="flex items-center justify-between px-4 py-3 border-b border-border">
+            <span className="text-sm font-semibold text-text-primary">Live Chat</span>
+            <button onClick={() => setShowMobileChat(false)} className="text-text-tertiary hover:text-text-primary transition p-1">
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
@@ -837,17 +837,17 @@ const StreamsPage = ({ isStreamer = true }) => {
       </div>
 
       {/* Top Bar */}
-      <div className="shrink-0 bg-gray-900/80 backdrop-blur-sm border-b border-gray-800/50 z-10">
+      <div className="shrink-0 bg-surface/80 backdrop-blur-sm border-b border-border z-10">
         <div className="px-4 py-2.5 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <a href="/dashboard" className="flex items-center gap-1.5 text-gray-400 hover:text-white transition text-sm">
+            <a href="/dashboard" className="flex items-center gap-1.5 text-text-tertiary hover:text-text-primary transition text-sm">
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
               </svg>
               <span className="hidden sm:inline">Dashboard</span>
             </a>
-            <div className="w-px h-4 bg-gray-700" />
-            <span className="text-sm font-medium text-white truncate max-w-40 sm:max-w-xs">
+            <div className="w-px h-4 bg-border" />
+            <span className="text-sm font-medium text-text-primary truncate max-w-40 sm:max-w-xs">
               {streamInfo?.title || "Stream Studio"}
             </span>
           </div>
@@ -857,7 +857,7 @@ const StreamsPage = ({ isStreamer = true }) => {
             )}
             <button
               onClick={() => setShowMobileChat(true)}
-              className="lg:hidden flex items-center gap-1.5 bg-gray-800 hover:bg-gray-700 text-gray-300 hover:text-white px-3 py-1.5 rounded-lg text-xs font-medium transition"
+              className="lg:hidden flex items-center gap-1.5 bg-surface hover:bg-elevated text-text-secondary hover:text-text-primary px-3 py-1.5 rounded-lg text-xs font-medium transition border border-border"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
@@ -880,20 +880,20 @@ const StreamsPage = ({ isStreamer = true }) => {
 
             {/* No camera placeholder */}
             {!permissions.camera && (
-              <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-gray-900">
-                <div className="w-16 h-16 rounded-full bg-gray-800 flex items-center justify-center">
-                  <svg className="w-8 h-8 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-elevated">
+                <div className="w-16 h-16 rounded-full bg-surface flex items-center justify-center border border-border">
+                  <svg className="w-8 h-8 text-text-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
                   </svg>
                 </div>
-                <p className="text-gray-500 text-sm">Camera preview will appear here</p>
+                <p className="text-text-muted text-sm">Camera preview will appear here</p>
               </div>
             )}
 
             {/* LIVE badge */}
             {isStreaming && (
-              <div className="absolute top-3 left-3 bg-red-600 text-white px-2.5 py-1 rounded-full text-xs font-bold flex items-center gap-1.5 shadow-lg">
-                <span className="w-1.5 h-1.5 bg-white rounded-full animate-pulse" />
+              <div className="absolute top-3 left-3 bg-accent-red text-white px-2.5 py-1 rounded-full text-xs font-bold flex items-center gap-1.5 shadow-lg live-glow">
+                <span className="w-1.5 h-1.5 bg-white rounded-full live-dot" />
                 LIVE
               </div>
             )}
@@ -911,15 +911,15 @@ const StreamsPage = ({ isStreamer = true }) => {
             {/* Connection status badge (pre-live) */}
             {!isStreaming && permissions.camera && (
               <div className="absolute top-3 right-3">
-                <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium backdrop-blur-sm ${connectionStatus === "connected" ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
+                <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium backdrop-blur-sm ${connectionStatus === "connected" ? "bg-primary/20 text-primary border border-primary/30"
                     : connectionStatus === "connecting" || isTestingConnection ? "bg-yellow-500/20 text-yellow-400 border border-yellow-500/30"
-                      : connectionStatus === "failed" ? "bg-red-500/20 text-red-400 border border-red-500/30"
-                        : "bg-black/50 text-gray-400 border border-gray-700/50"
+                      : connectionStatus === "failed" ? "bg-accent-red/20 text-accent-red border border-accent-red/30"
+                        : "bg-black/50 text-text-muted border border-border"
                   }`}>
-                  <span className={`w-1.5 h-1.5 rounded-full ${connectionStatus === "connected" ? "bg-emerald-400"
+                  <span className={`w-1.5 h-1.5 rounded-full ${connectionStatus === "connected" ? "bg-primary"
                       : connectionStatus === "connecting" || isTestingConnection ? "bg-yellow-400 animate-pulse"
-                        : connectionStatus === "failed" ? "bg-red-400"
-                          : "bg-gray-500"
+                        : connectionStatus === "failed" ? "bg-accent-red"
+                          : "bg-text-muted"
                     }`} />
                   {isTestingConnection ? "Testing..." : connectionStatus === "connected" ? "Ready" : connectionStatus === "failed" ? "Failed" : "Disconnected"}
                 </div>
@@ -928,32 +928,32 @@ const StreamsPage = ({ isStreamer = true }) => {
           </div>
 
           {/* Controls bar — fixed height below video */}
-          <div className="shrink-0 bg-gray-900 border-t border-gray-800">
+          <div className="shrink-0 bg-surface border-t border-border">
             {!permissions.camera ? (
               /* Step 1: Enable camera */
               <div className="px-4 py-3 flex items-center gap-4">
-                <div className="w-8 h-8 bg-emerald-500/10 rounded-full flex items-center justify-center shrink-0 border border-emerald-500/20">
-                  <svg className="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center shrink-0 border border-primary/20">
+                  <svg className="w-4 h-4 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
                   </svg>
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-white font-medium text-sm">Camera & Microphone required</p>
-                  <p className="text-gray-500 text-xs">Grant access to preview your stream</p>
+                  <p className="text-text-primary font-medium text-sm">Camera & Microphone required</p>
+                  <p className="text-text-muted text-xs">Grant access to preview your stream</p>
                 </div>
-                <button onClick={requestPermissions} className="shrink-0 bg-emerald-600 hover:bg-emerald-500 text-white px-5 py-2 rounded-lg text-sm font-semibold transition-colors">
+                <button onClick={requestPermissions} className="shrink-0 btn-primary px-5 py-2 rounded-lg text-sm font-semibold">
                   Enable
                 </button>
               </div>
             ) : !isStreaming ? (
               /* Step 2: Device selection + go live */
               <div className="px-4 py-3 flex items-center gap-3 flex-wrap">
-                <span className="text-xs font-semibold text-gray-500 uppercase tracking-widest shrink-0">Devices</span>
+                <span className="text-xs font-semibold text-text-muted uppercase tracking-widest shrink-0">Devices</span>
                 {availableDevices.cameras.length > 0 && (
                   <select
                     value={selectedDevices.cameraId}
                     onChange={(e) => changeCamera(e.target.value)}
-                    className="flex-1 min-w-32 bg-gray-800 text-white text-xs px-3 py-2 rounded-lg border border-gray-700 focus:outline-none focus:border-emerald-500 transition-colors"
+                    className="flex-1 min-w-32 bg-elevated text-text-primary text-xs px-3 py-2 rounded-lg border border-border focus:outline-none focus:border-primary transition-colors"
                   >
                     {availableDevices.cameras.map((d) => (
                       <option key={d.deviceId} value={d.deviceId}>{d.label || `Camera ${d.deviceId.slice(0, 6)}`}</option>
@@ -964,7 +964,7 @@ const StreamsPage = ({ isStreamer = true }) => {
                   <select
                     value={selectedDevices.microphoneId}
                     onChange={(e) => changeMicrophone(e.target.value)}
-                    className="flex-1 min-w-32 bg-gray-800 text-white text-xs px-3 py-2 rounded-lg border border-gray-700 focus:outline-none focus:border-emerald-500 transition-colors"
+                    className="flex-1 min-w-32 bg-elevated text-text-primary text-xs px-3 py-2 rounded-lg border border-border focus:outline-none focus:border-primary transition-colors"
                   >
                     {availableDevices.microphones.map((d) => (
                       <option key={d.deviceId} value={d.deviceId}>{d.label || `Mic ${d.deviceId.slice(0, 6)}`}</option>
@@ -973,15 +973,15 @@ const StreamsPage = ({ isStreamer = true }) => {
                 )}
                 <div className="ml-auto flex items-center gap-3 shrink-0">
                   {connectionTested && connectionStatus === "connected" && (
-                    <span className="text-xs text-emerald-400 hidden sm:inline">Ready to go live</span>
+                    <span className="text-xs text-primary hidden sm:inline">Ready to go live</span>
                   )}
                   {connectionStatus === "failed" && (
-                    <span className="text-xs text-red-400 hidden sm:inline">Connection failed</span>
+                    <span className="text-xs text-accent-red hidden sm:inline">Connection failed</span>
                   )}
                   <button
                     onClick={startStream}
                     disabled={!connectionTested || connectionStatus !== "connected"}
-                    className="bg-emerald-600 hover:bg-emerald-500 disabled:bg-gray-700 disabled:text-gray-500 text-white px-5 py-2 rounded-lg text-sm font-bold transition-colors disabled:cursor-not-allowed"
+                    className="btn-primary disabled:opacity-50 disabled:bg-surface disabled:text-text-muted px-5 py-2 rounded-lg text-sm font-bold disabled:cursor-not-allowed"
                   >
                     {isStarting ? "Starting..." : "Go Live"}
                   </button>
@@ -1007,7 +1007,7 @@ const StreamsPage = ({ isStreamer = true }) => {
         </div>
 
         {/* Right — Chat + Connection (desktop only) */}
-        <div className="hidden lg:flex w-72 xl:w-80 shrink-0 flex-col border-l border-gray-800 overflow-hidden bg-gray-900">
+        <div className="hidden lg:flex w-72 xl:w-80 shrink-0 flex-col border-l border-border overflow-hidden bg-surface">
           {/* Chat fills all space */}
           <div className="flex-1 overflow-hidden">
             <ChatPanel socket={socket} streamId={params.id as string} username={user?.username || "Streamer"} isStreamer={true} />
@@ -1015,27 +1015,27 @@ const StreamsPage = ({ isStreamer = true }) => {
 
           {/* Connection panel — only shown pre-live */}
           {!isStreaming && (
-            <div className="shrink-0 border-t border-gray-800 p-3">
+            <div className="shrink-0 border-t border-border p-3">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-semibold text-gray-500 uppercase tracking-widest">Connection</span>
+                <span className="text-xs font-semibold text-text-muted uppercase tracking-widest">Connection</span>
                 <div className="flex items-center gap-1.5">
-                  <span className={`w-2 h-2 rounded-full ${connectionStatus === "connected" ? "bg-emerald-500"
+                  <span className={`w-2 h-2 rounded-full ${connectionStatus === "connected" ? "bg-primary"
                       : connectionStatus === "connecting" || isTestingConnection ? "bg-yellow-500 animate-pulse"
-                        : connectionStatus === "failed" ? "bg-red-500"
-                          : "bg-gray-600"
+                        : connectionStatus === "failed" ? "bg-accent-red"
+                          : "bg-text-muted"
                     }`} />
-                  <span className="text-xs text-gray-400">
+                  <span className="text-xs text-text-tertiary">
                     {isTestingConnection ? "Testing..." : connectionStatus === "connected" ? "Connected" : connectionStatus === "failed" ? "Failed" : "Disconnected"}
                   </span>
                 </div>
               </div>
               {connectionStatus === "failed" && (
-                <p className="text-xs text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2 mb-2">
+                <p className="text-xs text-accent-red bg-accent-red/10 border border-accent-red/20 rounded-lg px-3 py-2 mb-2">
                   Connection failed. Check your network.
                 </p>
               )}
               {connectionTested && connectionStatus === "connected" && (
-                <p className="text-xs text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 rounded-lg px-3 py-2 mb-2">
+                <p className="text-xs text-primary bg-primary/10 border border-primary/20 rounded-lg px-3 py-2 mb-2">
                   Ready to go live!
                 </p>
               )}
@@ -1043,7 +1043,7 @@ const StreamsPage = ({ isStreamer = true }) => {
                 <button
                   onClick={initializeMediaSoup}
                   disabled={isTestingConnection}
-                  className="w-full bg-gray-800 hover:bg-gray-700 disabled:opacity-50 text-white px-3 py-2 rounded-lg text-xs font-medium transition-colors"
+                  className="w-full bg-surface border border-border hover:bg-elevated hover:border-border-hover disabled:opacity-50 text-text-primary px-3 py-2 rounded-lg text-xs font-medium transition"
                 >
                   {isTestingConnection ? "Testing..." : "Test Connection"}
                 </button>

@@ -95,9 +95,9 @@ export const CreateStreamDialog = ({ open, onOpenChange }: CreateStreamDialogPro
                             <SelectTrigger id="category" className="bg-surface border-border">
                                 <SelectValue placeholder="Select a category" />
                             </SelectTrigger>
-                            <SelectContent>
+                            <SelectContent className="">
                                 {categories.map((cat) => (
-                                    <SelectItem key={cat} value={cat}>
+                                    <SelectItem key={cat} value={cat} className="data-highlighted:bg-accent-blue">
                                         {cat}
                                     </SelectItem>
                                 ))}
@@ -111,7 +111,7 @@ export const CreateStreamDialog = ({ open, onOpenChange }: CreateStreamDialogPro
                             placeholder="Tell viewers what your stream is about..."
                             value={description}
                             onChange={(e) => setDescription(e.target.value)}
-                            className="bg-surface border-border min-h-[100px]"
+                            className="bg-surface border-border min-h-25"
                         />
                     </div>
                     <div className="grid gap-2">
@@ -136,10 +136,10 @@ export const CreateStreamDialog = ({ open, onOpenChange }: CreateStreamDialogPro
                     </div>
                 </div>
                 <DialogFooter>
-                    <Button variant="outline" className="cursor-pointer" onClick={() => onOpenChange(false)} disabled={isCreating}>
+                    <Button variant="outline" className="btn-danger cursor-pointer" onClick={() => onOpenChange(false)} disabled={isCreating}>
                         Cancel
                     </Button>
-                    <Button variant="default" className="cursor-pointer" onClick={handleCreateStream} disabled={isCreating}>
+                    <Button variant="default" className="btn-primary cursor-pointer" onClick={handleCreateStream} disabled={isCreating}>
                         {isCreating ? "Creating..." : "Create Stream"}
                     </Button>
                 </DialogFooter>

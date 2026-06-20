@@ -171,23 +171,23 @@ const Dashboard = () => {
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
             {/* Header */}
             <div>
-              <h1 className="text-3xl font-bold text-text-primary mb-1">
+              <h1 className="text-3xl font-extrabold text-text-primary mb-1">
                 Welcome back, {user?.username || "User"}!
               </h1>
-              <p className="text-gray-400">Here's how your channel is doing</p>
+              <p className="text-text-tertiary">Here's how your channel is doing</p>
             </div>
 
             {/* Stats cards */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
               {statCards.map((s) => (
                 <div
                   key={s.label}
-                  className="bg-card border border-gray-700 rounded-lg p-4"
+                  className="bg-surface border border-border rounded-xl p-5 card-hover"
                 >
-                  <div className={`text-2xl font-bold mb-1 ${s.color}`}>
+                  <div className={`text-2xl font-extrabold mb-1 ${s.color}`}>
                     {s.value}
                   </div>
-                  <div className="text-xs text-gray-400">{s.label}</div>
+                  <div className="text-xs font-semibold uppercase tracking-wider text-text-muted">{s.label}</div>
                 </div>
               ))}
             </div>
@@ -200,17 +200,17 @@ const Dashboard = () => {
                 </h2>
                 <a
                   href="/browse"
-                  className="text-emerald-400 hover:text-white text-sm font-medium transition"
+                  className="text-primary hover:text-accent-blue text-sm font-semibold transition"
                 >
                   Browse all →
                 </a>
               </div>
               {error ? (
                 <div className="text-center py-10">
-                  <p className="text-red-500">{error}</p>
+                  <p className="text-accent-red">{error}</p>
                   <button
                     onClick={() => refetchStreams()}
-                    className="mt-3 px-4 py-2 bg-emerald-600 text-white rounded hover:bg-emerald-700 text-sm"
+                    className="mt-3 px-4 py-2 btn-primary rounded-lg text-sm"
                   >
                     Retry
                   </button>
@@ -221,12 +221,12 @@ const Dashboard = () => {
                     Array.from({ length: 4 }).map((_, i) => (
                       <div
                         key={i}
-                        className="bg-card rounded-lg overflow-hidden animate-pulse"
+                        className="bg-surface rounded-xl border border-border overflow-hidden"
                       >
-                        <div className="aspect-video bg-gray-700" />
+                        <div className="aspect-video shimmer" />
                         <div className="p-4 space-y-3">
-                          <div className="h-4 bg-gray-700 rounded w-3/4" />
-                          <div className="h-3 bg-gray-700 rounded w-1/2" />
+                          <div className="h-4 rounded w-3/4 shimmer" />
+                          <div className="h-3 rounded w-1/2 shimmer" />
                         </div>
                       </div>
                     ))
@@ -256,45 +256,49 @@ const Dashboard = () => {
                           }}
                           role="button"
                           tabIndex={0}
-                          className="bg-card rounded-lg overflow-hidden hover:scale-105 transition cursor-pointer border-2 border-emerald-600 hover:border-emerald-500"
+                          className="bg-surface rounded-xl border-2 border-primary/30 overflow-hidden card-hover cursor-pointer"
                         >
-                          <div className="aspect-video bg-black relative">
+                          <div className="aspect-video bg-elevated relative">
                             {stream.thumbnail ? (
-                              <img
-                                src={stream.thumbnail}
-                                alt={stream.title}
-                                className="w-full h-full object-cover"
-                              />
+                              <>
+                                <img
+                                  src={stream.thumbnail}
+                                  alt={stream.title}
+                                  className="w-full h-full object-cover"
+                                />
+                                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+                              </>
                             ) : (
-                              <div className="w-full h-full flex items-center justify-center text-gray-500 text-sm">
+                              <div className="w-full h-full flex items-center justify-center text-text-muted text-sm">
                                 No Preview
                               </div>
                             )}
                             {stream.isLive ? (
-                              <span className="absolute top-2 left-2 bg-red-600 text-white px-2 py-0.5 text-xs rounded font-semibold">
+                              <span className="absolute top-3 left-3 inline-flex items-center gap-1.5 rounded-full bg-accent-red px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-white live-glow">
+                                <span className="h-1.5 w-1.5 rounded-full bg-white live-dot" />
                                 LIVE
                               </span>
                             ) : (
-                              <span className="absolute top-2 left-2 bg-yellow-600 text-white px-2 py-0.5 text-xs rounded font-semibold">
+                              <span className="absolute top-3 left-3 bg-yellow-600/90 backdrop-blur-md text-white px-2.5 py-1 text-[10px] rounded-full font-bold uppercase tracking-wider">
                                 PENDING
                               </span>
                             )}
                           </div>
                           <div className="p-3">
-                            <h3 className="font-semibold truncate text-sm">
+                            <h3 className="font-semibold truncate text-sm text-text-primary">
                               {stream.title}
                             </h3>
-                            <p className="text-xs text-gray-400 mt-0.5">
+                            <p className="text-xs text-text-tertiary mt-0.5">
                               by {stream.streamer?.username || "Unknown"}
                             </p>
                             <div className="flex items-center justify-between mt-1.5">
-                              <p className="text-xs text-gray-500">
+                              <p className="text-xs text-text-muted">
                                 {stream.isLive
                                   ? `${viewerCounts[stream.id] ?? stream.stats?.viewers ?? 0} watching`
                                   : "Ready to start"}
                               </p>
                               <span
-                                className={`text-xs px-1.5 py-0.5 rounded capitalize border ${getCategoryColor(stream.category)}`}
+                                className={`text-[10px] px-1.5 py-0.5 rounded-full capitalize border font-semibold ${getCategoryColor(stream.category)}`}
                               >
                                 {stream.category}
                               </span>
@@ -304,9 +308,9 @@ const Dashboard = () => {
                       );
                     })
                   ) : (
-                    <div className="col-span-full bg-card border border-gray-700 border-dashed rounded-xl py-14 flex flex-col items-center gap-3 text-center">
+                    <div className="col-span-full bg-surface border-2 border-dashed border-border rounded-xl py-14 flex flex-col items-center gap-3 text-center">
                       <svg
-                        className="w-12 h-12 text-gray-600"
+                        className="w-12 h-12 text-text-muted"
                         fill="none"
                         stroke="currentColor"
                         viewBox="0 0 24 24"
@@ -318,10 +322,10 @@ const Dashboard = () => {
                           d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
                         />
                       </svg>
-                      <p className="text-gray-400 font-medium">
+                      <p className="text-text-secondary font-medium">
                         No streams yet
                       </p>
-                      <p className="text-gray-500 text-sm">
+                      <p className="text-text-muted text-sm">
                         Click "Go Live" in the navbar to create your first
                         stream
                       </p>

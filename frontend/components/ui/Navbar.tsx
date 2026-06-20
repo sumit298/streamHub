@@ -38,7 +38,7 @@ export const Navbar = () => {
             <div className="flex items-center gap-1 sm:gap-2 md:gap-4">
               <Button 
                 variant="default" 
-                className="font-semibold cursor-pointer text-xs sm:text-sm px-2 sm:px-4 py-1 sm:py-2 h-8 sm:h-10"
+                className="font-semibold btn-primary cursor-pointer text-xs sm:text-sm px-2 sm:px-4 py-1 sm:py-2 h-8 sm:h-10"
                 onClick={() => setIsCreateStreamOpen(true)}
               >
                 <span className="hidden sm:inline">Go Live</span>
@@ -48,7 +48,7 @@ export const Navbar = () => {
               <Link
                 href="/profile"
                 title={user?.username || "Profile"}
-                className="w-7 h-7 sm:w-9 sm:h-9 rounded-full overflow-hidden hover:ring-2 hover:ring-gray-500 transition"
+                className="w-7 h-7 sm:w-9 sm:h-9 rounded-full ring-2 ring-accent-blue overflow-hidden hover:ring-2 hover:ring-gray-500 transition"
               >
                 <img
                   src={getAvatarUrl(user?.avatar, user?.username)}
