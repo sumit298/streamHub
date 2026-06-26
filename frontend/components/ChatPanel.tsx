@@ -287,13 +287,13 @@ export default function ChatPanel({
   );
 
   return (
-    <div className="flex flex-col h-full bg-gray-900/50 backdrop-blur-sm rounded-2xl">
+    <div className="flex flex-col h-full bg-surface/50 backdrop-blur-sm rounded-2xl">
       
       
-      <div className="flex-1 overflow-y-auto py-2 space-y-1">
+      <div className="flex-1 overflow-y-auto py-2 space-y-1 scrollbar-thin">
         {messages.map((msg) => (
-          <div key={msg.id} className={`group flex items-start py-1 gap-1 rounded ${msg.type === 'announce' ? 'bg-yellow-900/20 px-1' : 'hover:bg-gray-800/50'}`}>
-            <span className="text-xs text-gray-500 shrink-0 w-12 text-right">
+          <div key={msg.id} className={`group flex items-start py-1 gap-1 rounded ${msg.type === 'announce' ? 'bg-yellow-900/20 px-1' : 'hover:bg-elevated/50'}`}>
+            <span className="text-xs text-text-muted shrink-0 w-12 text-right">
               {formatTime(msg.timestamp)}
             </span>
             {msg.type !== 'system' && msg.type !== 'announce' && (
@@ -304,7 +304,7 @@ export default function ChatPanel({
               />
             )}
             <span className={`text-sm font-bold shrink-0 ${
-              msg.type === 'system' ? 'text-gray-400 italic'
+              msg.type === 'system' ? 'text-text-tertiary italic'
               : msg.type === 'announce' ? 'text-yellow-400'
               : getUsernameColor(msg.username || 'Anonymous')
             }`}>
@@ -319,12 +319,12 @@ export default function ChatPanel({
                 className="max-w-[180px] max-h-[140px] rounded mt-0.5 object-contain"
               />
             ) : (
-              <p className="text-sm text-white wrap-break-word flex-1">{msg.content}</p>
+              <p className="text-sm text-text-primary wrap-break-word flex-1">{msg.content}</p>
             )}
             {isStreamer && msg.userId !== 'system' && (
               <button
                 onClick={() => socket?.emit('delete-message', { streamId, messageId: msg.id })}
-                className="opacity-0 group-hover:opacity-100 shrink-0 p-1 text-gray-500 hover:text-red-400 transition"
+                className="opacity-0 group-hover:opacity-100 shrink-0 p-1 text-text-muted hover:text-accent-red transition"
                 title="Delete message"
               >
                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -338,29 +338,29 @@ export default function ChatPanel({
       </div>
       
       {chatError && (
-        <div className="mx-4 mb-1 px-3 py-2 bg-red-900/60 border border-red-700 rounded-lg text-red-300 text-xs">
+        <div className="mx-4 mb-1 px-3 py-2 bg-accent-red/20 border border-accent-red/30 rounded-lg text-accent-red text-xs">
           {chatError}
         </div>
       )}
-      <div className="p-4 border-t border-gray-700 relative">
+      <div className="p-4 border-t border-border relative">
         {showSuggestions && filteredViewers.length > 0 && (
-          <div className="absolute bottom-full left-4 right-4 mb-2 bg-gray-800 rounded-lg border border-gray-700 shadow-xl max-h-48 overflow-y-auto">
+          <div className="absolute bottom-full left-4 right-4 mb-2 bg-elevated rounded-lg border border-border shadow-card max-h-48 overflow-y-auto scrollbar-thin">
             {filteredViewers.map((viewer, idx) => (
               <button
                 key={viewer.id}
                 onClick={() => selectMention(viewer.username)}
-                className={`w-full px-4 py-2 text-left hover:bg-gray-700 transition flex items-center gap-2 ${
-                  idx === selectedIndex ? 'bg-gray-700' : ''
+                className={`w-full px-4 py-2 text-left hover:bg-surface transition flex items-center gap-2 ${
+                  idx === selectedIndex ? 'bg-surface' : ''
                 }`}
               >
-                <span className="text-sm text-white font-medium">@{viewer.username}</span>
+                <span className="text-sm text-text-primary font-medium">@{viewer.username}</span>
               </button>
             ))}
           </div>
         )}
         {/* Command suggestions */}
         {isStreamer && input.startsWith('/') && !showSuggestions && (
-          <div className="absolute bottom-full left-4 right-4 mb-2 bg-gray-800 rounded-lg border border-gray-700 shadow-xl overflow-hidden">
+          <div className="absolute bottom-full left-4 right-4 mb-2 bg-elevated rounded-lg border border-border shadow-card overflow-hidden">
             {[
               { cmd: '/timeout', usage: '/timeout @user 60', desc: 'Timeout a user (seconds)' },
               { cmd: '/ban', usage: '/ban @user', desc: 'Ban user from chat' },
@@ -375,10 +375,10 @@ export default function ChatPanel({
                 <button
                   key={c.cmd}
                   onClick={() => { setInput(c.usage + ' '); inputRef.current?.focus(); }}
-                  className="w-full px-4 py-2 text-left hover:bg-gray-700 transition flex items-center justify-between"
+                  className="w-full px-4 py-2 text-left hover:bg-surface transition flex items-center justify-between"
                 >
-                  <span className="text-sm text-purple-400 font-mono">{c.usage}</span>
-                  <span className="text-xs text-gray-400">{c.desc}</span>
+                  <span className="text-sm text-primary font-mono">{c.usage}</span>
+                  <span className="text-xs text-text-tertiary">{c.desc}</span>
                 </button>
               ))}
           </div>
@@ -407,20 +407,20 @@ export default function ChatPanel({
 
         <div className="flex gap-2 items-center">
           {/* Input + inline buttons */}
-          <div className="flex-1 flex items-center bg-gray-800 border border-gray-600 rounded-xl focus-within:border-purple-500 transition-colors px-3">
+          <div className="flex-1 flex items-center bg-elevated border border-border rounded-xl focus-within:border-primary transition-colors px-3">
             <input
               ref={inputRef}
               value={input}
               onChange={handleInputChange}
               onKeyDown={handleKeyDown}
               placeholder="Write your message"
-              className="flex-1 bg-transparent text-white py-2.5 text-sm outline-none placeholder-gray-500 min-w-0"
+              className="flex-1 bg-transparent text-text-primary py-2.5 text-sm outline-none placeholder-text-muted min-w-0"
               maxLength={500}
             />
             {/* Emoji button */}
             <button
               onClick={() => { setShowEmojiPicker(v => !v); setShowGifPicker(false); }}
-              className={`shrink-0 text-base leading-none p-1 rounded transition hover:bg-gray-700 ml-1 ${showEmojiPicker ? 'bg-gray-700' : ''}`}
+              className={`shrink-0 text-base leading-none p-1 rounded transition hover:bg-surface ml-1 ${showEmojiPicker ? 'bg-surface' : ''}`}
               title="Emoji"
               type="button"
             >
@@ -429,7 +429,7 @@ export default function ChatPanel({
             {/* GIF button */}
             <button
               onClick={() => { setShowGifPicker(v => !v); setShowEmojiPicker(false); }}
-              className={`shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded border transition hover:bg-gray-700 ml-1 ${showGifPicker ? 'bg-gray-700 border-purple-500 text-purple-400' : 'border-gray-600 text-gray-400'}`}
+              className={`shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded border transition hover:bg-surface ml-1 ${showGifPicker ? 'bg-surface border-primary text-primary' : 'border-border text-text-muted'}`}
               title="GIF"
               type="button"
             >
@@ -440,7 +440,7 @@ export default function ChatPanel({
           <button
             onClick={sendMessage}
             disabled={!input.trim()}
-            className="shrink-0 bg-purple-600 hover:bg-purple-500 disabled:opacity-40 disabled:cursor-not-allowed text-white p-2.5 rounded-xl transition"
+            className="shrink-0 btn-primary p-2.5 rounded-xl disabled:opacity-40 disabled:cursor-not-allowed"
             title="Send (Enter)"
           >
             <svg className="w-4 h-4 rotate-90" fill="currentColor" viewBox="0 0 20 20">
