@@ -125,58 +125,57 @@ const WatchPage = () => {
       x: clientX - pipPosition.x,
       y: clientY - pipPosition.y,
     };
-  }
+  };
 
   const handlePipMouseDown = (e: React.MouseEvent) => {
-   e.preventDefault();
-   handlePipStart(e.clientX, e.clientY)
+    e.preventDefault();
+    handlePipStart(e.clientX, e.clientY);
   };
 
   const handlePipTouchStart = (e: React.TouchEvent) => {
     e.preventDefault();
     const touch = e.touches[0];
-    handlePipStart(touch.clientX, touch.clientY)
-  }
+    handlePipStart(touch.clientX, touch.clientY);
+  };
 
   useEffect(() => {
-  const handleMove = (clientX: number, clientY: number) => {
+    const handleMove = (clientX: number, clientY: number) => {
+      if (isDragging) {
+        setPipPosition({
+          x: clientX - dragStart.current.x,
+          y: clientY - dragStart.current.y,
+        });
+      }
+    };
+
+    const handleMouseMove = (e: MouseEvent) => {
+      handleMove(e.clientX, e.clientY);
+    };
+
+    const handleTouchMove = (e: TouchEvent) => {
+      if (e.touches.length > 0) {
+        handleMove(e.touches[0].clientX, e.touches[0].clientY);
+      }
+    };
+
+    const handleEnd = () => {
+      setIsDragging(false);
+    };
+
     if (isDragging) {
-      setPipPosition({
-        x: clientX - dragStart.current.x,
-        y: clientY - dragStart.current.y,
-      });
+      document.addEventListener("mousemove", handleMouseMove);
+      document.addEventListener("mouseup", handleEnd);
+      document.addEventListener("touchmove", handleTouchMove);
+      document.addEventListener("touchend", handleEnd);
     }
-  };
 
-  const handleMouseMove = (e: MouseEvent) => {
-    handleMove(e.clientX, e.clientY);
-  };
-
-  const handleTouchMove = (e: TouchEvent) => {
-    if (e.touches.length > 0) {
-      handleMove(e.touches[0].clientX, e.touches[0].clientY);
-    }
-  };
-
-  const handleEnd = () => {
-    setIsDragging(false);
-  };
-
-  if (isDragging) {
-    document.addEventListener("mousemove", handleMouseMove);
-    document.addEventListener("mouseup", handleEnd);
-    document.addEventListener("touchmove", handleTouchMove);
-    document.addEventListener("touchend", handleEnd);
-  }
-
-  return () => {
-    document.removeEventListener("mousemove", handleMouseMove);
-    document.removeEventListener("mouseup", handleEnd);
-    document.removeEventListener("touchmove", handleTouchMove);
-    document.removeEventListener("touchend", handleEnd);
-  };
-}, [isDragging]);
-
+    return () => {
+      document.removeEventListener("mousemove", handleMouseMove);
+      document.removeEventListener("mouseup", handleEnd);
+      document.removeEventListener("touchmove", handleTouchMove);
+      document.removeEventListener("touchend", handleEnd);
+    };
+  }, [isDragging]);
 
   useEffect(() => {
     // Reset on mount
@@ -203,7 +202,7 @@ const WatchPage = () => {
 
       const socketStart = performance.now();
       const authData = getSocketAuth();
-      
+
       const newSocket = io(
         process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:3001",
         {
@@ -240,26 +239,6 @@ const WatchPage = () => {
       });
 
       newSocket.on(
-        "existing-producers",
-        async (
-          producers: Array<{
-            id: string;
-            kind: string;
-            userId: string;
-            isScreenShare?: boolean;
-          }>,
-        ) => {
-          console.log(
-            "🎬 [EVENT] existing-producers received at:",
-            new Date().toISOString(),
-            "Producers:",
-            producers,
-          );
-          // Don't initialize here - let the useEffect handle it
-        },
-      );
-
-      newSocket.on(
         "new-producer",
         async (data: {
           producerId: string;
@@ -277,6 +256,32 @@ const WatchPage = () => {
           if (!initRef.current && data.kind === "video") {
             console.log(
               "🎬 [EVENT] Camera producer available, triggering initialization",
+            );
+            initializeViewer();
+          }
+        },
+      );
+
+      newSocket.on(
+        "existing-producers",
+        async (
+          producers: Array<{
+            id: string;
+            kind: string;
+            userId: string;
+            isScreenShare?: boolean;
+          }>,
+        ) => {
+          console.log(
+            "🎬 [EVENT] existing-producers received at:",
+            new Date().toISOString(),
+            "Producers:",
+            producers,
+          );
+
+          if (!initRef.current && producers.length > 0) {
+            console.log(
+              "🎬 [EVENT] Producers available, triggering initialization",
             );
             initializeViewer();
           }
@@ -535,8 +540,8 @@ const WatchPage = () => {
       const { data } = await api.get(`/api/streams/${params.id}`);
       setStreamInfo(data.stream);
       setStreamerInfo(data.stream.userId);
-      console.log('🔍 Stream data received:', data.stream);
-    console.log('🔍 userId field:', data.stream.userId);
+      console.log("🔍 Stream data received:", data.stream);
+      console.log("🔍 userId field:", data.stream.userId);
     } catch (error) {
       console.error("Failed to fetch stream info:", error);
       toast.error("Stream not found", { position: "bottom-left" });
@@ -731,6 +736,67 @@ const WatchPage = () => {
 
       console.log("🖥️ [VIEWER] Screen producers found:", screenProducers);
 
+      const consumeProducerLocal = async (producerId: string, kind: string) => {
+        try {
+          const consumerData = await new Promise<{
+            id: string;
+            producerId: string;
+            kind: string;
+            rtpParameters: types.RtpParameters;
+          }>((resolve) => {
+            socket?.emit(
+              "consume",
+              {
+                roomId: params.id,
+                producerId,
+                rtpCapabilities: newDevice.recvRtpCapabilities,
+              },
+              resolve,
+            );
+          });
+
+          if (!consumerData?.id) {
+            console.error(
+              "❌ [VIEWER] No consumer ID returned for producer:",
+              producerId,
+            );
+            return null;
+          }
+
+          const consumer = await recvTransport.consume({
+            id: consumerData.id,
+            producerId: consumerData.producerId,
+            kind: consumerData.kind as types.MediaKind,
+            rtpParameters: consumerData.rtpParameters,
+          });
+
+          await new Promise<void>((resolve) => {
+            socket?.emit(
+              "resume-consumer",
+              {
+                roomId: params.id,
+                consumerId: consumer.id,
+              },
+              resolve,
+            );
+          });
+
+          console.log(
+            "✅ [VIEWER] Consumer ready for:",
+            producerId,
+            "kind:",
+            kind,
+            "consumerId:",
+            consumer.id,
+          );
+
+          return consumer;
+        } catch (error) {
+          console.error("❌ Failed to consume producer:", producerId, error);
+          return null;
+        }
+      };
+
       // Consume screen video first
       const screenVideoProducer = screenProducers.find(
         (p) => p.kind === "video",
@@ -742,7 +808,7 @@ const WatchPage = () => {
             screenVideoProducer.id,
           );
 
-          const consumer = await consumeProducer(
+          const consumer = await consumeProducerLocal(
             screenVideoProducer.id,
             screenVideoProducer.kind,
           );
@@ -759,11 +825,14 @@ const WatchPage = () => {
               screenVideoRef.current.srcObject = stream;
               screenVideoRef.current.muted = isMuted;
               await screenVideoRef.current.play().catch(console.error);
+              console.log("✅ [VIEWER] Screen video element playing");
             }
 
             toast.success("Screen sharing started", {
               position: "bottom-left",
             });
+          } else {
+            console.log("⚠️ [VIEWER] Screen video consumer failed to create");
           }
         }
       }
@@ -779,7 +848,7 @@ const WatchPage = () => {
             screenAudioProducer.id,
           );
 
-          const consumer = await consumeProducer(
+          const consumer = await consumeProducerLocal(
             screenAudioProducer.id,
             screenAudioProducer.kind,
           );
@@ -800,6 +869,8 @@ const WatchPage = () => {
               }
               return prev;
             });
+          } else {
+            console.log("⚠️ [VIEWER] Screen audio consumer failed to create");
           }
         }
       }
@@ -954,33 +1025,46 @@ const WatchPage = () => {
         console.log("📹 [VIEWER] Video track added to stream");
       }
 
-      if (videoRef.current) {
-        const video = videoRef.current;
-        const t11 = performance.now();
+      // Store camera stream first
+      cameraStreamRef.current = stream;
+      setCameraStream(stream);
+      console.log("📹 [VIEWER] Camera stream stored");
 
-        // CRITICAL: Set muted BEFORE setting srcObject to avoid autoplay issues
+      // Check if screen share is already active
+      if (screenProducers.length > 0) {
+        // Screen share active - put camera in PiP
+        console.log("🖼️ [VIEWER] Screen share active, putting camera in PiP");
+        if (pipVideoRef.current) {
+          pipVideoRef.current.srcObject = stream;
+          pipVideoRef.current.muted = isMuted;
+          await pipVideoRef.current
+            .play()
+            .catch((e) => console.error("❌ [VIEWER] PiP play failed:", e));
+          console.log("✅ [VIEWER] Camera in PiP started");
+        }
+        setIsLoading(false);
+        toast.success("Connected to stream", { position: "bottom-left" });
+      } else {
+        // No screen share - put camera in main video
+        console.log(
+          "📺 [VIEWER] No screen share, putting camera in main video",
+        );
+        if (!videoRef.current) {
+          throw new Error("Video element not found");
+        }
+
+        const video = videoRef.current;
         video.muted = true;
         video.srcObject = stream;
         console.log(
-          `✅ [VIEWER] Stream set to video element (${(performance.now() - t11).toFixed(0)}ms), tracks:`,
+          "✅ [VIEWER] Stream set to video element, tracks:",
           stream.getTracks().length,
         );
 
-        stream.getTracks().forEach((track) => {
-          console.log(
-            `🎬 [VIEWER] Track ${track.kind}: enabled=${track.enabled}, muted=${track.muted}, readyState=${track.readyState}`,
-          );
-        });
-
-        // Start playback immediately (muted, so no autoplay restrictions)
-        console.log(
-          "🚀 [VIEWER] Starting immediate playback at:",
-          new Date().toISOString(),
-        );
-        video
+        await video
           .play()
           .then(() => {
-            console.log("✅ [VIEWER] Video playback started immediately");
+            console.log("✅ [VIEWER] Video playback started");
             setIsLoading(false);
             toast.success("Connected to stream", { position: "bottom-left" });
           })
@@ -988,13 +1072,6 @@ const WatchPage = () => {
             console.error("❌ [VIEWER] Play failed:", e);
             setIsLoading(false);
           });
-
-        // Store camera stream for PiP use
-        cameraStreamRef.current = stream;
-        setCameraStream(stream);
-        console.log("📹 [VIEWER] Camera stream stored for PiP");
-      } else {
-        throw new Error("Video element not found");
       }
 
       console.log(
@@ -1020,7 +1097,10 @@ const WatchPage = () => {
   };
 
   return (
-    <div className="fixed inset-0 bg-black overflow-hidden" style={{ ['--viewport-height' as any]: '100dvh' }}>
+    <div
+      className="fixed inset-0 bg-black overflow-hidden"
+      style={{ ["--viewport-height" as any]: "100dvh" }}
+    >
       {/* Stream Ended Overlay */}
       {streamEnded && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center">
@@ -1055,7 +1135,10 @@ const WatchPage = () => {
       )}
 
       {/* Container - vertical on mobile, horizontal on desktop */}
-      <div className="h-screen md:h-screen flex flex-col md:flex-row" style={{ height: 'var(--viewport-height, 100vh)' }}>
+      <div
+        className="h-screen md:h-screen flex flex-col md:flex-row"
+        style={{ height: "var(--viewport-height, 100vh)" }}
+      >
         {/* Main Video Area */}
         <div className="flex-1 relative">
           {/* Header */}
@@ -1089,7 +1172,7 @@ const WatchPage = () => {
                 <span className="text-white text-sm font-medium">
                   {streamerInfo.username}
                 </span>
-                <FollowButton userId={streamerInfo._id || streamerInfo.id}/>
+                <FollowButton userId={streamerInfo._id || streamerInfo.id} />
               </div>
             )}
           </div>
@@ -1129,7 +1212,7 @@ const WatchPage = () => {
               </svg>
             </button>
           </div>
-          {screenStream && screenProducerIds.current.size > 0 ? (
+          {screenProducerIds.current.size > 0 ? (
             /* Screen Share with Camera PiP */
             <div
               ref={videoContainerRef}
@@ -1165,7 +1248,6 @@ const WatchPage = () => {
               {/* Camera - Picture in Picture */}
               <div
                 className={`absolute w-32 h-20 landscape:w-40 landscape:h-24 md:w-64 md:h-36 bg-gray-800 rounded-lg overflow-hidden border-2 border-gray-700 shadow-xl cursor-move touch-none ${!cameraStreamRef.current ? "hidden" : ""}`}
-
                 style={{
                   left: `${pipPosition.x}px`,
                   top: `${pipPosition.y}px`,
@@ -1420,7 +1502,9 @@ const WatchPage = () => {
         </div>
 
         {/* Chat - Below video on mobile, sidebar on desktop */}
-        <div className={`bg-gray-900 border-t md:border-t-0 md:border-l border-gray-800 flex-shrink-0 transition-all duration-300 overflow-hidden ${showMobileChat ? 'h-1/3 md:h-full md:w-80 w-full' : 'h-0 w-0 border-0'}`}>
+        <div
+          className={`bg-gray-900 border-t md:border-t-0 md:border-l border-gray-800 flex-shrink-0 transition-all duration-300 overflow-hidden ${showMobileChat ? "h-1/3 md:h-full md:w-80 w-full" : "h-0 w-0 border-0"}`}
+        >
           <div className="h-full flex flex-col w-full">
             <div className="flex items-center justify-between p-4 border-b border-gray-700 md:flex hidden">
               <h3 className="text-lg font-semibold text-white">Live Chat</h3>

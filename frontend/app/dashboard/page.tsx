@@ -76,7 +76,15 @@ const Dashboard = () => {
 
   const { data: stats } = useQuery({
     queryKey: ["dashboard-stats"],
-    queryFn: () => api.get(`/api/auth/me/stats`).then((res) => res.data.stats),
+    queryFn: async () => {
+      try {
+        const res = await api.get(`/api/auth/me/stats`);
+        return res.data.stats || {};
+      } catch (error) {
+        console.error("[DASHBOARD] Failed to load stats:", error);
+        return {}; // Return empty object instead of undefined
+      }
+    },
   });
 
   const streams = streamsData || [];
@@ -174,7 +182,9 @@ const Dashboard = () => {
               <h1 className="text-3xl font-extrabold text-text-primary mb-1">
                 Welcome back, {user?.username || "User"}!
               </h1>
-              <p className="text-text-tertiary">Here's how your channel is doing</p>
+              <p className="text-text-tertiary">
+                Here's how your channel is doing
+              </p>
             </div>
 
             {/* Stats cards */}
@@ -187,7 +197,9 @@ const Dashboard = () => {
                   <div className={`text-2xl font-extrabold mb-1 ${s.color}`}>
                     {s.value}
                   </div>
-                  <div className="text-xs font-semibold uppercase tracking-wider text-text-muted">{s.label}</div>
+                  <div className="text-xs font-semibold uppercase tracking-wider text-text-muted">
+                    {s.label}
+                  </div>
                 </div>
               ))}
             </div>

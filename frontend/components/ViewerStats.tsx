@@ -9,7 +9,7 @@ export default function ViewerStats({ viewerCount, duration, isLive }: ViewerSta
     <div className="flex items-center gap-3 text-sm">
       
       
-      <span className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-750 text-white rounded-full">
+      <span className="flex items-center gap-1.5 px-3 py-1.5 bg-surface border border-border text-text-primary rounded-full">
         <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
           <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
           <path fillRule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clipRule="evenodd" />
@@ -17,7 +17,7 @@ export default function ViewerStats({ viewerCount, duration, isLive }: ViewerSta
         {viewerCount}
       </span>
       
-      <span className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-750 text-white rounded-full">
+      <span className="flex items-center gap-1.5 px-3 py-1.5 bg-surface border border-border text-text-primary rounded-full">
         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
         </svg>
