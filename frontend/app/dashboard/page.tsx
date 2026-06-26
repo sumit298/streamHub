@@ -82,7 +82,7 @@ const Dashboard = () => {
         return res.data.stats || {};
       } catch (error) {
         console.error("[DASHBOARD] Failed to load stats:", error);
-        return {}; // Return empty object instead of undefined
+        return {};
       }
     },
   });

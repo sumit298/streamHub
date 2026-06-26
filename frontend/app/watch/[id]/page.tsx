@@ -283,7 +283,7 @@ const WatchPage = () => {
             console.log(
               "🎬 [EVENT] Producers available, triggering initialization",
             );
-            initializeViewer();
+            initializeViewer(newSocket);
           }
         },
       );
@@ -540,8 +540,13 @@ const WatchPage = () => {
       const { data } = await api.get(`/api/streams/${params.id}`);
       setStreamInfo(data.stream);
       setStreamerInfo(data.stream.userId);
-      console.log("🔍 Stream data received:", data.stream);
-      console.log("🔍 userId field:", data.stream.userId);
+      if (process.env.NODE_ENV === "development") {
+        console.log("🔍 Stream data received:", {
+          id: data.stream?._id,
+          title: data.stream?.title,
+          userId: data.stream?.userId?._id,
+        });
+      }
     } catch (error) {
       console.error("Failed to fetch stream info:", error);
       toast.error("Stream not found", { position: "bottom-left" });
@@ -603,11 +608,17 @@ const WatchPage = () => {
     }
   };
 
-  const initializeViewer = async () => {
+  const initializeViewer = async (activeSocket: Socket | null = socket) => {
     console.log(
       "🎯 [VIEWER] initializeViewer called at:",
       new Date().toISOString(),
     );
+
+    if (!activeSocket) {
+      console.error("❌ [VIEWER] No active socket available");
+      initRef.current = false;
+      return;
+    }
 
     if (initRef.current) {
       console.log("⚠️ [VIEWER] Already initialized, skipping");
@@ -628,7 +639,7 @@ const WatchPage = () => {
       console.log("📡 [VIEWER] Getting router capabilities...");
       const routerCapabilities = await new Promise<types.RtpCapabilities>(
         (resolve) => {
-          socket?.emit(
+          activeSocket.emit(
             "get-router-capabilities",
             { roomId: params.id },
             resolve,
@@ -652,7 +663,7 @@ const WatchPage = () => {
       console.log("🚛 [VIEWER] Creating transport...");
       const transportInfo = await new Promise<types.TransportOptions>(
         (resolve) => {
-          socket?.emit(
+          activeSocket.emit(
             "create-transport",
             { roomId: params.id, direction: "recv" },
             resolve,
@@ -685,7 +696,7 @@ const WatchPage = () => {
           new Date().toISOString(),
         );
         const connectStart = performance.now();
-        socket?.emit(
+        activeSocket.emit(
           "connect-transport",
           {
             roomId: params.id,
@@ -712,7 +723,7 @@ const WatchPage = () => {
           isScreenShare?: boolean;
         }>
       >((resolve) => {
-        socket?.emit("get-producers", { roomId: params.id }, resolve);
+        activeSocket.emit("get-producers", { roomId: params.id }, resolve);
       });
       console.log(
         `✅ [VIEWER] Got producers (${(performance.now() - t4).toFixed(0)}ms):`,
@@ -744,7 +755,7 @@ const WatchPage = () => {
             kind: string;
             rtpParameters: types.RtpParameters;
           }>((resolve) => {
-            socket?.emit(
+            activeSocket.emit(
               "consume",
               {
                 roomId: params.id,
@@ -771,7 +782,7 @@ const WatchPage = () => {
           });
 
           await new Promise<void>((resolve) => {
-            socket?.emit(
+            activeSocket.emit(
               "resume-consumer",
               {
                 roomId: params.id,
@@ -911,7 +922,7 @@ const WatchPage = () => {
           kind: string;
           rtpParameters: types.RtpParameters;
         }>((resolve) => {
-          socket?.emit(
+          activeSocket.emit(
             "consume",
             {
               roomId: params.id,
@@ -940,7 +951,7 @@ const WatchPage = () => {
 
           const t7 = performance.now();
           await new Promise((resolve) => {
-            socket?.emit(
+            activeSocket.emit(
               "resume-consumer",
               {
                 roomId: params.id,
@@ -976,7 +987,7 @@ const WatchPage = () => {
         kind: string;
         rtpParameters: types.RtpParameters;
       }>((resolve) => {
-        socket?.emit(
+        activeSocket.emit(
           "consume",
           {
             roomId: params.id,
@@ -1006,7 +1017,7 @@ const WatchPage = () => {
         // Resume consumer to start receiving media
         const t10 = performance.now();
         await new Promise((resolve) => {
-          socket?.emit(
+          activeSocket.emit(
             "resume-consumer",
             {
               roomId: params.id,
