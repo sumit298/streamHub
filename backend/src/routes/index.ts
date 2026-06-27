@@ -7,6 +7,7 @@ import followRoutes from "./follow.routes";
 import notificationRoutes from "./notification.routes";
 import vodRoutes from "./vod.routes";
 import metricsRoutes from "./metrics.routes";
+import aiPodcastRoutes from "./ai-podcast.routes";
 import type StreamService from "@services/StreamService";
 import type ChatService from "@services/ChatService";
 import type CacheService from "@services/CacheService";
@@ -66,6 +67,9 @@ export const registerRoutes = (
     },
     vodRoutes,
   );
+
+  // AI Podcast routes
+  app.use("/api/ai-podcast", aiPodcastRoutes);
 
   Logger.info("All routes registered successfully");
 };
