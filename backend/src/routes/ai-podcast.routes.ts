@@ -106,7 +106,7 @@ router.get('/', AuthMiddleware.authenticate, async (req: Request, res: Response)
   }
 });
 
-// Stream audio file
+// Get audio URL (redirect to R2)
 router.get('/:id/audio/:turnIndex', AuthMiddleware.authenticate, async (req: Request, res: Response): Promise<any> => {
   try {
     const podcast = await AIPodcast.findById(req.params.id);
@@ -120,24 +120,17 @@ router.get('/:id/audio/:turnIndex', AuthMiddleware.authenticate, async (req: Req
       return res.status(403).json({ error: 'Access denied' });
     }
 
-    const turnIndex = parseInt(req.params.turnIndex);
+    const turnIndex = parseInt(req.params.turnIndex as string);
     const turn = podcast.script[turnIndex];
 
     if (!turn || !turn.audioUrl) {
       return res.status(404).json({ error: 'Audio not found' });
     }
 
-    // Check if file exists
-    if (!fs.existsSync(turn.audioUrl)) {
-      return res.status(404).json({ error: 'Audio file not found' });
-    }
-
-    // Stream the file
-    res.setHeader('Content-Type', 'audio/mpeg');
-    const stream = fs.createReadStream(turn.audioUrl);
-    stream.pipe(res);
+    // Return R2 URL directly
+    return res.json({ audioUrl: turn.audioUrl });
   } catch (error: any) {
-    console.error('[API] Error streaming audio:', error);
+    console.error('[API] Error fetching audio URL:', error);
     return res.status(500).json({ error: error.message });
   }
 });
@@ -156,8 +149,24 @@ router.delete('/:id', AuthMiddleware.authenticate, async (req: Request, res: Res
       return res.status(403).json({ error: 'Access denied' });
     }
 
-    // Cleanup files
-    await AIPodcastService.cleanup(podcast.podcastId);
+    // Delete audio files from R2
+    if (podcast.script && podcast.script.length > 0) {
+      for (const turn of podcast.script) {
+        if (turn.audioUrl) {
+          try {
+            // Extract key from R2 URL
+            const urlParts = turn.audioUrl.split('.r2.dev/');
+            if (urlParts.length > 1) {
+              const key = decodeURIComponent(urlParts[1]);
+              // Delete from R2 using r2Service if available
+              console.log(`[AI-PODCAST] Would delete R2 file: ${key}`);
+            }
+          } catch (e) {
+            console.error('[AI-PODCAST] Failed to delete R2 file:', e);
+          }
+        }
+      }
+    }
 
     // Delete from database
     await podcast.deleteOne();

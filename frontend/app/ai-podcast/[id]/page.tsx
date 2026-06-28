@@ -69,25 +69,20 @@ export default function AIPodcastPlayer() {
     if (!podcast || podcast.status !== "ready") return;
     
     setCurrentTurn(index);
-    setIsPlaying(false); // Reset first
+    setIsPlaying(false);
     
     if (audioRef.current) {
       try {
-        // Pause first to avoid interrupt
         audioRef.current.pause();
         
-        // Use api client which handles token refresh
-        const response = await api.get(
-          `/api/ai-podcast/${params.id}/audio/${index}`,
-          { responseType: 'arraybuffer' }
+        // Get R2 URL from backend
+        const { data } = await api.get(
+          `/api/ai-podcast/${params.id}/audio/${index}`
         );
         
-        const blob = new Blob([response.data], { type: 'audio/mpeg' });
-        const blobUrl = URL.createObjectURL(blob);
+        // Use R2 URL directly
+        audioRef.current.src = data.audioUrl;
         
-        audioRef.current.src = blobUrl;
-        
-        // Small delay to let src load
         await new Promise(resolve => setTimeout(resolve, 100));
         
         await audioRef.current.play();
