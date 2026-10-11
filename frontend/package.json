@@ -42,7 +42,7 @@
     "eslint-config-next": "16.0.7",
     "postcss": "^8.5.23",
     "tailwindcss": "^4.1.17",
-    "typescript": "^5"
+    "typescript": "^6"
   },
   "resolutions": {
     "ws": "^8.21.0"
