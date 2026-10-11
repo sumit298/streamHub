@@ -1083,11 +1083,6 @@ base64-js@^1.0.2, base64-js@^1.3.0:
   resolved "https://registry.npmjs.org/base64-js/-/base64-js-1.5.1.tgz"
   integrity sha512-AKpaYlHn8t4SVbOHCy+b5+KKgvR4vrsD8vbvrbiQJps7fKDTkjkDry6ji0rUJjC0kzbNePLwzxq8iypo41qeWA==
 
-base64id@~2.0.0:
-  version "2.0.0"
-  resolved "https://registry.npmjs.org/base64id/-/base64id-2.0.0.tgz"
-  integrity sha512-lGe34o6EHj9y3Kts9R4ZYs/Gr+6N7MCaMlIFA3F1R2O5/m7K06AxfSeO5530PEERE6/WyEg3lsuyw4GHlPZHog==
-
 basic-auth@~2.0.1:
   version "2.0.1"
   resolved "https://registry.npmjs.org/basic-auth/-/basic-auth-2.0.1.tgz"
@@ -3041,13 +3036,12 @@ socket.io-parser@~4.2.4:
     "@socket.io/component-emitter" "~3.1.0"
     debug "~4.4.1"
 
-socket.io@^4.8.3:
-  version "4.8.3"
-  resolved "https://registry.npmjs.org/socket.io/-/socket.io-4.8.3.tgz"
-  integrity sha512-2Dd78bqzzjE6KPkD5fHZmDAKRNe3J15q+YHDrIsy9WEkqttc7GY+kT9OBLSMaPbQaEd0x1BjcmtMtXkfpc+T5A==
+socket.io@^4.8.4:
+  version "4.8.4"
+  resolved "https://registry.yarnpkg.com/socket.io/-/socket.io-4.8.4.tgz#24bbb030792ce328ec3b73578b0dd8e63db7bbb7"
+  integrity sha512-9ZV9zg8vN8hO3Y25DhR7nUkJ1VDnBhq5O/JrXhFT9s6+F0gqytSASTHVfCFc2mJXaTfARroErplXlzFWwETZqQ==
   dependencies:
     accepts "~1.3.4"
-    base64id "~2.0.0"
     cors "~2.8.5"
     debug "~4.4.1"
     engine.io "~6.6.0"
