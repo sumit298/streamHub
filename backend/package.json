@@ -44,7 +44,7 @@
     "swagger-jsdoc": "^6.2.8",
     "swagger-ui-express": "^5.0.1",
     "tsc-alias": "^1.8.16",
-    "uuid": "^14.0.0",
+    "uuid": "^14.0.2",
     "winston": "^3.10.0"
   },
   "devDependencies": {
