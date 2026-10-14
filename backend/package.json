@@ -22,7 +22,7 @@
     "@aws-sdk/s3-request-presigner": "^3.1147.0",
     "@google-cloud/text-to-speech": "^6.4.1",
     "@google/genai": "^2.28.0",
-    "amqplib": "^1.0.3",
+    "amqplib": "^2.2.0",
     "bcrypt": "^6.0.0",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
