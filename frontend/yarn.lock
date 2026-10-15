@@ -1670,12 +1670,12 @@ electron-to-chromium@^1.5.439:
   resolved "https://registry.yarnpkg.com/electron-to-chromium/-/electron-to-chromium-1.5.456.tgz#cfa8b3b4c44450b8a28df4a7bc8be377cae1b691"
   integrity sha512-8hboqI6xesozteFb8aa7OGknvxUtTeRJLz0FoePysUEh/oWbddykIGdgpEJRbPRg/nIMfBf2DFos+H2MtvJl2A==
 
-emoji-picker-react@^4.18.0:
-  version "4.19.1"
-  resolved "https://registry.yarnpkg.com/emoji-picker-react/-/emoji-picker-react-4.19.1.tgz#b901e17c91612257c9bc99af861d0326c68a90bb"
-  integrity sha512-BmDdqInKFVYJpv7qS9WI6L9656cDAC+FkDvUjJds56nKHbaVTBNeDmLwKBytRnzu37zWHs9Isg7gt5PT43y6xA==
+emoji-picker-react@^5.0.0:
+  version "5.0.0"
+  resolved "https://registry.yarnpkg.com/emoji-picker-react/-/emoji-picker-react-5.0.0.tgz#147d7791e611a71f7f7e01baf20df7825bb53285"
+  integrity sha512-TiWM6Fbhi42SyfdVx20jJuqOOszY/sO/XyiBcTlIgMEkgN7LOxIk2pXJybfvC0qDD/ld9iT0feM3qg9tH1C/Pg==
   dependencies:
-    flairup "1.0.0"
+    shipstyles "1.0.0"
 
 emoji-regex@^9.2.2:
   version "9.2.2"
@@ -2144,11 +2144,6 @@ find-up@^5.0.0:
   dependencies:
     locate-path "^6.0.0"
     path-exists "^4.0.0"
-
-flairup@1.0.0:
-  version "1.0.0"
-  resolved "https://registry.yarnpkg.com/flairup/-/flairup-1.0.0.tgz#d3af0052ad02734c12d2446608a869498adb351b"
-  integrity sha512-IKlE+pNvL2R+kVL1kEhUYqRxVqeFnjiIvHWDMLFXNaqyUdFXQM2wte44EfMYJNHkW16X991t2Zg8apKkhv7OBA==
 
 flat-cache@^3.0.4:
   version "3.2.0"
@@ -3467,6 +3462,11 @@ shebang-regex@^3.0.0:
   version "3.0.0"
   resolved "https://registry.yarnpkg.com/shebang-regex/-/shebang-regex-3.0.0.tgz#ae16f1644d873ecad843b0307b143362d4c42172"
   integrity sha512-7++dFhtcx3353uBaq8DDR4NuxBetBzC7ZQOhmTQInHEd6bSrXdiEyzCvG07Z44UYdLShWUyXt5M/yhz8ekcb1A==
+
+shipstyles@1.0.0:
+  version "1.0.0"
+  resolved "https://registry.yarnpkg.com/shipstyles/-/shipstyles-1.0.0.tgz#8fd95f4c095748a1a47086ea5ce447405d779531"
+  integrity sha512-1AcihfXo/mSxqeOdoKqq/5TNv+vSH0dBYPFq88PUX5FBkK5pRmY5TP9SuMNio85PQ+euUI67+KpSVk1cUVDCgA==
 
 side-channel-list@^1.0.1:
   version "1.0.1"
