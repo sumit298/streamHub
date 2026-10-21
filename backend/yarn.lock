@@ -419,12 +419,12 @@
   resolved "https://registry.yarnpkg.com/@esbuild/win32-x64/-/win32-x64-0.28.1.tgz#10064ee44f4347b90c9a02b446bbf80a91632b12"
   integrity sha512-bm4Mowrv+GXMlpWX++EcXw/iLyd1o3+bJkC2DkWXYVvgZCqD/bSj9ctZeAMC3cIxgjRVR2Dufaiu4YPxr5gW1A==
 
-"@google-cloud/text-to-speech@^6.4.1":
-  version "6.4.1"
-  resolved "https://registry.npmjs.org/@google-cloud/text-to-speech/-/text-to-speech-6.4.1.tgz"
-  integrity sha512-iF1SpBPbP019zoLYzIJXp/yDumrSNl19T7hXP4Lg8d2cnNtxoQKQuNOpiwFrxEKV3CBJpp7OY5+z7/K73zNr5w==
+"@google-cloud/text-to-speech@^7.2.0":
+  version "7.2.0"
+  resolved "https://registry.yarnpkg.com/@google-cloud/text-to-speech/-/text-to-speech-7.2.0.tgz#4f57129e9ccd0e653f351b89bca28f2afb827a2e"
+  integrity sha512-RsfBmiZvZ9aI8tr8PitPam5HDIL9X5upbrzBw5uZUP+syCo2AUZictX2bBeYZQa5sWx/bfp6G1sBE1TbAe4QAg==
   dependencies:
-    google-gax "^5.0.0"
+    google-gax "^6.0.0"
 
 "@google/genai@^2.28.0":
   version "2.28.0"
@@ -520,6 +520,11 @@
   version "1.9.1"
   resolved "https://registry.yarnpkg.com/@opentelemetry/api/-/api-1.9.1.tgz#c1b0346de336ba55af2d5a7970882037baedec05"
   integrity sha512-gLyJlPHPZYdAk1JENA9LeHejZe1Ti77/pTeFm/nMXmQH/HFZlcS/O2XJB+L8fkbrNSqhdtlvjBVjxwUYanNH5Q==
+
+"@opentelemetry/api@^1.9.0":
+  version "1.10.0"
+  resolved "https://registry.yarnpkg.com/@opentelemetry/api/-/api-1.10.0.tgz#31d2e3d36ffc6cdd5ce165251e7fa13bbad0fd8a"
+  integrity sha512-lMkyes8iHrG+mk6WH7X70MdCLI2RS0FwNBY1PyQ8UemaijE2m5mv5A0Niy3HtbYTFrgkUEQjFMXmSAk2hQDuPQ==
 
 "@pkgjs/parseargs@^0.11.0":
   version "0.11.0"
@@ -843,7 +848,7 @@ agent-base@6:
   dependencies:
     debug "4"
 
-agent-base@^7.1.0, agent-base@^7.1.2:
+agent-base@^7.1.2:
   version "7.1.4"
   resolved "https://registry.npmjs.org/agent-base/-/agent-base-7.1.4.tgz"
   integrity sha512-MnA+YT8fwfJPgBx3m60MNqakm30XOkyIoH1y6huTQvC0PwZG7ki8NacLBcrPbNoo8vEZy7Jpuk7+jMO+CUovTQ==
@@ -1227,7 +1232,7 @@ debug@2.6.9:
   dependencies:
     ms "2.0.0"
 
-debug@4, debug@4.4.3, debug@4.x, debug@^4.3.4, debug@^4.4.0, debug@^4.4.3, debug@~4.4.1:
+debug@4, debug@4.4.3, debug@4.x, debug@^4.4.0, debug@^4.4.3, debug@~4.4.1:
   version "4.4.3"
   resolved "https://registry.npmjs.org/debug/-/debug-4.4.3.tgz"
   integrity sha512-RGwwWnwQvkVfavKVt22FGLw+xYSdzARwm0ru6DhTVA3umU5hZc28V3kO4stgYryrTlLpuvgI9GiijltAjNbcqA==
@@ -1686,6 +1691,15 @@ gaxios@^7.0.0:
     https-proxy-agent "^7.0.1"
     node-fetch "^3.3.2"
 
+gaxios@^8.3.0:
+  version "8.3.1"
+  resolved "https://registry.yarnpkg.com/gaxios/-/gaxios-8.3.1.tgz#0c0cd895326e927a868d4b0f226094082070052b"
+  integrity sha512-h4/R7ay7JFXU5kmAkp/Y4Y4Vmm7m83tD579GUgfQQsRRGQ4TzSedyHla6XgTWohQuVffT3ldN4FF6uCqlRGaEA==
+  dependencies:
+    extend "^3.0.2"
+    https-proxy-agent "^7.0.1"
+    node-fetch "^3.3.2"
+
 gcp-metadata@^8.0.0:
   version "8.1.3"
   resolved "https://registry.npmjs.org/gcp-metadata/-/gcp-metadata-8.1.3.tgz"
@@ -1693,6 +1707,15 @@ gcp-metadata@^8.0.0:
   dependencies:
     gaxios "7.1.3"
     google-logging-utils "1.1.3"
+    json-bigint "^1.0.0"
+
+gcp-metadata@^9.0.0:
+  version "9.2.2"
+  resolved "https://registry.yarnpkg.com/gcp-metadata/-/gcp-metadata-9.2.2.tgz#48593ab35553b92689f19693f4c0c41b1ed0c3de"
+  integrity sha512-hlaHpCBoNCzoUjMnBZq0LbUiYqPAhXFaAgyNwQqwWU44TZIYJK3RD3o2wkNdvPs8nnUXqJjTudnodLJkLMBjow==
+  dependencies:
+    gaxios "^8.3.0"
+    google-logging-utils "^2.0.0"
     json-bigint "^1.0.0"
 
 get-caller-file@^2.0.5:
@@ -1774,7 +1797,7 @@ globby@^11.0.4:
     merge2 "^1.4.1"
     slash "^3.0.0"
 
-google-auth-library@10.5.0, google-auth-library@^10.3.0:
+google-auth-library@^10.3.0:
   version "10.5.0"
   resolved "https://registry.npmjs.org/google-auth-library/-/google-auth-library-10.5.0.tgz"
   integrity sha512-7ABviyMOlX5hIVD60YOfHw4/CxOfBhyduaYB+wbFWCWoni4N7SLcV46hrVRktuBbZjFC9ONyqamZITN7q3n32w==
@@ -1787,27 +1810,44 @@ google-auth-library@10.5.0, google-auth-library@^10.3.0:
     gtoken "^8.0.0"
     jws "^4.0.0"
 
-google-gax@^5.0.0:
-  version "5.0.7"
-  resolved "https://registry.npmjs.org/google-gax/-/google-gax-5.0.7.tgz"
-  integrity sha512-EhiqaWWJ+9h7sCcKJTsoo6tMcjokVHhWsbSuWCnZJT4vIBP3y4mAoFLnt9SzgkVZeq24ZsFaArr06nnYYku2yA==
+google-auth-library@^11.0.0:
+  version "11.3.1"
+  resolved "https://registry.yarnpkg.com/google-auth-library/-/google-auth-library-11.3.1.tgz#89820f220d11df0b3a9de1c3b02be15ca63fd565"
+  integrity sha512-mQS0R2Ev/DKkzuWSYtDeq15uhDeaWuT2qzLYqJ41LmooxVKHmn5ut3pc6dlHY6wfHW/D7FBmOYjAtkjaD1A7qA==
+  dependencies:
+    base64-js "^1.3.0"
+    ecdsa-sig-formatter "^1.0.11"
+    gaxios "^8.3.0"
+    gcp-metadata "^9.0.0"
+    google-logging-utils "^2.0.0"
+    jws "^4.0.0"
+
+google-gax@^6.0.0:
+  version "6.13.0"
+  resolved "https://registry.yarnpkg.com/google-gax/-/google-gax-6.13.0.tgz#9f6f3408aeefd1f0eb0f46a9b952083d9ebd7881"
+  integrity sha512-7Q60oxwV2M2zWytwB5siHUlip1jTVWoSxfF25NI13wGKlJ9jUwyWvKWrDfXjAuBOI5NVrv0R/tPaYi80V/5ZFg==
   dependencies:
     "@grpc/grpc-js" "^1.12.6"
     "@grpc/proto-loader" "^0.8.0"
+    "@opentelemetry/api" "^1.9.0"
     duplexify "^4.1.3"
-    google-auth-library "10.5.0"
-    google-logging-utils "1.1.3"
+    google-auth-library "^11.0.0"
+    google-logging-utils "^2.0.0"
     node-fetch "^3.3.2"
     object-hash "^3.0.0"
-    proto3-json-serializer "3.0.4"
+    proto3-json-serializer "^4.0.0"
     protobufjs "^7.5.4"
-    retry-request "^8.0.2"
-    rimraf "^5.0.1"
+    retry-request "^9.0.0"
 
 google-logging-utils@1.1.3, google-logging-utils@^1.0.0:
   version "1.1.3"
   resolved "https://registry.npmjs.org/google-logging-utils/-/google-logging-utils-1.1.3.tgz"
   integrity sha512-eAmLkjDjAFCVXg7A1unxHsLf961m6y17QFqXqAXGj/gVkKFrEICfStRfwUlGNfeCEjNRa32JEWOUTlYXPyyKvA==
+
+google-logging-utils@^2.0.0:
+  version "2.1.0"
+  resolved "https://registry.yarnpkg.com/google-logging-utils/-/google-logging-utils-2.1.0.tgz#d6b84feb2ca5a20c4cfcbc9c83ed8038971f1759"
+  integrity sha512-1R6uiq6XhXW2ZrcGtZpGgVDsYGzSmveVOn8Pp37qe1fbThHZ34e3t3eXj5mVu6PFSVx9fvB1KNVnYgVtq/BRcA==
 
 gopd@^1.2.0:
   version "1.2.0"
@@ -1873,14 +1913,6 @@ http-errors@^2.0.0, http-errors@^2.0.1, http-errors@~2.0.1:
     setprototypeof "~1.2.0"
     statuses "~2.0.2"
     toidentifier "~1.0.1"
-
-http-proxy-agent@^7.0.0:
-  version "7.0.2"
-  resolved "https://registry.npmjs.org/http-proxy-agent/-/http-proxy-agent-7.0.2.tgz"
-  integrity sha512-T1gkAiYYDWYx3V5Bmyu7HcfcvL7mUrTWiM6yOfa3PIphViJ/gFPbvidQ+veqSOHci/PxBcDabeUNCzpOODJZig==
-  dependencies:
-    agent-base "^7.1.0"
-    debug "^4.3.4"
 
 https-proxy-agent@^5.0.1:
   version "5.0.1"
@@ -2512,14 +2544,14 @@ prom-client@^15.1.3:
     "@opentelemetry/api" "^1.4.0"
     tdigest "^0.1.1"
 
-proto3-json-serializer@3.0.4:
-  version "3.0.4"
-  resolved "https://registry.npmjs.org/proto3-json-serializer/-/proto3-json-serializer-3.0.4.tgz"
-  integrity sha512-E1sbAYg3aEbXrq0n1ojJkRHQJGE1kaE/O6GLA94y8rnJBfgvOPTOd1b9hOceQK1FFZI9qMh1vBERCyO2ifubcw==
+proto3-json-serializer@^4.0.0:
+  version "4.1.0"
+  resolved "https://registry.yarnpkg.com/proto3-json-serializer/-/proto3-json-serializer-4.1.0.tgz#096c9876a8abdaee8823ee8e533e6efe9b233bf8"
+  integrity sha512-Z0Blk2BTZTPp9ZXOWnRG/P3bkEs53FtMv59sl4xU44xcDdYhKlVO/AqAHTYXAlW9HdislqQxjSornP3457wkag==
   dependencies:
-    protobufjs "^7.4.0"
+    protobufjs "^7.5.4"
 
-protobufjs@^7.4.0, protobufjs@^7.5.4, protobufjs@^7.5.5:
+protobufjs@^7.5.4, protobufjs@^7.5.5:
   version "7.6.5"
   resolved "https://registry.yarnpkg.com/protobufjs/-/protobufjs-7.6.5.tgz#7b9250cdaf4a06139a9f0fe468a40d7d4febca71"
   integrity sha512-/FPD0nUc9jH6rfFjji9IBqOz4pcSE3CsT1m7Ep6Mdb0LxSUMj8hgl6GomOvZzpNpAqqGaXA0P3VSrZLFzIhQrw==
@@ -2623,13 +2655,12 @@ resolve-pkg-maps@^1.0.0:
   resolved "https://registry.npmjs.org/resolve-pkg-maps/-/resolve-pkg-maps-1.0.0.tgz"
   integrity sha512-seS2Tj26TBVOC2NIc2rOe2y2ZO7efxITtLZcGSOnHHNOQ7CkiUBfw0Iw2ck6xkIhPwLhKNLS8BO+hEpngQlqzw==
 
-retry-request@^8.0.2:
-  version "8.0.3"
-  resolved "https://registry.npmjs.org/retry-request/-/retry-request-8.0.3.tgz"
-  integrity sha512-qqoc4kkGgP9cmQDWELlOpAmfgJOg0Yi7MT82ZjiPWu451ayju4itwomjM4/dBEliify8C1b3tSaeCOldugtwPQ==
+retry-request@^9.0.0:
+  version "9.1.0"
+  resolved "https://registry.yarnpkg.com/retry-request/-/retry-request-9.1.0.tgz#b0c2c8e4432d9249e5f25150745ad63842ade8ac"
+  integrity sha512-FILyVbis+DTo3KRbtKceqpj1595wIF+XQFW/+AVOBdCQmxwNDgcNXXr2FNM0Ej2qD7zVXbJGfH7lo4jB0wwhKA==
   dependencies:
     extend "^3.0.2"
-    teeny-request "^10.0.0"
 
 retry@^0.13.1:
   version "0.13.1"
@@ -2889,13 +2920,6 @@ stream-browserify@3.0.0:
     inherits "~2.0.4"
     readable-stream "^3.5.0"
 
-stream-events@^1.0.5:
-  version "1.0.5"
-  resolved "https://registry.npmjs.org/stream-events/-/stream-events-1.0.5.tgz"
-  integrity sha512-E1GUzBSgvct8Jsb3v2X15pjzN1tYebtbLaMg+eBOUOAxgbLoSbT2NS91ckc5lJD1KfLjId+jXJRgo0qnV5Nerg==
-  dependencies:
-    stubs "^3.0.0"
-
 stream-shift@^1.0.2:
   version "1.0.3"
   resolved "https://registry.npmjs.org/stream-shift/-/stream-shift-1.0.3.tgz"
@@ -2961,11 +2985,6 @@ strip-ansi@^7.0.1:
   dependencies:
     ansi-regex "^6.2.2"
 
-stubs@^3.0.0:
-  version "3.0.0"
-  resolved "https://registry.npmjs.org/stubs/-/stubs-3.0.0.tgz"
-  integrity sha512-PdHt7hHUJKxvTCgbKX9C1V/ftOcjJQgz8BZwNfV5c4B6dcGqlpelTbJ999jBGZ2jYiPAwcX5dP6oBwVlBlUbxw==
-
 supports-color@^11.0.0:
   version "11.0.0"
   resolved "https://registry.yarnpkg.com/supports-color/-/supports-color-11.0.0.tgz#54f4096e9cac614c6f273dc764e697e3c2c3941d"
@@ -3014,16 +3033,6 @@ tdigest@^0.1.1:
   integrity sha512-+G0LLgjjo9BZX2MfdvPfH+MKLCrxlXSYec5DaPYP1fe6Iyhf0/fSmJ0bFiZ1F8BT6cGXl2LpltQptzjXKWEkKA==
   dependencies:
     bintrees "1.0.2"
-
-teeny-request@^10.0.0:
-  version "10.1.3"
-  resolved "https://registry.npmjs.org/teeny-request/-/teeny-request-10.1.3.tgz"
-  integrity sha512-5yDliI1uWkYPo7W+Zvrxg6YmoWuj5iC5EydewqrRTvc68nyMTZhlPPlLg6cptUGfbQAb+N9XDPDPzF6N081lug==
-  dependencies:
-    http-proxy-agent "^7.0.0"
-    https-proxy-agent "^7.0.1"
-    node-fetch "^3.3.2"
-    stream-events "^1.0.5"
 
 text-hex@1.0.x:
   version "1.0.0"
