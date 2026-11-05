@@ -2,6 +2,7 @@
 
 import { createContext, useEffect, useState, useContext, useRef } from "react";
 import axios from "axios";
+import { useQueryClient } from "@tanstack/react-query";
 
 interface AuthContextType {
   user: any;
@@ -112,7 +113,7 @@ api.interceptors.response.use(
           }
         );
 
-        if(data.refreshToken){
+        if (data.refreshToken) {
           sessionStorage.setItem("refreshToken", data.refreshToken);
           console.log('[AUTH] Refresh token updated');
         }
@@ -150,11 +151,12 @@ api.interceptors.response.use(
 
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const queryClient = useQueryClient();
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const refreshPromiseRef = useRef<Promise<any> | null>(null);
   const lastRefreshTime = useRef(Date.now());
-  
+
   useEffect(() => {
     // useEffect only runs client-side — sessionStorage is safe here
     const token = sessionStorage.getItem("accessToken");
@@ -175,7 +177,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   // Proactive token refresh with activity detection
-  
+
   useEffect(() => {
     if (!user) return;
     const refreshAccessToken = async () => {
@@ -188,7 +190,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       refreshPromiseRef.current = (async () => {
         try {
           const refreshToken = sessionStorage.getItem("refreshToken");
-    
+
           if (!refreshToken) {
             console.log('[AUTH] No refresh token, skipping proactive refresh');
             return;
@@ -291,7 +293,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (data.refreshToken) {
         sessionStorage.setItem("refreshToken", data.refreshToken);
       }
-      
+      queryClient.clear();
       // Then set user (which triggers socket connections)
       setUser(data.user);
     }
@@ -308,7 +310,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Save tokens BEFORE setting user
       if (data.accessToken) sessionStorage.setItem("accessToken", data.accessToken);
       if (data.refreshToken) sessionStorage.setItem("refreshToken", data.refreshToken);
-      
+      queryClient.clear();
       // Then set user
       setUser(data.user);
     }
@@ -317,6 +319,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = async () => {
     await api.post("/api/auth/logout");
+    queryClient.clear();
     setUser(null);
     sessionStorage.removeItem("accessToken");
     sessionStorage.removeItem("refreshToken");
