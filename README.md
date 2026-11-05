@@ -49,7 +49,7 @@ Built with Next.js, Node/Express, mediasoup (WebRTC SFU), Socket.IO, MongoDB, Re
 # Backend (http://localhost:3001)
 cd backend
 yarn install --frozen-lockfile
-cp .env.example .env.local      # fill in the values; every variable is documented in the file
+cp .env.example .env.local      # then fill in the values
 yarn dev
 
 # Frontend (http://localhost:3000), in another terminal
@@ -61,21 +61,12 @@ yarn dev
 
 Need MongoDB, Redis and RabbitMQ locally? `cd backend && yarn docker:up` starts them with Docker (Mongo on port 27018).
 
-### Environment variables
-
-Each app has an `.env.example` listing every variable the code reads, with comments and placeholder values:
-
-- [backend/.env.example](backend/.env.example): database, JWT, Redis, mediasoup, R2, email, AI
-- [frontend/.env.example](frontend/.env.example): backend URL and GIPHY key
-
-Real values go in `.env.local` (development) and on the server (production). All other `.env*` files are gitignored. When code adds a new `process.env.X`, add it to the matching `.env.example` in the same change.
-
 ### Scripts
 
 | Where | Command | Does |
 |---|---|---|
-| backend | `yarn dev` | Dev server with reload (loads `.env.local`) |
-| backend | `yarn build` / `yarn start` | Compile to `dist/` / run it (loads `.env`) |
+| backend | `yarn dev` | Dev server with reload |
+| backend | `yarn build` / `yarn start` | Compile to `dist/` / run it |
 | backend | `yarn worker` | VOD conversion worker (needs RabbitMQ) |
 | backend | `yarn docker:up` / `docker:down` | Local MongoDB, Redis, RabbitMQ, Prometheus, Grafana |
 | frontend | `yarn dev` / `yarn build` / `yarn start` | Next.js dev / production build / serve |
@@ -102,7 +93,7 @@ streamHub/
 │   │                          # following, profile, vods, ai-streamer, ai-podcast, auth pages
 │   ├── components/            # ChatPanel, NotificationBell, controls, dialogs, ui/
 │   └── lib/                   # AuthContext (tokens + API client), NotificationContext, utils
-├── docs/                      # notifications design, bug audit
+├── docs/                      # design notes
 └── docker-compose.yml         # full stack in Docker
 ```
 
@@ -116,28 +107,25 @@ streamHub/
 
 ## Deployment
 
-The backend runs on a self-managed server (Oracle Cloud VM) with PM2:
+The backend runs as a single Node process (PM2 or similar) on a server with a public IP:
 
 ```bash
 cd backend
-git pull
 yarn install --frozen-lockfile
 rm -rf dist && yarn build
 pm2 restart all
 ```
 
-Production checklist:
+Things WebRTC needs in production:
 
-- `backend/.env` on the server with `NODE_ENV=production` and real values for every `[required]` variable in `.env.example`
 - `ANNOUNCED_IP` set to the server's **public IP**; otherwise viewers connect but get no video
-- UDP **and** TCP ports `40000–49999` open in the cloud firewall (Oracle security list) and on the VM itself
+- UDP **and** TCP ports `40000–49999` open in the firewall
 - `ffmpeg` installed (recordings, AI streamer)
-- The server's IP allowed in MongoDB Atlas network access
-- Frontend built with `NEXT_PUBLIC_API_URL` and `NEXT_PUBLIC_SOCKET_URL` set to the backend's public URL (values are baked in at build time)
+- The frontend built with the backend's public URL (`NEXT_PUBLIC_*` values are baked in at build time)
 
 ## Security notes
 
-- Secrets live only in `.env` files on each machine and are never committed. The Google Cloud key file belongs outside the repo, referenced by an absolute path.
+- Secrets are never committed.
 - Tokens are kept in `sessionStorage`, so the app depends on avoiding XSS. Moving the refresh token to an httpOnly cookie is planned.
 - Helmet, CORS limited to the frontend origin, request validation with express-validator, and rate limiting are enabled; WebRTC media is encrypted (DTLS/SRTP).
 
