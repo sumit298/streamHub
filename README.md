@@ -1,280 +1,146 @@
-# StreamHub - Live Streaming Platform
+# StreamHub
 
-A scalable real-time live streaming platform with VOD recording built with Node.js, WebRTC (MediaSoup), Socket.IO, MongoDB, and Cloudflare R2.
+A live-streaming platform. Streamers broadcast camera, mic and screen from the browser; viewers watch with low latency over WebRTC; everyone chats live; streams can be recorded into VODs. It also has two AI features: an AI streamer that talks to chat, and AI-generated two-host podcasts.
 
-## 🚀 Features
+Built with Next.js, Node/Express, mediasoup (WebRTC SFU), Socket.IO, MongoDB, Redis and Cloudflare R2.
 
-### Live Streaming
-- **WebRTC Streaming** - Real-time video streaming via MediaSoup
-- **Screen Sharing** - Share desktop/application screens with system audio
-- **Manual Recording Control** - Toggle recording on/off during streams
-- **Multi-Device Support** - Camera and microphone selection
-- **Mobile Responsive** - Optimized for desktop and mobile browsers
-- **Real-time Chat** - Socket.IO-based live chat during streams
-- **Viewer Analytics** - Live viewer count and stream duration tracking
-- **Browse Streams** - Discover live streams with category filters
-- **Following System** - Follow streamers and get notifications
+> **Status:** active development.
 
-### VOD (Video on Demand)
-- **Client-Side Recording** - MediaRecorder API with optimized 480p quality
-- **Cloudflare R2 Storage** - Cost-effective object storage for recordings
-- **Automatic Conversion** - WebM to MP4 with FFmpeg for seeking support
-- **VOD Library** - Browse recorded streams with pagination
-- **Custom Video Player** - Full-featured player with controls
-- **Thumbnail Support** - Stream thumbnails in VOD listings
-- **View Tracking** - Track views for each recording
+## Features
 
-### User Management
-- **JWT Authentication** - Secure token-based auth with httpOnly cookies
-- **User Profiles** - Profile pages with streaming statistics
-- **Stream Management** - Create, update, delete streams
-- **Dashboard** - Streamer dashboard with analytics
-- **Notifications** - Real-time notifications for followers
-- **Avatar System** - User avatars with fallback generation
+**Live streaming**
+- Camera, microphone and screen sharing (with system audio) over WebRTC via mediasoup
+- Live viewer count and stream timer
+- Browse live streams by category, follow streamers, see who's live
 
-### Performance Optimizations
-- **Optimized Recording** - 1 Mbps bitrate, 90s chunks to reduce CPU load
-- **Redis Caching** - Performance optimization for frequently accessed data
-- **RabbitMQ Queue** - Event processing and analytics (optional)
-- **Auto IP Detection** - Automatic ANNOUNCED_IP detection for development
+**Chat**
+- Real-time chat with emoji, GIFs (GIPHY) and @mentions
+- Streamer moderation: timeout, ban, slow mode, announcements
 
-## 🛠️ Tech Stack
+**Recording and VODs**
+- Record a stream from the browser (MediaRecorder, about 2 Mbps, 30-second chunks)
+- Recordings stored in Cloudflare R2, browsable at `/vods` with a custom player and view counts
 
-### Backend
-- **Runtime**: Node.js + Express.js
-- **Database**: MongoDB
-- **Cache**: Redis (optional)
-- **Message Queue**: RabbitMQ (optional)
-- **WebRTC**: MediaSoup
-- **Real-time**: Socket.IO
-- **Storage**: Cloudflare R2 (S3-compatible)
-- **Video Processing**: FFmpeg
+**Accounts and notifications**
+- Register, login, password reset by email
+- Profiles with avatars and stats, streamer dashboard
+- Real-time notifications for go-live, mentions and new followers
 
-### Frontend
-- **Framework**: Next.js 14 (App Router)
-- **Language**: TypeScript
-- **Styling**: Tailwind CSS
-- **WebRTC Client**: mediasoup-client
-- **Real-time**: Socket.IO Client
-- **Notifications**: react-hot-toast
+**AI**
+- **AI streamer:** a persona that hosts a live audio stream and replies to chat (Gemini + Google Text-to-Speech, streamed into mediasoup with ffmpeg)
+- **AI podcast:** generate a two-host audio episode on any topic
 
-## 📦 Installation
+## Tech stack
 
-### Prerequisites
-- Node.js 18+
-- MongoDB
-- FFmpeg
-- Cloudflare R2 account (or S3-compatible storage)
+| | |
+|---|---|
+| Frontend | Next.js 16 (App Router), React 19, TypeScript, Tailwind CSS 4, TanStack Query, mediasoup-client, socket.io-client |
+| Backend | Node.js 22, Express 5, TypeScript, mediasoup 3, Socket.IO 4, Mongoose (MongoDB), ioredis (Redis) |
+| Storage | Cloudflare R2 (S3 API) for avatars, VODs and podcast audio |
+| Queue | RabbitMQ (optional), VOD conversion worker with ffmpeg |
+| AI | Gemini (`@google/genai`), Google Cloud Text-to-Speech |
+| Monitoring | Prometheus metrics at `/metrics`, Grafana dashboards (`backend/prometheus`, `backend/grafana`) |
 
-### Backend Setup
+## Getting started
+
+**Prerequisites:** Node.js 22, Yarn 1 (the repo uses `yarn.lock`, not npm), MongoDB, Redis, and `ffmpeg` on your PATH. RabbitMQ, R2 and the AI keys are optional for basic streaming, except `GEMINI_API_KEY`, which the backend currently needs to start.
+
+```bash
+# Backend (http://localhost:3001)
+cd backend
+yarn install --frozen-lockfile
+cp .env.example .env.local      # fill in the values; every variable is documented in the file
+yarn dev
+
+# Frontend (http://localhost:3000), in another terminal
+cd frontend
+yarn install --frozen-lockfile
+cp .env.example .env.local
+yarn dev
+```
+
+Need MongoDB, Redis and RabbitMQ locally? `cd backend && yarn docker:up` starts them with Docker (Mongo on port 27018).
+
+### Environment variables
+
+Each app has an `.env.example` listing every variable the code reads, with comments and placeholder values:
+
+- [backend/.env.example](backend/.env.example): database, JWT, Redis, mediasoup, R2, email, AI
+- [frontend/.env.example](frontend/.env.example): backend URL and GIPHY key
+
+Real values go in `.env.local` (development) and on the server (production). All other `.env*` files are gitignored. When code adds a new `process.env.X`, add it to the matching `.env.example` in the same change.
+
+### Scripts
+
+| Where | Command | Does |
+|---|---|---|
+| backend | `yarn dev` | Dev server with reload (loads `.env.local`) |
+| backend | `yarn build` / `yarn start` | Compile to `dist/` / run it (loads `.env`) |
+| backend | `yarn worker` | VOD conversion worker (needs RabbitMQ) |
+| backend | `yarn docker:up` / `docker:down` | Local MongoDB, Redis, RabbitMQ, Prometheus, Grafana |
+| frontend | `yarn dev` / `yarn build` / `yarn start` | Next.js dev / production build / serve |
+| frontend | `yarn lint` | ESLint |
+
+## Project structure
+
+```
+streamHub/
+├── backend/
+│   ├── server.ts              # entry: HTTP server, Socket.IO, MongoDB, services, routes
+│   └── src/
+│       ├── config/            # app, db, mediasoup, server settings
+│       ├── routes/            # REST routes (auth, streams, chat, users, notifications, vods, ai-*)
+│       ├── controllers/       # request handlers
+│       ├── services/          # MediaService (mediasoup), StreamService, ChatService, CacheService,
+│       │                      # R2Service, EmailService, LLMService, TTSService, AI/
+│       ├── socket/            # Socket.IO server and handlers (webrtc, stream, chat, recording)
+│       ├── models/            # Mongoose models
+│       ├── middleware/        # auth, metrics, request id
+│       └── workers/           # vodWorker (RabbitMQ → ffmpeg → R2)
+├── frontend/
+│   ├── app/                   # pages: browse, watch/[id], stream/[id] (studio), dashboard,
+│   │                          # following, profile, vods, ai-streamer, ai-podcast, auth pages
+│   ├── components/            # ChatPanel, NotificationBell, controls, dialogs, ui/
+│   └── lib/                   # AuthContext (tokens + API client), NotificationContext, utils
+├── docs/                      # notifications design, bug audit
+└── docker-compose.yml         # full stack in Docker
+```
+
+## How it works (short version)
+
+- **Streaming:** the browser connects to mediasoup over WebRTC. The streamer *produces* video and audio tracks; mediasoup forwards them to every viewer, who *consumes* them. Socket.IO carries the signaling (`get-router-capabilities`, `create-transport`, `produce`, `consume`, …) and chat.
+- **Auth:** JWT access token (15 min) plus refresh token (7 days), stored in `sessionStorage` and sent as `Authorization: Bearer`. Sockets authenticate with the access token.
+- **Recording:** the streamer's browser records with MediaRecorder and uploads 30-second chunks to `/api/vods/upload-chunk`. When the stream ends the server finalizes the file and uploads it to R2 (in development it can go through RabbitMQ and ffmpeg to MP4 first).
+- **Notifications:** stored in MongoDB and pushed live to the `user:<id>` socket room. Details in [docs/notifications.md](docs/notifications.md).
+- **Single instance:** mediasoup rooms, in-progress recordings and AI streamers live in the backend's memory, so run one backend process.
+
+## Deployment
+
+The backend runs on a self-managed server (Oracle Cloud VM) with PM2:
 
 ```bash
 cd backend
-
-# Install dependencies
-npm install
-
-# Create .env file
-cp .env.example .env
-
-# Start MongoDB (if not running)
-mongod
-
-# Start server
-npm start
+git pull
+yarn install --frozen-lockfile
+rm -rf dist && yarn build
+pm2 restart all
 ```
 
-### Frontend Setup
+Production checklist:
 
-```bash
-cd frontend
+- `backend/.env` on the server with `NODE_ENV=production` and real values for every `[required]` variable in `.env.example`
+- `ANNOUNCED_IP` set to the server's **public IP**; otherwise viewers connect but get no video
+- UDP **and** TCP ports `40000–49999` open in the cloud firewall (Oracle security list) and on the VM itself
+- `ffmpeg` installed (recordings, AI streamer)
+- The server's IP allowed in MongoDB Atlas network access
+- Frontend built with `NEXT_PUBLIC_API_URL` and `NEXT_PUBLIC_SOCKET_URL` set to the backend's public URL (values are baked in at build time)
 
-# Install dependencies
-npm install
+## Security notes
 
-# Create .env.local file
-cp .env.example .env.local
+- Secrets live only in `.env` files on each machine and are never committed. The Google Cloud key file belongs outside the repo, referenced by an absolute path.
+- Tokens are kept in `sessionStorage`, so the app depends on avoiding XSS. Moving the refresh token to an httpOnly cookie is planned.
+- Helmet, CORS limited to the frontend origin, request validation with express-validator, and rate limiting are enabled; WebRTC media is encrypted (DTLS/SRTP).
 
-# Start development server
-npm run dev
-```
-
-## 🔧 Environment Variables
-
-### Backend `.env`
-
-```env
-PORT=3001
-MONGODB_URI=mongodb://localhost:27017/streamhub
-JWT_SECRET=your-secret-key-here
-NODE_ENV=development
-
-# Cloudflare R2 Configuration
-R2_ACCOUNT_ID=your-account-id
-R2_ACCESS_KEY_ID=your-access-key
-R2_SECRET_ACCESS_KEY=your-secret-key
-R2_BUCKET_NAME=your-bucket-name
-R2_PUBLIC_URL=https://pub-xxxxx.r2.dev
-
-# Optional: Redis & RabbitMQ
-REDIS_URL=redis://localhost:6379
-RABBITMQ_URL=amqp://localhost:5672
-
-# MediaSoup (auto-detected in development)
-ANNOUNCED_IP=your-server-ip
-```
-
-### Frontend `.env.local`
-
-```env
-NEXT_PUBLIC_API_URL=http://localhost:3001
-NEXT_PUBLIC_SOCKET_URL=http://localhost:3001
-```
-
-## 📡 API Endpoints
-
-### Authentication (`/api/auth`)
-- `POST /api/auth/register` - User registration
-- `POST /api/auth/login` - User login
-- `GET /api/auth/me` - Get user profile
-- `GET /api/auth/me/stats` - Get user statistics
-- `POST /api/auth/logout` - User logout
-
-### Streams (`/api/streams`)
-- `GET /api/streams` - Get all streams (with filters)
-- `POST /api/streams` - Create new stream
-- `GET /api/streams/:id` - Get specific stream
-- `PATCH /api/streams/:id` - Update stream
-- `DELETE /api/streams/:id` - Delete stream
-- `POST /api/streams/:id/end` - End stream
-
-### VODs (`/api/vods`)
-- `GET /api/vods` - Get all VODs (with pagination)
-- `GET /api/vods/:id` - Get specific VOD with playback URL
-- `POST /api/vods/:id/view` - Increment view count
-- `POST /api/vods/upload-chunk` - Upload recording chunk
-
-### Chat (`/api/chat`)
-- `GET /api/chat/:streamId` - Get chat messages
-- `POST /api/chat/:streamId` - Send chat message
-- `DELETE /api/chat/:streamId/:messageId` - Delete message
-
-## 🔌 Socket.IO Events
-
-### Client → Server
-- `join-stream` - Join a stream room
-- `get-router-capabilities` - Get MediaSoup router capabilities
-- `create-transport` - Create WebRTC transport
-- `connect-transport` - Connect WebRTC transport
-- `produce` - Start producing media (video/audio/screen)
-- `consume` - Start consuming media
-- `close-producer` - Close a producer (stop screen share)
-- `stream-ended` - Notify stream has ended
-
-### Server → Client
-- `new-message` - New chat message received
-- `viewer-count` - Updated viewer count
-- `stream-start-time` - Stream start timestamp
-- `new-producer` - New producer available to consume
-
-## 🏗️ Project Structure
-
-```
-streamhub/
-├── backend/
-│   ├── src/
-│   │   ├── models/          # MongoDB schemas (User, Stream, Vod, Chat)
-│   │   ├── routes/          # API routes
-│   │   ├── controllers/     # Route controllers
-│   │   ├── services/        # Business logic (R2Service)
-│   │   └── middleware/      # Auth & validation
-│   ├── server.js            # Entry point with MediaSoup & Socket.IO
-│   └── package.json
-│
-├── frontend/
-│   ├── app/
-│   │   ├── browse/          # Browse live streams
-│   │   ├── dashboard/       # Dashboard page
-│   │   ├── following/       # Following page
-│   │   ├── stream/[id]/     # Stream studio page
-│   │   ├── watch/[id]/      # Watch stream page
-│   │   ├── vods/            # VOD listing & player
-│   │   ├── profile/         # User profile
-│   │   ├── login/           # Login page
-│   │   └── register/        # Register page
-│   ├── components/          # React components
-│   │   ├── ui/              # UI components
-│   │   ├── Sidebar.tsx      # Navigation sidebar
-│   │   ├── ChatPanel.tsx    # Live chat component
-│   │   ├── BottomControlBar.tsx  # Stream controls
-│   │   └── ViewerStats.tsx  # Viewer statistics
-│   ├── lib/                 # Utilities & context
-│   │   ├── AuthContext.tsx  # Authentication context
-│   │   ├── NotificationContext.tsx  # Notifications
-│   │   └── avatar.ts        # Avatar utilities
-│   └── package.json
-│
-└── README.md
-```
-
-## 🎥 Recording Architecture
-
-### Client-Side Recording
-- **MediaRecorder API** - Browser-native recording
-- **Quality**: 480p @ 1 Mbps (optimized for CPU)
-- **Chunk Interval**: 90 seconds
-- **Format**: WebM (VP8 + Opus)
-- **Upload**: HTTP POST with FormData
-
-### Server-Side Processing
-- **Storage**: Chunks appended to `/tmp/recordings/{streamId}.webm`
-- **Conversion**: FFmpeg converts WebM → MP4 with `-movflags +faststart`
-- **Upload**: Final MP4 uploaded to Cloudflare R2
-- **Cleanup**: Temporary files deleted after upload
-
-### Recording Features
-- **Manual Control**: Streamer toggles recording on/off
-- **Screen Share Support**: Automatically switches between camera and screen
-- **Dynamic Switching**: Seamlessly switches streams when screen sharing starts/stops
-
-## 🚀 Deployment
-
-### Backend Deployment
-1. Set `NODE_ENV=production`
-2. Configure `ANNOUNCED_IP` to your server's public IP
-3. Ensure FFmpeg is installed
-4. Set up Cloudflare R2 bucket with public access
-5. Use PM2 or similar for process management
-
-### Frontend Deployment
-1. Build: `npm run build`
-2. Deploy to Vercel, Netlify, or similar
-3. Update environment variables for production URLs
-
-## 📊 Performance Tips
-
-- **Recording**: 480p @ 1 Mbps reduces CPU by 60-70%
-- **Chunk Interval**: 90s reduces upload frequency and lag
-- **R2 Storage**: More cost-effective than S3
-- **Redis**: Enable for caching frequently accessed data
-- **RabbitMQ**: Enable for async processing at scale
-
-## 🔒 Security
-
-- JWT tokens stored in httpOnly cookies
-- CORS configured for specific origins
-- Input validation on all endpoints
-- Rate limiting recommended for production
-- Secure WebRTC with DTLS
-
-## 📝 License
+## License
 
 MIT
-
-## 🤝 Contributing
-
-Contributions welcome! Please open an issue or PR.
-
-## 📧 Support
-
-For issues and questions, please open a GitHub issue.
