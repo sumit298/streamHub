@@ -13,7 +13,6 @@ import type R2Service from '../services/R2Service';
 import type MessageQueue from '../services/MessageQueue';
 import type AIStreamerService from '../services/AI/AIStreamerService';
 import type MetricsService from '../services/MetricsService';
-import fs from 'fs';
 
 interface Services {
   mediaService: MediaService;
@@ -52,7 +51,6 @@ export function initializeSocketHandlers(
 
   // Shared state for handlers
   const activeConnections = new Map<string, ActiveConnection>();
-  const recordingStreams = new Map<string, fs.WriteStream>();
   const chatRateLimits = new Map<string, RateLimit>();
 
   // Handle new connections
@@ -99,7 +97,7 @@ export function initializeSocketHandlers(
       r2Service: services.r2Service,
       messageQueue: services.messageQueue,
       logger,
-    }, recordingStreams, io);
+    }, io);
 
     // Global error handler
     authSocket.on('error', (error) => {

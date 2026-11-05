@@ -1,27 +1,30 @@
 k8s/
-.amazonq/
 
-# Environment variables
+# Environment variables (any .env.* except the committed examples)
 .env
-.env.local
-.env.production
-.env.development
-backend/.env
-backend/.env.local
-frontend/.env
-frontend/.env.local
+.env.*
+**/.env
+**/.env.*
+!**/.env.example
+
+# Credentials: service-account keys, certificates, private keys
+/config/
+/backend/config/
+*-key.json
+*service-account*.json
+*.pem
+*.key
+*.p12
+
+# OS junk
+.DS_Store
+
+# Personal editor settings
+.vscode/
 
 # Logs
 *.log
 logs/
-
-# Documentation
-code_review_document.md
-CODE_REVIEW_DOCUMENT.md
-latency_fix.md
-
-# Redis check script (optional)
-backend/check-redis.js
 
 # Build output
 backend/dist/
@@ -34,3 +37,6 @@ backend/start-dev.sh
 # Dependency lock files - use Yarn only
 package-lock.json
 **/package-lock.json
+# Local-only docs: old reference notes and the internal bug sheet
+docs/archive/
+docs/bug-audit.md

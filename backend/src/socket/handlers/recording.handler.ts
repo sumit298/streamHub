@@ -8,11 +8,6 @@ import path from "path";
 import { Stream } from "../../models";
 import VOD from "../../models/Vod";
 import { finalizedRecordings } from "../../utils/recordingState";
-import fixWebmDurationNode from "../../utils/fixWebmDurationNode";
-
-const RECORDINGS_DIR = "/tmp/recordings";
-const RECORDING_ID_RE =
-  /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}-\d+$/i;
 
 interface Services {
   r2Service: R2Service;
@@ -20,99 +15,18 @@ interface Services {
   logger: Logger;
 }
 
-interface RecordingChunkData {
-  streamId: string;
-  recordingId: string;
-  chunk: ArrayBuffer;
-}
-
-interface RecordingEndData {
-  streamId: string;
-  recordingId: string;
-  durationMs: number;
-}
-
 interface StreamEndedData {
   streamId: string;
 }
 
+// Recording chunks and recording-end arrive over REST (vod.controller.ts).
+// This handler only turns finalized recordings into VODs when the stream ends.
 export function registerRecordingHandlers(
   socket: AuthenticatedSocket,
   services: Services,
-  recordingStreams: Map<string, fs.WriteStream>,
   io: SocketIOServer,
 ): void {
   const { r2Service, messageQueue, logger } = services;
-
-  // Recording chunk
-  socket.on("recording-chunk", async (data: RecordingChunkData) => {
-    try {
-      const { streamId, recordingId, chunk } = data;
-
-      if (!streamId || !recordingId) return;
-
-      if (!RECORDING_ID_RE.test(recordingId)) {
-        logger.warn(`Invalid recordingId in recording-chunk: ${recordingId}`);
-        return;
-      }
-
-      const streamDoc = await Stream.findOne({
-        id: streamId,
-        userId: socket.userId,
-      });
-
-      if (!streamDoc) {
-        logger.warn(
-          `Unauthorized recording-chunk from user ${socket.userId} for stream ${streamId}`,
-        );
-        return;
-      }
-
-      let writeStream = recordingStreams.get(recordingId);
-      if (!writeStream) {
-        const filepath = path.join(RECORDINGS_DIR, `${recordingId}.webm`);
-        writeStream = fs.createWriteStream(filepath, { flags: "w" });
-        recordingStreams.set(recordingId, writeStream);
-      }
-      writeStream.write(Buffer.from(chunk));
-    } catch (error) {
-      logger.error("Recording chunk error", error);
-    }
-  });
-
-  // Recording end
-  socket.on("recording-end", async (data: RecordingEndData) => {
-    const { streamId, recordingId, durationMs } = data;
-    const key = recordingId || streamId;
-
-    if (!RECORDING_ID_RE.test(key)) {
-      logger.warn(`Invalid recording key in recording-end: ${key}`);
-      return;
-    }
-
-    const writeStream = recordingStreams.get(key);
-    if (writeStream) {
-      writeStream.end();
-      recordingStreams.delete(key);
-
-      if (recordingId) {
-        const filepath = path.join(RECORDINGS_DIR, `${recordingId}.webm`);
-        try {
-          await fs.promises.access(filepath);
-          const buffer = await fs.promises.readFile(filepath);
-          const fixedBuffer = await fixWebmDurationNode(
-            buffer,
-            durationMs || 0,
-          );
-          await fs.promises.writeFile(filepath, fixedBuffer);
-          finalizedRecordings.add(recordingId);
-          logger.info(`Recording finalized via socket: ${recordingId}`);
-        } catch (err) {
-          logger.error("Failed to fix WebM metadata", err);
-        }
-      }
-    }
-  });
 
   // Stream ended
   socket.on("stream-ended", async (data: StreamEndedData) => {

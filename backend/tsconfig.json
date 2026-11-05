@@ -12,8 +12,6 @@
     "resolveJsonModule": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
-    "allowJs": true,
-    "checkJs": false,
     "declaration": true,
     "sourceMap": true,
     "paths": {
@@ -28,6 +26,6 @@
       "@socket/*": ["./src/socket/*"]
     }
   },
-  "include": ["**/*.ts", "**/*.js"],
+  "include": ["**/*.ts"],
   "exclude": ["node_modules", "dist"]
 }
