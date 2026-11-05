@@ -193,48 +193,6 @@
       };
     }
 
-    static requireAdmin(req: Request, res: Response, next: NextFunction): void {
-      if (!req.user) {
-        res.status(401).json({ error: "Authentication required" });
-        return;
-      }
-
-      if (req.user.role !== "admin") {
-        res.status(403).json({ error: "Admin access required" });
-        return;
-      }
-
-      next();
-    }
-
-    static requireStreamer(
-      req: Request,
-      res: Response,
-      next: NextFunction,
-    ): void {
-      if (!req.user) {
-        res.status(401).json({ error: "Authentication required" });
-        return;
-      }
-
-      if (req.user.role !== "streamer" && req.user.role !== "admin") {
-        res.status(403).json({ error: "Streamer access required" });
-        return;
-      }
-
-      next();
-    }
-
-    static requireStreamOwnership(
-      req: Request,
-      res: Response,
-      next: NextFunction,
-    ): void {
-      // This middleware should be used after authenticate
-      // It will be implemented in the route handler since it needs stream data
-      next();
-    }
-
     static createAccessToken(user: {
       id: string;
       username: string;

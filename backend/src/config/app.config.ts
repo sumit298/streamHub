@@ -6,7 +6,6 @@ import morgan from "morgan";
 import cookieParser from "cookie-parser";
 import requestMiddleware from "@middleware/requestId.middleware";
 import { metricsMiddleware } from "@middleware/metric.middleware";
-import { specs, swaggerUi } from "../../swagger";
 import followRoutes from "../routes/follow.routes";
 
 /**
@@ -67,17 +66,6 @@ export function createExpressApp(): express.Application {
   app.use("/api", generateLimiter);
   app.use("/api/auth", authLimiter);
   app.use("/api/users", followRoutes);
-
-  // Swagger Documentation
-  app.use(
-    "/api-docs",
-    swaggerUi.serve,
-    swaggerUi.setup(specs, {
-      explorer: true,
-      customCss: ".swagger-ui .topbar { display: none }",
-      customSiteTitle: "ILS API Documentation",
-    }),
-  );
 
   // Health check endpoint
   app.get("/health", (req, res) => {
