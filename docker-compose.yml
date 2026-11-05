@@ -54,8 +54,9 @@ services:
       - "3001:3001"
     environment:
       PORT: 3001
-      MONGODB_URI: mongodb://mongodb:27017/streamhub
-      REDIS_URL: redis://redis:6379
+      DATABASE_URL: mongodb://${MONGO_USER:-admin}:${MONGO_PASSWORD:-changeme}@mongodb:27017/streamhub?authSource=admin
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
       RABBITMQ_URL: amqp://${RABBITMQ_USER:-admin}:${RABBITMQ_PASSWORD:-changeme}@rabbitmq:5672
       JWT_SECRET: ${JWT_SECRET:-your-dev-secret}
       NODE_ENV: development
