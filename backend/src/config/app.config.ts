@@ -3,7 +3,6 @@ import cors from "cors";
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
 import morgan from "morgan";
-import cookieParser from "cookie-parser";
 import requestMiddleware from "@middleware/requestId.middleware";
 import { metricsMiddleware } from "@middleware/metric.middleware";
 import followRoutes from "../routes/follow.routes";
@@ -38,7 +37,6 @@ export function createExpressApp(): express.Application {
   
   app.use(morgan("dev"));
   app.use(express.json({ limit: "10mb" }));
-  app.use(cookieParser());
 
   // Rate limiters
   const generateLimiter = rateLimit({
