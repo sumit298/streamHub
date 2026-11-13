@@ -1,16 +1,19 @@
 import type { Server as SocketIOServer } from "socket.io";
 import type { Logger } from "winston";
 import ChatService from "@services/ChatService";
-import { Stream, User, Notification } from "@models/index";
+import { Stream, User } from "@models/index";
 import { incrementChatMessages } from "@utils/streamStats";
 import { AuthenticatedSocket } from "@appTypes/socket.types";
 import AIStreamer from "@models/AIStreamer";
 import type AIStreamerService from "@services/AI/AIStreamerService";
+import type NotificationService from "@services/NotificationService";
+import { notificationTemplates } from "@utils/notificationTemplates";
 
 interface Services {
   chatService: ChatService;
   logger: Logger;
   aiStreamerService: AIStreamerService;
+  notificationService: NotificationService;
 }
 
 interface JoinChatData {
@@ -54,6 +57,9 @@ interface RateLimit {
   count: number;
   resetAt: number;
 }
+
+// One person can notify another at most once per stream in this time window
+const MENTION_NOTIFICATION_WINDOW_IN_MILLISECONDS = 5 * 60 * 1000;
 
 export function registerChatHandlers(
   socket: AuthenticatedSocket,
@@ -134,22 +140,35 @@ export function registerChatHandlers(
           return callback?.({ error: "Invalid message parameters" });
         }
 
-        if (message.mentions?.length > 0) {
-          logger.info(`Processing ${message.mentions.length} mentions`);
-          for (const mentionedUserId of message.mentions) {
-            logger.info(`Creating notification for user: ${mentionedUserId}`);
-            const notification = await Notification.create({
-              userId: mentionedUserId,
-              type: "chat-mention",
-              title: "New Mention",
-              message: `${username} mentioned you`,
-              data: { streamId: data.roomId },
-            });
-            logger.info(`Emitting notification to user-${mentionedUserId}`);
-            io.to(`user:${mentionedUserId}`).emit("notification", notification);
-          }
-        }
+        // Broadcast first: a notification problem must never drop the message
         io.to(`room:${data.roomId}`).emit("new-message", message);
+
+        if (message.mentions.length > 0) {
+          const sender = {
+            id: String(socket.userId),
+            username,
+            avatar: message.avatar,
+          };
+
+          // Same number for every message sent within the same 5 minutes.
+          // Keying on it (not on the message id) stops one person from
+          // flooding another with a notification per message.
+          const mentionTimeWindow = Math.floor(
+            Date.now() / MENTION_NOTIFICATION_WINDOW_IN_MILLISECONDS,
+          );
+
+          // Not awaited: the chat message doesn't wait for the notifications
+          void services.notificationService.notifyMany(
+            message.mentions.map((mentionedUserId) => ({
+              userId: mentionedUserId,
+              type: "chat-mention" as const,
+              ...notificationTemplates["chat-mention"](username, message.content),
+              deduplicationKey: `mention:${socket.userId}:${data.roomId}:${mentionTimeWindow}`,
+              actor: sender,
+              target: { streamId: data.roomId },
+            })),
+          );
+        }
 
         // Forward chat to any active AI streamer in this room
         if (services.aiStreamerService) {

@@ -15,6 +15,7 @@ import type CacheService from "@services/CacheService";
 import type R2Service from "@services/R2Service";
 import type MediaService from "@services/MediaService";
 import type AIStreamerService from "@services/AI/AIStreamerService";
+import type NotificationService from "@services/NotificationService";
 import Logger from "@utils/logger";
 
 interface RegisterRoutesOptions {
@@ -24,6 +25,7 @@ interface RegisterRoutesOptions {
   r2Service: R2Service;
   mediaService: MediaService;
   aiStreamerService: AIStreamerService;
+  notificationService: NotificationService
 }
 
 export const registerRoutes = (
@@ -87,6 +89,8 @@ export const registerRoutes = (
     "/api/ai-streamer",
     createAIStreamerRoutes({ aiStreamerService, logger: Logger }),
   );
+
+  app.set("notificationService", services.notificationService)
 
   Logger.info("All routes registered successfully");
 };

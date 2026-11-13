@@ -1,11 +1,12 @@
 import Follow from "@models/Follow";
 import User from "@models/User";
 import Stream from "@models/Stream";
-import Notification from "@models/Notification";
 import type { Request, Response } from "express";
 import { normalizeError } from "../types/error.types";
 import { NotFoundError, ValidationError } from "../types/error.types";
 import Logger from "@utils/logger";
+import type NotificationService from "@services/NotificationService";
+import { notificationTemplates } from "@utils/notificationTemplates";
 
 interface FollowParams {
   userId: string;
@@ -111,20 +112,24 @@ const FollowController = {
 
       const follower =
         await User.findById(followerId).select("username avatar");
+      
+      if(follower){
+        const notificationService: NotificationService = req.app.get("notificationService");
+        const todayDate = new Date().toISOString().slice(0, 10);
 
-      const notification = await Notification.create({
-        userId,
-        type: "new-follower",
-        title: "New Follower",
-        message: `${follower?.username} started following you`,
-        data: {
-          followerId,
-          followerUsername: follower?.username,
-          followerAvatar: follower?.avatar,
-        },
-      });
-
-      req.app.get("io").to(`user-${userId}`).emit("notification", notification);
+        void notificationService.notify({
+          userId: String(userId),
+          type: 'new-follower',
+          ...notificationTemplates['new-follower'](follower.username),
+          deduplicationKey: `follow:${followerId}:${todayDate}`,
+          actor: {
+            id: String(followerId),
+            username: follower.username,
+            avatar: follower.avatar ?? undefined,
+          },
+          target: { userId: String(followerId)}
+        })
+      }
 
       Logger.info(`User ${followerId} followed user ${userId}`);
 

@@ -10,6 +10,7 @@ import R2Service from "../services/R2Service";
 import { connectDatabase } from "./db";
 import MetricsService from "@services/MetricsService";
 import AIStreamerService from "@services/AI/AIStreamerService";
+import NotificationService from "@services/NotificationService";
 
 export interface Services {
   mediaService: MediaService;
@@ -20,6 +21,7 @@ export interface Services {
   r2Service: R2Service;
   metricsService: MetricsService;
   aiStreamerService: AIStreamerService;
+  notificationService: NotificationService
 }
 
 export async function initializeServices(
@@ -61,6 +63,10 @@ export async function initializeServices(
     );
     streamService.io = io;
 
+    const notificationService = new NotificationService(io, logger);
+    streamService.notificationService = notificationService;
+    logger.info("NotificationService initialized");
+
     const chatService = new ChatService(messageQueue, cacheService, logger);
 
     logger.info("All services initialized successfully");
@@ -74,6 +80,7 @@ export async function initializeServices(
       r2Service,
       metricsService,
       aiStreamerService: new AIStreamerService(logger, mediaService, io),
+      notificationService
     };
   } catch (error) {
     logger.error("Failed to initialize services:", error);

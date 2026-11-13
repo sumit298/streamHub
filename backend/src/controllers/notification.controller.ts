@@ -1,112 +1,123 @@
-import Notification from "@models/Notification";
-import type { Request, Response } from "express";
-import Logger from "@utils/logger";
+import type { Request, Response } from 'express';
+import Logger from '@utils/logger'
+import { NOTIFICATION_TYPES } from '@models/Notification';
+import type NotificationService from '@services/NotificationService';
+import type { NotificationType } from '@appTypes/notification.types';
 import {
   normalizeError,
   AuthenticationError,
-  NotFoundError,
-} from "../types/error.types";
+  ValidationError
+} from '@appTypes/error.types'
 
-interface GetNotificationsQuery {
+interface ListNotificationsQuery {
+  cursor?: string;
   limit?: string;
-  unreadOnly?: string;
+  unread?: string;
+  type?: string;
+}
+
+interface MarkReadBody {
+  ids?: string[];
+  all?: boolean;
+}
+
+const MAX_IDS_PER_REQUEST = 100;
+
+const getNotificationService = (req: Request): NotificationService =>
+  req.app.get("notificationService");
+
+const sendError = (res: Response, error: unknown): void => {
+  const appError = normalizeError(error);
+  res.status(appError.statusCode).json({
+    success: false,
+    error: {
+      message: appError.message,
+      code: appError.code,
+      statusCode: appError.statusCode,
+
+    }
+  })
 }
 
 const NotificationController = {
-  getAllNotifications: async (req: Request, res: Response): Promise<void> => {
+  list: async (req: Request, res: Response): Promise<void> => {
     try {
       if (!req.user?.id) {
         throw new AuthenticationError("User not authenticated");
       }
-      const { limit = "20", unreadOnly = "false" } =
-        req.query as GetNotificationsQuery;
-      const query: any = { userId: req.user.id };
-      if (unreadOnly === "true") query.read = false;
 
-      const notifications = await Notification.find(query)
-        .sort({ createdAt: -1 })
-        .limit(parseInt(limit));
+      const { cursor, limit, unread, type } = req.query as ListNotificationsQuery;
 
-      const unreadCount = await Notification.countDocuments({
-        userId: req.user.id,
-        read: false,
-      });
+      if (type !== undefined && !NOTIFICATION_TYPES.includes(type as NotificationType)) {
+        throw new ValidationError("Unknown notification type");
+      }
 
-      res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
-      res.setHeader("Pragma", "no-cache");
-      res.setHeader("Expires", "0");
+      // A query value can arrive as an object or array (?cursor[$gt]=), so only accept a string
+      if (cursor !== undefined && typeof cursor !== "string") {
+        throw new ValidationError("Invalid cursor");
+      }
 
-      res.json({ notifications, unreadCount });
+      const result = await getNotificationService(req).list(req.user.id, {
+        cursor,
+        limit: Number(limit) || 20,
+        unreadOnly: unread === 'true',
+        type: type as NotificationType | undefined
+      })
+
+      res.setHeader("Cache-Control", 'no-store')
+      res.json(result)
     } catch (error) {
-      Logger.error("Get notifications error:", error);
-      const appError = normalizeError(error);
-      res.status(appError.statusCode).json({
-        success: false,
-        error: {
-          message: appError.message,
-          code: appError.code,
-          statusCode: appError.statusCode,
-        },
-      });
+      Logger.error("List Notification error", error);
+      sendError(res, error)
     }
   },
-
-  markAsRead: async (req: Request, res: Response): Promise<void> => {
+  unreadCount: async (req: Request, res: Response): Promise<void> => {
     try {
       if (!req.user?.id) {
-        throw new AuthenticationError("User not authenticated");
+        throw new AuthenticationError("User not authenticated")
+
       }
-      const notification = await Notification.findOneAndUpdate(
-        { _id: req.params.id, userId: req.user.id },
-        { read: true },
-        { new: true },
+
+      const notificationService = getNotificationService(req);
+      const unread = await notificationService.unreadCount(req.user.id);
+      const unreadByType = await notificationService.unreadCountByType(req.user.id);
+      res.setHeader("Cache-Control", "no-store");
+      res.json({ unread, unreadByType })
+    } catch (error) {
+      Logger.error("Unread count error:", error);
+      sendError(res, error);
+    }
+  },
+  markRead: async (req: Request, res: Response): Promise<void> => {
+    try {
+      if (!req.user?.id) {
+        throw new AuthenticationError("User not authenticated")
+      }
+
+      const { ids, all } = (req.body ?? {}) as MarkReadBody;
+
+      // Every id must be a string, so no object can reach the database query
+      const hasValidIds =
+        Array.isArray(ids) &&
+        ids.length > 0 &&
+        ids.length <= MAX_IDS_PER_REQUEST &&
+        ids.every((notificationId) => typeof notificationId === "string");
+
+      if (all !== true && !hasValidIds) {
+        throw new ValidationError("Send { ids: [...] } or { all: true }");
+      }
+
+      const result = await getNotificationService(req).markRead(
+        req.user.id,
+        all === true ? "all" : (ids as string[]),
       );
 
-      if (!notification) {
-        throw new NotFoundError("Notification not found");
-      }
-      res.json({ success: true, message: "Notification marked as read" });
+      res.json(result);
     } catch (error) {
-      Logger.error("Mark as read error:", error);
-      const appError = normalizeError(error);
-      res.status(appError.statusCode).json({
-        success: false,
-        error: {
-          message: appError.message,
-          code: appError.code,
-          statusCode: appError.statusCode,
-        },
-      });
+      Logger.error("Mark read error:", error);
+      sendError(res, error);
     }
-  },
+  }
+}
 
-  markAllAsRead: async (req: Request, res: Response): Promise<void> => {
-    try {
-      if (!req.user?.id) {
-        throw new AuthenticationError("User not authenticated");
-      }
-      const result = await Notification.updateMany(
-        { userId: req.user.id, read: false },
-        { read: true },
-      );
-      res.json({
-        success: true,
-        message: "All notifications marked as read",
-        count: result.modifiedCount,
-      });
-    } catch (error) {
-      Logger.error("Mark all as read error:", error);
-      const appError = normalizeError(error);
-      res.status(appError.statusCode).json({
-        success: false,
-        error: {
-          message: appError.message,
-          code: appError.code,
-          statusCode: appError.statusCode,
-        },
-      });
-    }
-  },
-};
-
-export default NotificationController;
+export default NotificationController

@@ -55,13 +55,19 @@ class ChatService {
         throw new Error("Message too long");
       }
 
-      const mentionRegex = /@(\w+)/g;
-      const mentions: string[] = [];
-      let match;
-      while ((match = mentionRegex.exec(content)) !== null) {
-        const mentionedUser = await User.findOne({ username: match[1] });
-        if (mentionedUser) mentions.push(mentionedUser._id.toString());
-      }
+      // Find @names in the message: "@alex" → "alex"
+      const mentionMatches = content.match(/@([a-zA-Z0-9_-]+)/g) ?? [];
+      const mentionedUsernames = mentionMatches.map((mentionMatch) => mentionMatch.slice(1));
+
+      // Remove duplicates, keep at most 5
+      const uniqueMentionedUsernames = [...new Set(mentionedUsernames)].slice(0, 5);
+
+      const mentionedUsers = uniqueMentionedUsernames.length
+        ? await User.find({ username: { $in: uniqueMentionedUsernames } }).select("_id").lean()
+        : [];
+      const mentions = mentionedUsers.map((mentionedUser) => String(mentionedUser._id));
+
+
 
       const user = await User.findById(userId).select("avatar");
 
@@ -198,7 +204,7 @@ class ChatService {
 
       const currentReactions = message.reactions.get(emoji) || [];
       const userIdObj = userId as any;
-      const userIndex = currentReactions.findIndex((entry: any) => 
+      const userIndex = currentReactions.findIndex((entry: any) =>
         entry.userId.toString() === userId
       );
 

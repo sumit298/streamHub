@@ -4,25 +4,25 @@ import NotificationController from "@controllers/notification.controller";
 
 const router: Router = express.Router();
 
-// GET /api/notifications - Get all notifications for authenticated user
+// GET /api/notifications - one page of the user's notifications
 router.get(
   "/",
   AuthMiddleware.authenticate,
-  NotificationController.getAllNotifications,
+  NotificationController.list,
 );
 
-// PATCH /api/notifications/read-all - Mark all notifications as read
-router.patch(
-  "/read-all",
+// GET /api/notifications/unread-count - number for the bell badge
+router.get(
+  "/unread-count",
   AuthMiddleware.authenticate,
-  NotificationController.markAllAsRead,
+  NotificationController.unreadCount,
 );
 
-// PATCH /api/notifications/:id/read - Mark specific notification as read
+// PATCH /api/notifications/read - mark some or all as read
 router.patch(
-  "/:id/read",
+  "/read",
   AuthMiddleware.authenticate,
-  NotificationController.markAsRead,
+  NotificationController.markRead,
 );
 
 export default router;
