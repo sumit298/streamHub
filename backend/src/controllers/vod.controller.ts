@@ -16,6 +16,8 @@ import { Stream } from "../models/index";
 
 const RECORDINGS_ROOT = "/tmp/recordings";
 const RESOLVED_RECORDINGS_ROOT = path.resolve(RECORDINGS_ROOT);
+const UPLOAD_TMP_ROOT = "/tmp";
+const RESOLVED_UPLOAD_TMP_ROOT = path.resolve(UPLOAD_TMP_ROOT);
 // Allowlist: UUID-timestamp only
 const RECORDING_ID_RE =
   /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}-\d+$/i;
@@ -226,13 +228,18 @@ const VodController = {
         throw new ValidationError("Invalid chunk index");
       }
 
-      const chunkFilename = path.basename(chunk.path);
+      const safeChunkPath = path.resolve(chunk.path);
+      if (!safeChunkPath.startsWith(RESOLVED_UPLOAD_TMP_ROOT + path.sep)) {
+        throw new ValidationError("Invalid upload temp file path");
+      }
+
+      const chunkFilename = path.basename(safeChunkPath);
       if (!chunkFilename || chunkFilename === "." || chunkFilename === "..") {
         throw new ValidationError("Invalid upload temp file path");
       }
 
-      const chunkData = await fs.readFile(chunk.path);
-      await fs.unlink(chunk.path);
+      const chunkData = await fs.readFile(safeChunkPath);
+      await fs.unlink(safeChunkPath);
 
       if (!chunkBuffers.has(recordingId)) {
         chunkBuffers.set(recordingId, new Map());
