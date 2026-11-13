@@ -74,3 +74,16 @@ export interface NotificationListResult {
   nextCursor: string | null;
   unreadCount: number;
 }
+
+export type NotifyOutcome = 'sent' | 'skipped' | 'duplicate' | 'failed';
+
+export interface NotifyBatchSummary {
+  type: NotificationType | null,
+  total: number;
+  sent: number;
+  skipped: number;
+  duplicate: number;
+  failed: number;
+}
+
+export type UnreadCountByType = Record<NotificationType, number>;

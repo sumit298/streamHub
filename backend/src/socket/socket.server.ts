@@ -13,6 +13,8 @@ import type R2Service from '../services/R2Service';
 import type MessageQueue from '../services/MessageQueue';
 import type AIStreamerService from '../services/AI/AIStreamerService';
 import type MetricsService from '../services/MetricsService';
+import type NotificationService from '@services/NotificationService';
+import { userRoom } from '@services/NotificationService';
 
 interface Services {
   mediaService: MediaService;
@@ -22,6 +24,7 @@ interface Services {
   messageQueue: MessageQueue;
   aiStreamerService: AIStreamerService;
   metricsService: MetricsService;
+  notificationService: NotificationService
 }
 
 interface ActiveConnection {
@@ -64,8 +67,9 @@ export function initializeSocketHandlers(
 
     // Join user notification room
     if (userId) {
-      authSocket.join(`user:${userId.toString()}`);
-      logger.info(`User ${userId} joined notification room: user:${userId}`);
+      const room = userRoom(userId.toString());
+      authSocket.join(room);
+      logger.info(`User ${userId} joined notification room: ${room}`);
     }
 
     // Track active connection
@@ -91,6 +95,7 @@ export function initializeSocketHandlers(
       chatService: services.chatService,
       logger,
       aiStreamerService: services.aiStreamerService,
+      notificationService: services.notificationService,
     }, io, chatRateLimits);
 
     registerRecordingHandlers(authSocket, {

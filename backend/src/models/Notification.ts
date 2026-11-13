@@ -1,4 +1,4 @@
-import type { INotification, NotificationType } from "@appTypes/notification.types";
+import type { INotification } from "@appTypes/notification.types";
 import mongoose from "mongoose";
 
 export const NOTIFICATION_TYPES = ["stream-live", "chat-mention", "new-follower"] as const;

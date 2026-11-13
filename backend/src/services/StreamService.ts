@@ -1,6 +1,6 @@
 import { v4 as uuidv4 } from "uuid";
 import type { Types } from "mongoose";
-import { User, Stream, Follow, Notification } from "@models/index";
+import { User, Stream, Follow } from "@models/index";
 import MediaService from "./MediaService";
 import MessageQueue from "./MessageQueue";
 import CacheService from "./CacheService";
@@ -11,6 +11,8 @@ import {
   RtpCapabilities,
   RtpParameters,
 } from "mediasoup/types";
+import type NotificationService from "./NotificationService";
+import { notificationTemplates } from "@utils/notificationTemplates";
 
 interface StreamStats {
   viewers: number;
@@ -171,6 +173,7 @@ class StreamService {
   private readonly cacheService: CacheService | null;
   private readonly logger: Logger;
   public io: SocketIOServer | null = null;
+  public notificationService: NotificationService | null = null;
   constructor(
     mediaService: MediaService,
     messageQueue: MessageQueue | null,
@@ -424,66 +427,43 @@ class StreamService {
           { new: true },
         ).populate("userId", "username avatar")) as unknown as PopulatedStream;
 
-        if (kind === "video" && !isScreenShare && stream) {
+        if (
+          kind === "video" &&
+          !isScreenShare &&
+          stream &&
+          this.notificationService
+        ) {
           const followers = await Follow.find({
             followingId: userId,
           }).select("followerId");
 
-          const followerIds = followers.map((f) => f.followerId);
-
           this.logger.info(
-            `Found ${followerIds.length} followers for user ${userId}`,
+            `Found ${followers.length} followers for user ${userId}`,
           );
 
-          if (followerIds.length > 0) {
-            const notifications = followerIds.map((followerId) => ({
-              userId: followerId,
-              type: "stream-live",
-              title: `${stream.userId.username} is live`,
-              message: stream.title,
-              data: {
+          const streamer = {
+            id: String(userId),
+            username: stream.userId.username,
+            avatar: stream.userId.avatar ?? undefined,
+          };
+
+          // Not awaited: the streamer's produce doesn't wait for the fan-out.
+          // The deduplicationKey gives each follower at most one go-live
+          // notification per stream, however often the streamer refreshes.
+          void this.notificationService.notifyMany(
+            followers.map((follow) => ({
+              userId: String(follow.followerId),
+              type: "stream-live" as const,
+              ...notificationTemplates["stream-live"](streamer.username, stream.title),
+              deduplicationKey: `stream-live:${roomId}`,
+              actor: streamer,
+              target: {
                 streamId: roomId,
-                streamerId: userId,
-                streamerUsername: stream.userId.username,
-                streamerAvatar: stream.userId.avatar,
                 streamTitle: stream.title,
                 streamCategory: stream.category,
               },
-              read: false,
-            }));
-
-            const createdNotifications =
-              await Notification.insertMany(notifications);
-            this.logger.info(
-              `Created ${createdNotifications.length} notifications in database`,
-            );
-
-            if (this.io) {
-              followerIds.forEach((followerId) => {
-                this.io!.to(`user:${followerId.toString()}`).emit(
-                  "notification",
-                  {
-                    type: "stream-live",
-                    title: `${stream.userId.username} is live!`,
-                    message: stream.title,
-                    data: {
-                      streamId: roomId,
-                      streamerId: userId,
-                      streamerUsername: stream.userId.username,
-                      streamerAvatar: stream.userId.avatar,
-                      streamTitle: stream.title,
-                      streamCategory: stream.category,
-                    },
-                  },
-                );
-              });
-            }
-            this.logger.info(
-              `Sent notifications to ${followerIds.length} followers for stream ${roomId}`,
-            );
-          } else {
-            this.logger.info(`No followers found for user ${userId}`);
-          }
+            })),
+          );
         }
       } catch (dbError) {
         this.logger.warn("Database update failed:", dbError);
